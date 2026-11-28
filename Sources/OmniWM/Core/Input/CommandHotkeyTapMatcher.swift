@@ -59,11 +59,13 @@ enum CommandHotkeyTapMatcher {
         let binding: KeyBinding
         let command: HotkeyCommand
         let repeatWhileHeld: Bool
+        let onRelease: Bool
 
-        init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false) {
+        init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false, onRelease: Bool = false) {
             self.binding = binding
             self.command = command
             self.repeatWhileHeld = repeatWhileHeld
+            self.onRelease = onRelease
         }
     }
 

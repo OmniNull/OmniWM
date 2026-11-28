@@ -9,8 +9,8 @@ import XCTest
 
 @MainActor
 final class ConfigScriptHeldKeyTests: XCTestCase {
-    private static let key = UInt32(kVK_ANSI_H)
-    private static let escape = UInt32(kVK_Escape)
+    static let key = UInt32(kVK_ANSI_H)
+    static let escape = UInt32(kVK_Escape)
     private static let namedSource = """
     omniwm.keymap.mode("pan")
     omniwm.keymap.set("Shift+H", omniwm.cmd.focus("left"), { mode = "pan", repeatWhileHeld = true })
@@ -226,7 +226,7 @@ final class ConfigScriptHeldKeyTests: XCTestCase {
 }
 
 extension ConfigScriptHeldKeyTests {
-    private enum Input {
+    enum Input {
         case press(UInt32, flags: UInt64 = 0)
         case repeatPress(UInt32, flags: UInt64 = 0)
         case release(UInt32)
@@ -237,7 +237,7 @@ extension ConfigScriptHeldKeyTests {
         }
     }
 
-    private struct Invocation: Equatable {
+    struct Invocation: Equatable {
         let command: HotkeyCommand
         let mode: KeyboardModeKind
         let repeatPress: Bool
@@ -250,7 +250,7 @@ extension ConfigScriptHeldKeyTests {
     }
 
     @MainActor
-    private final class Fixture {
+    final class Fixture {
         let controller: WMController
         let script: ConfigScriptController
         var invocations: [Invocation] = []

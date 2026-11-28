@@ -8,7 +8,7 @@ extension HotkeyCenter {
         guard paletteShortcutChords != chords else { return }
         let previous = paletteShortcutChords
         paletteShortcutChords = chords
-        heldTapKeys.retire { binding, _, source in
+        heldTapKeys.retire { binding, _, source, _ in
             guard case .sided = source else { return false }
             return yieldsToPalette(binding)
         }

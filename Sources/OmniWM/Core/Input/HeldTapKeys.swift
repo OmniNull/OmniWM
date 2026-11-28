@@ -5,6 +5,7 @@ struct HeldTapKeys: ~Copyable {
     enum Source {
         case named(Int)
         case sided
+        case legacyMode
     }
 
     enum KeyDown {
@@ -14,8 +15,14 @@ struct HeldTapKeys: ~Copyable {
         case repeatInvocation(HotkeyInvocation)
     }
 
+    enum KeyUp {
+        case pass
+        case suppress
+        case releaseInvocation(HotkeyInvocation)
+    }
+
     private enum Slot {
-        case repeating(KeyBinding, HotkeyCommand, Source)
+        case binding(KeyBinding, HotkeyCommand, Source, onRelease: Bool)
         case retired
     }
 
@@ -43,31 +50,43 @@ struct HeldTapKeys: ~Copyable {
         if suppressed.contains(code) { return .suppress }
         let repeats = isRepeat()
         guard contains(code) else { return repeats ? .ignore : .resolve }
-        guard repeats, case let .repeating(binding, command, _) = slots[Int(code)] else { return .suppress }
+        guard repeats, case let .binding(binding, command, _, false) = slots[Int(code)] else { return .suppress }
         return .repeatInvocation(HotkeyInvocation(
             command: command,
             trigger: PhysicalHotkeyTrigger(keyCode: code, modifiers: binding.modifiers, isRepeat: true)
         ))
     }
 
-    mutating func record(_ binding: KeyBinding, command: HotkeyCommand, source: Source) {
+    mutating func record(_ binding: KeyBinding, command: HotkeyCommand, source: Source, onRelease: Bool) {
         let index = Int(binding.keyCode)
         precondition(index < slots.count)
         if slots[index] == nil { occupied += 1 }
-        slots[index] = .repeating(binding, command, source)
+        slots[index] = .binding(binding, command, source, onRelease: onRelease)
     }
 
-    mutating func release(_ code: UInt32) -> Bool {
-        guard contains(code) else { return suppressed.remove(code) != nil }
-        slots[Int(code)] = nil
+    mutating func keyUp(_ code: UInt32) -> KeyUp {
+        guard contains(code) else { return suppressed.remove(code) != nil ? .suppress : .pass }
+        let index = Int(code)
+        let outcome: KeyUp
+        if case let .binding(binding, command, _, true) = slots[index] {
+            outcome = .releaseInvocation(HotkeyInvocation(
+                command: command,
+                trigger: PhysicalHotkeyTrigger(keyCode: code, modifiers: binding.modifiers, isRepeat: false)
+            ))
+        } else {
+            outcome = .suppress
+        }
+        slots[index] = nil
         occupied -= 1
-        return true
+        return outcome
     }
 
-    mutating func retire(where predicate: (KeyBinding, borrowing HotkeyCommand, Source) -> Bool) {
+    mutating func retire(where predicate: (KeyBinding, borrowing HotkeyCommand, Source, Bool) -> Bool) {
         guard !isEmpty else { return }
         for index in slots.indices {
-            if case let .repeating(binding, command, source) = slots[index], predicate(binding, command, source) {
+            if case let .binding(binding, command, source, onRelease) = slots[index],
+               predicate(binding, command, source, onRelease)
+            {
                 slots[index] = .retired
             }
         }
@@ -87,25 +106,34 @@ extension HotkeyCenter {
     }
 
     func retireHeldBindings() {
-        heldTapKeys.retire { _, _, _ in true }
-        carbonRegistrations.retireRepeatBindings()
+        heldTapKeys.retire { _, _, _, _ in true }
+        carbonRegistrations.retireHeldBindings()
     }
 
     func retireRemovedSidedHolds() {
-        heldTapKeys.retire { binding, command, source in
+        heldTapKeys.retire { binding, command, source, onRelease in
             guard case .sided = source else { return false }
             return !sideSpecificDispatch.contains {
-                $0.repeatWhileHeld && $0.binding == binding && $0.command == command
+                (onRelease ? $0.onRelease : $0.repeatWhileHeld) && $0.binding == binding && $0.command == command
             }
         }
     }
 
     func retireRemovedNamedHolds() {
-        heldTapKeys.retire { binding, command, source in
+        heldTapKeys.retire { binding, command, source, onRelease in
             guard case let .named(id) = source else { return false }
             guard let index = namedKeyModes.index(of: id) else { return true }
             return !namedKeyModes.modes[index].entries.contains {
-                $0.repeatWhileHeld && $0.binding == binding && $0.command == command
+                (onRelease ? $0.onRelease : $0.repeatWhileHeld) && $0.binding == binding && $0.command == command
+            }
+        }
+    }
+
+    func retireRemovedLegacyHolds() {
+        heldTapKeys.retire { binding, command, source, _ in
+            guard case .legacyMode = source else { return false }
+            return !keyboardModeTable.entries.contains {
+                $0.onRelease && $0.binding == binding && $0.command == command
             }
         }
     }

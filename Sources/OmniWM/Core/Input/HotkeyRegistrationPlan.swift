@@ -10,15 +10,17 @@ struct HotkeyPlannedRegistration: Equatable {
     let binding: KeyBinding
     let command: HotkeyCommand
     let repeatWhileHeld: Bool
+    let onRelease: Bool
 
-    init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false) {
+    init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false, onRelease: Bool = false) {
         self.binding = binding
         self.command = command
         self.repeatWhileHeld = repeatWhileHeld
+        self.onRelease = onRelease
     }
 
     var tapEntry: CommandHotkeyTapMatcher.Entry {
-        .init(binding: binding, command: command, repeatWhileHeld: repeatWhileHeld)
+        .init(binding: binding, command: command, repeatWhileHeld: repeatWhileHeld, onRelease: onRelease)
     }
 }
 

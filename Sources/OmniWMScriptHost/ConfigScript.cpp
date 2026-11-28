@@ -276,17 +276,25 @@ omni_config_binding_options callbackOptions(lua_State *L, ConfigVM &vm, omni_con
                 reject(L, vm, site, "repeatWhileHeld expects a boolean");
             }
             options.repeat_while_held = lua_toboolean(L, -1) != 0;
+        } else if (binding && key == "onRelease") {
+            if (lua_type(L, -1) != LUA_TBOOLEAN) {
+                reject(L, vm, site, "onRelease expects a boolean");
+            }
+            options.on_release = lua_toboolean(L, -1) != 0;
         } else if (function && key == "reads") {
             options.reads = readMask(L, vm, site);
         } else {
             reject(L, vm, site, binding ?
-                "unknown keymap.set option; expected modeKey, mode, repeatWhileHeld or reads on a function" :
+                "unknown keymap.set option; expected modeKey, mode, repeatWhileHeld, onRelease or reads on a function" :
                 "unknown callback option; expected reads");
         }
         lua_pop(L, 1);
     }
     if (options.mode_key.data && options.mode.data) {
         reject(L, vm, site, "keymap.set takes modeKey or mode, not both");
+    }
+    if (options.repeat_while_held && options.on_release) {
+        reject(L, vm, site, "repeatWhileHeld and onRelease cannot both be true");
     }
     return options;
 }

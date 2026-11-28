@@ -221,8 +221,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         export type ConfigDispatch =
             \(dispatchDefinitions())
         export type ConfigKeymap =
-            { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read reads: nil }?) -> () }
-            & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read reads: { read [number]: ConfigRead }? }?) -> () }
+            { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read onRelease: boolean?, read reads: nil }?) -> () }
+            & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read onRelease: boolean?, read reads: { read [number]: ConfigRead }? }?) -> () }
             & { read mode: (name: string) -> ConfigAction }
         export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
             & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
@@ -370,7 +370,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         XCTAssertTrue(palette.contains("(() -> ConfigAction)"))
         XCTAssertTrue(palette.contains("& ((palette_mode: "))
         XCTAssertEqual(try member("rescueOffscreenWindows"), "rescueOffscreenWindows: () -> ConfigAction,")
-        let keyOptions = "read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?"
+        let keyOptions = "read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read onRelease: boolean?"
         XCTAssertTrue(definitions.contains("action: ConfigAction, options: { \(keyOptions), read reads: nil }?"))
         XCTAssertTrue(definitions.contains(
             "callback: ConfigFunction, options: { \(keyOptions), read reads: { read [number]: ConfigRead }? }?"

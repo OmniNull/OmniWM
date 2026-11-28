@@ -25,11 +25,12 @@ extension HotkeyCenter {
             rawFlags: rawFlags,
             entries: sideSpecificDispatch
         ) {
-            if entry.repeatWhileHeld {
-                heldTapKeys.record(entry.binding, command: entry.command, source: .sided)
+            if entry.onRelease || entry.repeatWhileHeld {
+                heldTapKeys.record(entry.binding, command: entry.command, source: .sided, onRelease: entry.onRelease)
             } else {
                 heldTapKeys.suppressed.insert(keyCode)
             }
+            guard !entry.onRelease else { return true }
             InputTrace.record("hotkey.sided cmd=\(entry.command.displayName)")
             routeHotkeyInvocation(
                 HotkeyInvocation(

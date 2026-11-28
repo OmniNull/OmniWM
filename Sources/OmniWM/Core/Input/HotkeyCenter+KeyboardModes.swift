@@ -79,7 +79,9 @@ extension HotkeyCenter {
     }
 
     func releaseSuppressedKey(_ keyCode: UInt32) -> Bool {
-        guard heldTapKeys.release(keyCode) else { return false }
+        let outcome = heldTapKeys.keyUp(keyCode)
+        if case .pass = outcome { return false }
+        if case let .releaseInvocation(invocation) = outcome { routeHotkeyInvocation(invocation) }
         if !heldTapKeys.hasSuppressedKeys { updateEventTapEnablement() }
         return true
     }
@@ -146,8 +148,13 @@ extension HotkeyCenter {
             )
         }
         if decision.consumed {
-            if let binding = decision.heldBinding, let command = decision.command, case let .named(index) = previous {
-                heldTapKeys.record(binding, command: command, source: .named(namedKeyModes.modes[index].id))
+            if let binding = decision.heldBinding, let command = decision.command {
+                let source: HeldTapKeys.Source = if case let .named(index) = previous {
+                    .named(namedKeyModes.modes[index].id)
+                } else {
+                    .legacyMode
+                }
+                heldTapKeys.record(binding, command: command, source: source, onRelease: decision.onRelease)
             } else {
                 heldTapKeys.suppressed.insert(keyCode)
             }
@@ -155,7 +162,7 @@ extension HotkeyCenter {
         if keyboardModeInput.state != previous {
             keyboardModeDidChange(from: previous)
         }
-        if let command = decision.command {
+        if !decision.onRelease, let command = decision.command {
             InputTrace.record("hotkey.mode cmd=\(command.displayName)")
             routeHotkeyInvocation(HotkeyInvocation(command: command))
         }

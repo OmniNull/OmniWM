@@ -17,6 +17,7 @@ struct ConfigScriptBinding: Equatable, Sendable {
     var modeName: String?
     var reads: ConfigScriptReads = []
     var repeatWhileHeld = false
+    var onRelease = false
 }
 
 struct ConfigScriptNamedMode: Equatable, Sendable {

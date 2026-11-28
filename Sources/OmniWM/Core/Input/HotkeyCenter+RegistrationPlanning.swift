@@ -78,7 +78,8 @@ extension HotkeyCenter {
             switch candidate.binding {
             case let .chord(binding):
                 let registration = HotkeyPlannedRegistration(
-                    binding: binding, command: candidate.command, repeatWhileHeld: candidate.repeatWhileHeld
+                    binding: binding, command: candidate.command,
+                    repeatWhileHeld: candidate.repeatWhileHeld, onRelease: candidate.onRelease
                 )
                 if binding.sidedModifiers.isEmpty {
                     registrations.append(registration)

@@ -606,6 +606,7 @@ typedef struct omni_config_binding_options {
     omni_config_span mode;
     uint32_t reads;
     bool repeat_while_held;
+    bool on_release;
 } omni_config_binding_options;
 
 typedef struct omni_config_callbacks {

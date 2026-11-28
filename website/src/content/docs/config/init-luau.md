@@ -37,7 +37,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 
 | Call | What it does |
 | --- | --- |
-| `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. With `opts.mode`, the chord is a key inside a [key mode](#key-modes) instead. Use `opts.repeatWhileHeld = true` to [repeat](#repeat-while-held) a mode key or sided shortcut. |
+| `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. With `opts.mode`, the chord is a key inside a [key mode](#key-modes) instead. Use `opts.repeatWhileHeld = true` to [repeat](#repeat-while-held) a mode key or sided shortcut. Set `opts.onRelease = true` to [run on release](#run-on-release). |
 | `omniwm.keymap.mode(name)` | Declares a [key mode](#key-modes) and returns the action that enters it. |
 | `omniwm.keymap.set(chord, function(ctx) … end, opts?)` | Runs a function instead. `opts` can also hold `reads`. |
 | `omniwm.command(name, function(ctx) … end, opts?)` | Adds a command to the command palette. |
@@ -92,6 +92,19 @@ wm.keymap.set("Control+Option+Shift+Y", resize)
 wm.keymap.set("H", wm.cmd.resize("horizontal", "shrink"), { mode = "resize-held", repeatWhileHeld = true })
 wm.keymap.set("Left Option+L", wm.cmd.resize("horizontal", "grow"), { repeatWhileHeld = true })
 ```
+
+## Run on release
+
+Set `onRelease = true` on a shortcut, a sided shortcut or a mode key to run its action or function once when you lift the key. The binding stays attached to that press if you release its modifiers first or leave its mode. A successful reload, removal, suspension or reassignment of the shortcut cancels the pending action. A failed reload keeps it. Only one of `onRelease` and `repeatWhileHeld` can be true on a binding.
+
+```lua
+local wm = omniwm
+local review = wm.keymap.mode("review")
+wm.keymap.set("Control+Option+Shift+R", review)
+wm.keymap.set("H", wm.act.notify("Released H"), { mode = "review", onRelease = true })
+```
+
+Enter the mode and hold H. The notice appears only when you lift H, even if you press Escape while holding it.
 
 ## Callback context
 

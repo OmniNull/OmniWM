@@ -314,6 +314,7 @@ struct HotkeyBinding: Codable, Equatable, Identifiable {
     var binding: HotkeyTrigger
     var modeKey: KeyBinding?
     let repeatWhileHeld: Bool
+    let onRelease: Bool
 
     var category: HotkeyCategory {
         ActionCatalog.category(for: id) ?? .focus
@@ -325,13 +326,14 @@ struct HotkeyBinding: Codable, Equatable, Identifiable {
 
     init(
         id: String, command: HotkeyCommand, trigger: HotkeyTrigger,
-        modeKey: KeyBinding? = nil, repeatWhileHeld: Bool = false
+        modeKey: KeyBinding? = nil, repeatWhileHeld: Bool = false, onRelease: Bool = false
     ) {
         self.id = id
         self.command = command
         binding = HotkeyBindingRegistry.canonicalizeTrigger(trigger)
         self.modeKey = HotkeyBindingRegistry.canonicalizeModeKey(modeKey)
         self.repeatWhileHeld = repeatWhileHeld
+        self.onRelease = onRelease
     }
 }
 

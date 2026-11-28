@@ -24,11 +24,13 @@ struct KeyboardModeTable: Equatable {
         let binding: KeyBinding
         let command: HotkeyCommand
         let repeatWhileHeld: Bool
+        let onRelease: Bool
 
-        init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false) {
+        init(binding: KeyBinding, command: HotkeyCommand, repeatWhileHeld: Bool = false, onRelease: Bool = false) {
             self.binding = binding
             self.command = command
             self.repeatWhileHeld = repeatWhileHeld
+            self.onRelease = onRelease
         }
 
         var isSupported: Bool {
@@ -50,7 +52,7 @@ struct KeyboardModeTable: Equatable {
 
     init(bindings: [HotkeyBinding] = []) {
         let candidates = bindings.compactMap { binding in
-            binding.modeKey.map { Entry(binding: $0, command: binding.command) }
+            binding.modeKey.map { Entry(binding: $0, command: binding.command, onRelease: binding.onRelease) }
         }
         guard !candidates.isEmpty else { return }
         shortcuts = bindings.compactMap(\.binding.chordBinding)
@@ -79,10 +81,10 @@ struct KeyboardModeTable: Equatable {
         return true
     }
 
-    func command(keyCode: UInt32, rawFlags: UInt64) -> HotkeyCommand? {
-        entries.first {
+    func entryIndex(keyCode: UInt32, rawFlags: UInt64) -> Int? {
+        entries.firstIndex {
             CommandHotkeyTapMatcher.matches($0.binding, keyCode: keyCode, rawFlags: rawFlags)
-        }?.command
+        }
     }
 
     func isShortcut(keyCode: UInt32, rawFlags: UInt64) -> Bool {
@@ -103,6 +105,7 @@ struct KeyboardModeInput: Equatable {
         var consumed = false
         var command: HotkeyCommand?
         var heldBinding: KeyBinding?
+        var onRelease = false
     }
 
     static let repeatWindow: TimeInterval = 0.5
@@ -154,9 +157,12 @@ struct KeyboardModeInput: Equatable {
             return Decision(consumed: true)
         }
         guard let slot = modes.entryIndex(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return Decision() }
-        let held = modes.modes[index].entries[slot].repeatWhileHeld
-            ? modes.modes[index].entries[slot].binding : nil
-        return Decision(consumed: true, command: modes.modes[index].entries[slot].command, heldBinding: held)
+        let onRelease = modes.modes[index].entries[slot].onRelease
+        let holds = onRelease || modes.modes[index].entries[slot].repeatWhileHeld
+        return Decision(
+            consumed: true, command: modes.modes[index].entries[slot].command,
+            heldBinding: holds ? modes.modes[index].entries[slot].binding : nil, onRelease: onRelease
+        )
     }
 
     mutating func handleKeyDown(
@@ -183,7 +189,8 @@ struct KeyboardModeInput: Equatable {
             if case .prefix = state { state = .normal }
             return Decision()
         }
-        let command = table.command(keyCode: keyCode, rawFlags: rawFlags)
+        let entry = table.entryIndex(keyCode: keyCode, rawFlags: rawFlags)
+        let command = entry.map { table.entries[$0].command }
         switch state {
         case .prefix(repeatDeadline: nil):
             guard let command else {
@@ -191,20 +198,20 @@ struct KeyboardModeInput: Equatable {
                 return Decision(consumed: true)
             }
             state = command.repeatsInPrefix ? .prefix(repeatDeadline: now + Self.repeatWindow) : .normal
-            return Decision(consumed: true, command: command)
         case .prefix(repeatDeadline: .some):
             guard let command, command.repeatsInPrefix else {
                 state = .normal
                 return Decision()
             }
             state = .prefix(repeatDeadline: now + Self.repeatWindow)
-            return Decision(consumed: true, command: command)
         case .window:
-            return Decision(consumed: true, command: command)
+            break
         case .normal,
              .paused,
              .named:
             return Decision()
         }
+        guard let entry, table.entries[entry].onRelease else { return Decision(consumed: true, command: command) }
+        return Decision(consumed: true, command: command, heldBinding: table.entries[entry].binding, onRelease: true)
     }
 }

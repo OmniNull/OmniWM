@@ -110,6 +110,73 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         }
     }
 
+    func testOnReleaseStagesAndResolvesBindings() async throws {
+        let mode = "release"
+        let modeKey = "F13"
+        let action = "omniwm.cmd.\(paletteMember)()"
+        let bindings: [(declaration: String, releases: Bool)] = [
+            ("omniwm.keymap.set('\(chord)', \(action), { modeKey = '\(modeKey)', onRelease = true })", true),
+            (
+                "omniwm.keymap.set('Left Option+J', function() end, { onRelease = true, reads = { 'windows' } })",
+                true
+            ),
+            (
+                "omniwm.keymap.set('H', \(action), { mode = '\(mode)', onRelease = true, repeatWhileHeld = false })",
+                true
+            ),
+            ("omniwm.keymap.set('Left Option+I', \(action), { repeatWhileHeld = true, onRelease = false })", false),
+            ("omniwm.keymap.set('Left Option+K', \(action))", false)
+        ]
+        let source = ["omniwm.keymap.mode('\(mode)')"] + bindings.map(\.declaration)
+        let evaluation = try await evaluate(source.joined(separator: "\n"))
+        XCTAssertEqual(evaluation.bindings.map(\.onRelease), bindings.map(\.releases))
+        let sided = try XCTUnwrap(evaluation.bindings.first { $0.rawChord == "Left Option+J" })
+        XCTAssertEqual(sided.reads, [.windows])
+        let repeated = try XCTUnwrap(evaluation.bindings.first { $0.rawChord == "Left Option+I" })
+        XCTAssertTrue(repeated.repeatWhileHeld)
+
+        let settings = InputControllerTestSupport.controller(for: self).settings
+        let mask = HyperKeyModifiers.default.carbonMask
+        let validated = ConfigScriptValidatedShortcuts(evaluation.bindings, parsedWith: mask, hyperMask: mask)
+        XCTAssertNil(validated.error)
+        let resolution = validated.resolve(base: [], modes: evaluation.namedModes, settings: settings)
+        for (binding, expectation) in zip(evaluation.bindings, bindings) where binding.mode == nil {
+            let resolved = try XCTUnwrap(resolution.scriptBindings.first { $0.binding == .chord(binding.chord) })
+            XCTAssertEqual(resolved.onRelease, expectation.releases, binding.rawChord)
+        }
+        let table = KeyboardModeTable(bindings: resolution.scriptBindings)
+        let expectedModeKey = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(modeKey))
+        let legacy = try XCTUnwrap(table.entries.first { $0.binding == expectedModeKey })
+        XCTAssertTrue(legacy.onRelease)
+        let named = try XCTUnwrap(resolution.namedModes.modes.first { $0.name == mode })
+        let entry = try XCTUnwrap(named.entries.first)
+        XCTAssertTrue(entry.onRelease)
+    }
+
+    func testInvalidOnReleaseReportsItsBindingSite() async throws {
+        let invalid = [
+            ("onRelease = 0", "onRelease expects a boolean"),
+            ("onRelease = 'true'", "onRelease expects a boolean"),
+            ("onRelease = {}", "onRelease expects a boolean"),
+            ("repeatWhileHeld = true, onRelease = true", "repeatWhileHeld and onRelease cannot both be true")
+        ]
+        for action in ["omniwm.cmd.\(paletteMember)()", "function() end"] {
+            for (options, message) in invalid {
+                let source = [
+                    "local action = \(action)",
+                    "omniwm.keymap.set('\(chord)', action, { \(options) })"
+                ]
+                do {
+                    _ = try await evaluate(source.joined(separator: "\n"))
+                    XCTFail("Unexpectedly accepted \(options)")
+                } catch let error as ConfigScriptError {
+                    XCTAssertEqual(error.line, source.count)
+                    XCTAssertEqual(error.message, message)
+                }
+            }
+        }
+    }
+
     func testInvalidOptionsAndIneligibleActionsReportTheirDeclaration() async throws {
         let action = "omniwm.cmd.\(paletteMember)()"
         let options = [

@@ -85,7 +85,9 @@ final class HotkeyCenter {
     }
 
     func handleCarbonHotkey(id: UInt32, kind: UInt32) {
-        carbonRegistrations.handle(id: id, kind: kind, onCommand: routeHotkeyInvocation)
+        if let invocation = carbonRegistrations.invocation(id: id, kind: kind) {
+            routeHotkeyInvocation(invocation)
+        }
     }
 
     func start() {
@@ -132,6 +134,7 @@ final class HotkeyCenter {
         if bindingsChanged {
             configuration = nextConfiguration
             keyboardModeTable = KeyboardModeTable(bindings: newBindings)
+            retireRemovedLegacyHolds()
         }
         var modePresenceChanged = false
         if let namedModes {

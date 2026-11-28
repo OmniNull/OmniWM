@@ -8,10 +8,24 @@ import IOKit.hidsystem
 
 @MainActor
 final class CarbonHotkeyRegistration {
+    private struct PressedHotKey: Hashable {
+        let id: UInt32
+        var onRelease = false
+        var repeatWhileHeld = false
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.id == rhs.id
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
+    }
+
     private var refsById: [UInt32: EventHotKeyRef] = [:]
     private var handler: EventHandlerRef?
     private var idToRegistration: [UInt32: HotkeyPlannedRegistration] = [:]
-    private var pressedHotKeyIds: Set<UInt32> = []
+    private var pressedHotKeys: Set<PressedHotKey> = []
     private var retiredHotKeyIds: Set<UInt32> = []
     private var nextId: UInt32 = 1
 
@@ -72,7 +86,7 @@ final class CarbonHotkeyRegistration {
             )
             if status == noErr, let ref {
                 refsById[id] = ref
-                idToRegistration[id] = registration
+                recordRegistration(registration, id: id)
             } else {
                 failures[registration.command] = .systemReserved
                 FallbackFiringRecorder.shared.note(.input, "hotkeyRegistrationFailed")
@@ -80,18 +94,40 @@ final class CarbonHotkeyRegistration {
         }
     }
 
-    func handle(id: UInt32, kind: UInt32, onCommand: ((HotkeyInvocation) -> Void)?) {
-        if kind == UInt32(kEventHotKeyReleased) {
-            pressedHotKeyIds.remove(id)
-        } else {
-            let isRepeat = !pressedHotKeyIds.insert(id).inserted
-            dispatch(id: id, isRepeat: isRepeat, onCommand: onCommand)
-        }
+    func recordRegistration(_ registration: HotkeyPlannedRegistration, id: UInt32) {
+        idToRegistration[id] = registration
     }
 
-    func retireRepeatBindings() {
-        for id in pressedHotKeyIds where idToRegistration[id]?.repeatWhileHeld == true {
-            retiredHotKeyIds.insert(id)
+    func invocation(id: UInt32, kind: UInt32) -> HotkeyInvocation? {
+        if kind == UInt32(kEventHotKeyReleased) {
+            guard pressedHotKeys.remove(PressedHotKey(id: id))?.onRelease == true,
+                  let registration = idToRegistration[id]
+            else { return nil }
+            if !retiredHotKeyIds.isEmpty, retiredHotKeyIds.remove(id) != nil { return nil }
+            return invocation(registration, isRepeat: false)
+        }
+
+        guard let registration = idToRegistration[id] else { return nil }
+        let pressed = PressedHotKey(
+            id: id,
+            onRelease: registration.onRelease,
+            repeatWhileHeld: registration.repeatWhileHeld
+        )
+        let isRepeat = !pressedHotKeys.insert(pressed).inserted
+        guard !registration.onRelease else { return nil }
+        if registration.repeatWhileHeld, !retiredHotKeyIds.isEmpty {
+            if isRepeat {
+                guard !retiredHotKeyIds.contains(id) else { return nil }
+            } else {
+                retiredHotKeyIds.remove(id)
+            }
+        }
+        return invocation(registration, isRepeat: isRepeat)
+    }
+
+    func retireHeldBindings() {
+        for pressed in pressedHotKeys where pressed.onRelease || pressed.repeatWhileHeld {
+            retiredHotKeyIds.insert(pressed.id)
         }
     }
 
@@ -100,7 +136,7 @@ final class CarbonHotkeyRegistration {
             UnregisterEventHotKey(ref)
             refsById[id] = nil
             idToRegistration[id] = nil
-            pressedHotKeyIds.remove(id)
+            pressedHotKeys.remove(PressedHotKey(id: id))
             if !retiredHotKeyIds.isEmpty { retiredHotKeyIds.remove(id) }
         }
     }
@@ -112,24 +148,14 @@ final class CarbonHotkeyRegistration {
         }
     }
 
-    private func dispatch(id: UInt32, isRepeat: Bool, onCommand: ((HotkeyInvocation) -> Void)?) {
-        guard let registration = idToRegistration[id] else { return }
-        if registration.repeatWhileHeld, !retiredHotKeyIds.isEmpty {
-            if isRepeat {
-                guard !retiredHotKeyIds.contains(id) else { return }
-            } else {
-                retiredHotKeyIds.remove(id)
-            }
-        }
+    private func invocation(_ registration: HotkeyPlannedRegistration, isRepeat: Bool) -> HotkeyInvocation {
         InputTrace.record("hotkey.carbon cmd=\(registration.command.displayName)")
-        onCommand?(
-            HotkeyInvocation(
-                command: registration.command,
-                trigger: PhysicalHotkeyTrigger(
-                    keyCode: registration.binding.keyCode,
-                    modifiers: registration.binding.modifiers,
-                    isRepeat: isRepeat
-                )
+        return HotkeyInvocation(
+            command: registration.command,
+            trigger: PhysicalHotkeyTrigger(
+                keyCode: registration.binding.keyCode,
+                modifiers: registration.binding.modifiers,
+                isRepeat: isRepeat
             )
         )
     }

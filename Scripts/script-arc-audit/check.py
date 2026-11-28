@@ -225,6 +225,29 @@ HELD_KEY_COSTS = {
     "held/unbound-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
 }
 ROUTES.update(HELD_KEY_COSTS)
+RELEASE_KEY_COSTS = {
+    "held/window-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "held/settings-sided-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "held/named-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "held/sided-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/named-press": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/named-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/named-release": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "release/sided-press": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/sided-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/sided-release": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "release/retired-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/carbon-native-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "release/carbon-native-repeat": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "release/carbon-native-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/carbon-mixed-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "release/carbon-mixed-repeat": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "release/carbon-mixed-release": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/carbon-press": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/carbon-repeat": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "release/carbon-release": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+}
+ROUTES.update(RELEASE_KEY_COSTS)
 STORE_ROUTES = ("store/get", "store/get-list", "store/equal-set", "store/changed-set", "store/batch-8",
                 "store/large-write", "store/cold-get")
 STORE_WRITES = {"store/changed-set": 1, "store/batch-8": 1, "store/large-write": 1}
@@ -385,7 +408,7 @@ def check_named_keys(table):
 def check_held_keys(table):
     fields = tuple(NO_OBSERVER_OWNERSHIP)
     idle = tuple(NO_OBSERVER_OWNERSHIP.values())
-    for route, expected in HELD_KEY_COSTS.items():
+    for route, expected in (HELD_KEY_COSTS | RELEASE_KEY_COSTS).items():
         for phase in PHASES:
             baseline = expected if phase == "producer" else idle
             actual = tuple(int(table[route, phase][field]) for field in fields)

@@ -305,7 +305,7 @@ extension ConfigScriptStage {
             try bind(ConfigScriptBinding(
                 rawChord: raw, chord: chord, command: action.command, commandText: action.text,
                 line: Int(location.line), source: sources.name(of: location.source_id), reads: reads,
-                repeatWhileHeld: options.repeat_while_held
+                repeatWhileHeld: options.repeat_while_held, onRelease: options.on_release
             ), inMode: Self.string(options.mode))
             return
         }
@@ -331,7 +331,7 @@ extension ConfigScriptStage {
         bindings.append(ConfigScriptBinding(
             rawChord: raw, chord: chord, command: action.command, commandText: action.text, line: Int(location.line),
             source: sources.name(of: location.source_id), modeKey: modeKey, reads: reads,
-            repeatWhileHeld: options.repeat_while_held
+            repeatWhileHeld: options.repeat_while_held, onRelease: options.on_release
         ))
     }
 }
