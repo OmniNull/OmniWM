@@ -106,25 +106,48 @@ import XCTest
             XCTAssertNil(try XCTUnwrap(metadata?[wid]).isOrderedIn)
         }
 
-        func testLiveWindowRanksFollowParkedWindowOrder() throws {
+        func testLiveWindowRanksFollowVisibleAndParkedWindowOrder() async throws {
             let sky = SkyLight.shared
-            let frame = CGRect(x: -9000, y: -9000, width: 10, height: 10)
-            let windows = (0 ..< 2).map { _ in sky.createBorderWindow(frame: frame) }
+            let displays = NSScreen.screens.compactMap(\.displayId).map(CGDisplayBounds)
+            guard let display = displays.first, let leftmostX = displays.map(\.minX).min() else {
+                throw MissingTestPrerequisite("No active display is available")
+            }
+            let frame = CGRect(x: 0, y: 0, width: 10, height: 10)
+            let visibleOrigin = CGPoint(x: floor(display.midX), y: floor(display.midY))
+            let parkedOrigin = CGPoint(x: floor(leftmostX) - frame.width - 10, y: visibleOrigin.y)
+            let origins = [visibleOrigin, parkedOrigin]
+            let windows = origins.map { _ in sky.createBorderWindow(frame: frame) }
             defer { windows.filter { $0 != 0 }.forEach(sky.releaseBorderWindow) }
             guard !windows.contains(0) else {
                 throw MissingTestPrerequisite("Unable to create owned SkyLight test windows")
             }
 
             for window in windows {
-                XCTAssertTrue(sky.moveWindow(window, to: frame.origin))
+                XCTAssertTrue(sky.moveWindow(window, to: visibleOrigin))
                 sky.orderWindow(window, relativeTo: 0, order: .above)
             }
+            try synchronizeWindowServer()
+            XCTAssertTrue(sky.moveWindow(windows[1], to: parkedOrigin))
+            for (window, origin) in zip(windows, origins) {
+                XCTAssertEqual(sky.currentWindowBounds(window), CGRect(origin: origin, size: frame.size))
+                XCTAssertEqual(sky.isWindowOrderedIn(window), true)
+            }
+
             for (front, back) in [(windows[0], windows[1]), (windows[1], windows[0])] {
                 sky.orderWindow(front, relativeTo: back, order: .above)
                 try synchronizeWindowServer()
 
-                let ranks = SkyLight.windowRanksFrontToBack()
-                XCTAssertLessThan(try XCTUnwrap(ranks[front]), try XCTUnwrap(ranks[back]))
+                let deadline = ContinuousClock.now + .seconds(2)
+                var ranks: [UInt32: Int]
+                repeat {
+                    ranks = SkyLight.windowRanksFrontToBack()
+                    if let frontRank = ranks[front], let backRank = ranks[back], frontRank < backRank { break }
+                    try await Task.sleep(for: .milliseconds(10))
+                } while ContinuousClock.now < deadline
+
+                let frontRank = try XCTUnwrap(ranks[front], "Front window \(front) is missing from the stack")
+                let backRank = try XCTUnwrap(ranks[back], "Back window \(back) is missing from the stack")
+                XCTAssertLessThan(frontRank, backRank)
             }
         }
 

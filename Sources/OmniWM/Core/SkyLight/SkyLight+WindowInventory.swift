@@ -115,10 +115,9 @@ extension SkyLight {
         } succeeded: { $0 != nil }
     }
 
-    static func windowRanksFrontToBack(
-        copyWindowIDs: (CGWindowListOption) -> CFArray? = omniwm_copy_window_ids
-    ) -> [UInt32: Int] {
-        guard let windows = copyWindowIDs(.optionAll) else { return [:] }
+    static func windowRanksFrontToBack() -> [UInt32: Int] {
+        // Ordered-in parked windows can still be part of the on-screen stack.
+        guard let windows = omniwm_copy_window_ids(.optionOnScreenOnly) else { return [:] }
         let count = CFArrayGetCount(windows)
         var ranks: [UInt32: Int] = [:]
         ranks.reserveCapacity(count)
