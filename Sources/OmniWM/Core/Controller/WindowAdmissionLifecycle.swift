@@ -100,6 +100,31 @@ struct PendingFocusedManagedActivation {
     let callbackGeneration: UInt64?
 }
 
+enum WindowRuleRetryAuthority: Equatable {
+    case automatic
+    case explicitRuleApply
+    case script(ConfigScriptRuleApplyOwner)
+
+    var scriptOwner: ConfigScriptRuleApplyOwner? {
+        if case let .script(owner) = self { return owner }
+        return nil
+    }
+
+    @MainActor
+    func isExplicit(in controller: @autoclosure () -> WMController?) -> Bool {
+        switch self {
+        case .automatic: false
+        case .explicitRuleApply: true
+        case let .script(owner):
+            if let controller = controller() {
+                owner.refusal(in: controller) == nil
+            } else {
+                false
+            }
+        }
+    }
+}
+
 enum AdmissionRetryTrigger {
     case create
     case candidate(
@@ -124,7 +149,7 @@ enum AdmissionRetryTrigger {
     case ruleReevaluation(
         token: WindowToken,
         axRef: AXWindowRef,
-        context: WindowRuleReevaluationContext = .automatic
+        authority: WindowRuleRetryAuthority = .automatic
     )
 
     var allowsTrackedIdentityReplacement: Bool {

@@ -128,14 +128,7 @@ extension WMController {
     func performConfigScriptWorkspace(
         _ request: borrowing ConfigScriptWorkspaceRequest, target: ConfigScriptTarget
     ) throws(ConfigScriptDispatchRefusal) -> ExternalCommandResult {
-        guard target.sessionID == scriptSession.identity else {
-            throw ConfigScriptDispatchRefusal(reason: "the callback belongs to an earlier session")
-        }
-        switch automationRefusal {
-        case .ignoredOverview: throw ConfigScriptDispatchRefusal(reason: "Overview is open")
-        case .some: throw ConfigScriptDispatchRefusal(reason: "OmniWM is disabled")
-        case nil: break
-        }
+        if let refusal = configScriptAutomationRefusal(session: target.sessionID) { throw refusal }
         let rawWorkspaceID = try resolveConfigScriptWorkspace(request.target)
         switch request.action {
         case let .native(action):

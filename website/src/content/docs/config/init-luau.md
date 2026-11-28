@@ -321,6 +321,29 @@ Hand-edited rules and one shortcut per action live in `settings.luau` and the Se
 
 A title rule is checked again when a window's title changes.
 
+### Re-apply rules to open windows
+
+`omniwm.dispatch("rule", "apply", target?)` evaluates the currently accepted Settings and Flex rules. It can update ongoing effects or move a window to the workspace or scratchpad a rule names. Rule records and files stay as they are. The initial container span is a one-time setting for new containers.
+
+- Omit the target or pass `nil` to use the managed window that had focus when the callback was queued. It must still have focus on the same workspace when the action runs.
+- Pass `{ windowId = id }` to target one window by its Flex ID.
+- Pass `{ pid = pid }` to target a process that already has a managed window. The PID must be a positive integer. Like [`omniwmctl rule apply --pid`](/reference/cli/rules/#rule-actions), OmniWM also checks windows of that process from the Accessibility inventory. The per-app AX window query has a 0.5-second timeout.
+
+The action needs enabled automation and a closed Overview. The callback waits for the re-evaluation before continuing. Evaluating at least one window counts as success even when the rules change nothing or native admission defers work. If the target is missing or stale, or the config is retired during evaluation, OmniWM refuses the action and stops the rest of the callback. A deferred retry can apply native automatic rules after the config is retired, but it loses permission to move an existing window to a rule’s workspace or scratchpad.
+
+**Re-apply rules to the focused app after editing a rule.** Add this command to the palette:
+
+```luau
+omniwm.command("Re-apply Rules to Focused App", function(ctx)
+    for _, window in ctx.workspaceWindows or {} do
+        if window.id == ctx.windowId and window.pid then
+            omniwm.dispatch("rule", "apply", { pid = window.pid })
+            return
+        end
+    end
+end, { reads = { "workspaceWindows", "details" } })
+```
+
 ## Saved values
 
 `omniwm.store` keeps small values through reloads and restarts, such as a list of apps a callback picked. It works in callbacks, not while the file loads.

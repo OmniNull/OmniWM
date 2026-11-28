@@ -743,6 +743,30 @@ bool stageWorkspace(lua_State *L, ConfigVM &vm, omni_config_location site, int t
     return vm.callbacks.workspace(vm.context, &request, site, vm.failure, sizeof vm.failure);
 }
 
+bool stageRuleApply(lua_State *L, ConfigVM &vm, omni_config_location site, int top) {
+    if (!vm.callbacks.rule_apply || top < 2 || top > 3) {
+        reject(L, vm, site, "omniwm.dispatch expects 'rule', 'apply' and an optional target");
+    }
+    const auto action = token(L, vm, 2, site);
+    if (std::string_view(action.data, action.length) != "apply") {
+        reject(L, vm, site, "the only rule action is 'apply'");
+    }
+    if (top == 2 || lua_isnil(L, 3)) {
+        return vm.callbacks.rule_apply(vm.context, nullptr, site, vm.failure, sizeof vm.failure);
+    }
+    constexpr const char *targetMessage = "a rule target takes exactly one field: windowId or pid";
+    if (!lua_istable(L, 3)) {
+        reject(L, vm, site, targetMessage);
+    }
+    omni_config_field target;
+    const size_t count = readFields(L, vm, 3, site, &target, 1,
+        {targetMessage, "a rule target needs a window ID string or a positive integer PID"});
+    if (count != 1) {
+        reject(L, vm, site, targetMessage);
+    }
+    return vm.callbacks.rule_apply(vm.context, &target, site, vm.failure, sizeof vm.failure);
+}
+
 int dispatchAction(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
@@ -766,6 +790,8 @@ int dispatchAction(lua_State *L) {
         staged = vm.callbacks.mark(vm.context, action, name, site, vm.failure, sizeof vm.failure);
     } else if (named && kind == "workspace") {
         staged = stageWorkspace(L, vm, site, top);
+    } else if (named && kind == "rule") {
+        staged = stageRuleApply(L, vm, site, top);
     } else if (named && kind == "dwindle") {
         staged = stageDwindleReplace(L, vm, site, top);
     } else if (named && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {

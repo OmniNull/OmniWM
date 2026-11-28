@@ -89,6 +89,16 @@ NIRI_SCROLL_NATIVE_COSTS = {
 ROUTES.update(WORKSPACE_ACTION_COSTS)
 ROUTES.update(NIRI_SCROLL_NATIVE_COSTS)
 ROUTES.update((WORKSPACE_MOVE_ROUTE, "native/workspace-move-accepted", *WORKSPACE_NATIVE_ROUTES.values()))
+RULE_APPLY_COSTS = {
+    "focused": ((4, 7, 2, 4, 4, 8), (471, 584, 41, 41, 686, 747), (445, 550, 41, 41, 672, 729)),
+    "by-id": ((4, 7, 2, 4, 4, 9), (461, 574, 41, 41, 678, 739), (445, 550, 41, 41, 672, 729)),
+    "pid": ((4, 7, 2, 4, 4, 9), (810, 1000, 74, 74, 1256, 1369), (791, 973, 74, 74, 1250, 1359)),
+    "refused": ((4, 7, 2, 5, 4, 9), (82, 123, 17, 24, 35, 85), (0, 0, 0, 0, 0, 0)),
+}
+RULE_APPLY_CONTROL = "rule/apply-absent"
+ROUTES.add(RULE_APPLY_CONTROL)
+ROUTES.update(f"rule/apply-{target}" for target in RULE_APPLY_COSTS)
+ROUTES.update(f"native/rule-apply-{target}" for target in RULE_APPLY_COSTS)
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
@@ -395,6 +405,25 @@ def check_workspace_actions(table):
                      f"{flex['obj']} against {alone['obj']}")
 
 
+def check_rule_apply(table):
+    fields = ("R", "L", "obj", "heap", "bR", "bL")
+    for target, (config, completion, native) in RULE_APPLY_COSTS.items():
+        route = f"rule/apply-{target}"
+        for phase in ("producer", "dequeue"):
+            measured = table[route, phase]
+            control = table[RULE_APPLY_CONTROL, phase]
+            if any(measured[field] != control[field] for field in NO_OBSERVER_OWNERSHIP):
+                sys.exit(f"{route}/{phase}: rule work must start on the config worker: {measured} against {control}")
+        for key, expected in (
+            ((route, "config"), config),
+            ((route, "completion"), completion),
+            ((f"native/rule-apply-{target}", "producer"), native),
+        ):
+            measured = tuple(int(table[key][field]) for field in fields)
+            if measured != expected:
+                sys.exit(f"{key}: expected {fields} {expected}, measured {measured}")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -408,6 +437,7 @@ def check_costs(output):
     check_store(table, output)
     check_marks(table)
     check_workspace_actions(table)
+    check_rule_apply(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:

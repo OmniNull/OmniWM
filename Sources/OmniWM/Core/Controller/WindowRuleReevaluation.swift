@@ -10,6 +10,8 @@ struct WindowRuleReevaluation {
     let controller: WMController
     private(set) var context: WindowRuleReevaluationContext
     private let stillWantsExplicitApply: (() -> Bool)?
+    private let script: ConfigScriptRuleApplyAuthorization?
+    private let scriptRetryOwner: ConfigScriptRuleApplyOwner?
     private let epochSeq: UInt64
     private let epochDomains: InvalidationDomain = [.workspace, .layout, .focus, .fullscreen]
     private var liveWindowsByToken: [WindowToken: AXWindowRef] = [:]
@@ -24,16 +26,24 @@ struct WindowRuleReevaluation {
     init(
         controller: WMController,
         context: WindowRuleReevaluationContext,
-        stillWantsExplicitApply: (() -> Bool)? = nil
+        stillWantsExplicitApply: (() -> Bool)?,
+        script: ConfigScriptRuleApplyAuthorization?,
+        scriptRetryOwner: ConfigScriptRuleApplyOwner?
     ) {
         self.controller = controller
         self.context = context
         self.stillWantsExplicitApply = stillWantsExplicitApply
+        self.script = script
+        self.scriptRetryOwner = scriptRetryOwner
         epochSeq = controller.workspaceManager.worldSeq
     }
 
-    private var isCurrent: Bool {
+    private var nativeEpochIsCurrent: Bool {
         !Task.isCancelled && controller.workspaceManager.isSeqEpochCurrent(epochSeq, domains: epochDomains)
+    }
+
+    private var isCurrent: Bool {
+        nativeEpochIsCurrent && script?.owner.refusal(in: controller) == nil
     }
 
     private func outcome(stale: Bool) -> WindowRuleReevaluationOutcome {
@@ -46,25 +56,16 @@ struct WindowRuleReevaluation {
     }
 
     mutating func run(for targets: Set<WindowRuleReevaluationTarget>) async -> WindowRuleReevaluationOutcome {
+        guard script == nil || isCurrent else { return outcome(stale: true) }
         let pidTargets = collectDirectTargets(targets)
-        guard await collectPIDTargets(pidTargets), isCurrent else { return outcome(stale: true) }
+        guard await collectPIDTargets(pidTargets), nativeEpochIsCurrent else { return outcome(stale: true) }
         guard !tokensToReevaluate.isEmpty else { return outcome(stale: false) }
         let batchedWindowInfoByToken = await batchedWindowServerInfo(for: tokensToReevaluate)
         guard isCurrent else { return outcome(stale: true) }
         if context == .explicitRuleApply, stillWantsExplicitApply?() == false {
             context = .automatic
         }
-        for token in tokensToReevaluate.sorted(by: {
-            if $0.pid == $1.pid { return $0.windowId < $1.windowId }
-            return $0.pid < $1.pid
-        }) {
-            guard let window = prepareWindow(
-                token, windowInfo: batchedWindowInfoByToken?[token],
-                windowServerLookupAttempted: batchedWindowInfoByToken != nil
-            ) else { continue }
-            apply(window)
-        }
-        finish()
+        applyPreparedTargets(batchedWindowInfoByToken)
         return outcome(stale: false)
     }
 
@@ -115,7 +116,7 @@ struct WindowRuleReevaluation {
             _ = scratchpadRelease.map(controller.cancelScratchpadMemberRelease)
             controller.axEventHandler.scheduleGeometryAdmissionRetry(
                 token: token, axRef: axRef, existingEntry: existingEntry,
-                placementOrigin: placementOrigin, context: context
+                placementOrigin: placementOrigin, ruleAuthority: retryAuthority
             )
             return nil
         }
@@ -222,6 +223,16 @@ struct WindowRuleReevaluation {
             )
         } ?? true
         if shouldAdmit {
+            let displacedFocusRequest: UInt64? = if let source = window.existingEntry?.workspaceId,
+                                                    source != workspaceId,
+                                                    let request = controller.intentLedger
+                                                        .activeManagedRequest(for: window.token),
+                                                    request.workspaceId == source
+            {
+                request.requestId
+            } else {
+                nil
+            }
             _ = controller.workspaceManager.addWindow(
                 window.axRef,
                 pid: window.token.pid,
@@ -237,6 +248,11 @@ struct WindowRuleReevaluation {
                 allowsNativeFocusAdoption: !window.evaluation.appFullscreen,
                 managedReplacementMetadata: window.admissionMetadata(workspaceId: workspaceId)
             )
+            if let displacedFocusRequest,
+               controller.intentLedger.cancelManagedRequest(requestId: displacedFocusRequest) != nil
+            {
+                controller.scratchpadStacking.abortScratchpadStacking(matching: displacedFocusRequest)
+            }
         }
     }
 
@@ -299,6 +315,25 @@ struct WindowRuleReevaluation {
             )
         }
     }
+}
+
+extension WindowRuleReevaluation {
+    private mutating func applyPreparedTargets(_ batchedWindowInfoByToken: [WindowToken: WindowServerInfo]?) {
+        let queue = script?.cause == nil ? nil : script?.owner.currentQueue(in: controller)
+        if let queue, let cause = script?.cause { queue.feedback.begin(cause, controller: controller) }
+        defer { queue?.feedback.end(controller: controller) }
+        for token in tokensToReevaluate.sorted(by: {
+            if $0.pid == $1.pid { return $0.windowId < $1.windowId }
+            return $0.pid < $1.pid
+        }) {
+            guard let window = prepareWindow(
+                token, windowInfo: batchedWindowInfoByToken?[token],
+                windowServerLookupAttempted: batchedWindowInfoByToken != nil
+            ) else { continue }
+            apply(window)
+        }
+        finish()
+    }
 
     private func finish() {
         controller.workspaceManager.promoteLifetimeAuthorityForObservedTopLevelWindows(
@@ -317,9 +352,13 @@ struct WindowRuleReevaluation {
             )
         }
     }
-}
 
-extension WindowRuleReevaluation {
+    private var retryAuthority: WindowRuleRetryAuthority {
+        guard context == .explicitRuleApply else { return .automatic }
+        if let owner = script?.owner ?? scriptRetryOwner { return .script(owner) }
+        return .explicitRuleApply
+    }
+
     private mutating func collectDirectTargets(_ targets: Set<WindowRuleReevaluationTarget>) -> Set<pid_t> {
         var pidTargets: Set<pid_t> = []
         for target in targets {
@@ -348,16 +387,24 @@ extension WindowRuleReevaluation {
             if !managedEntries.isEmpty {
                 resolvedAnyTarget = true
             }
-            if let app = NSRunningApplication(processIdentifier: pid) {
-                let windows = await controller.axManager.windowsForApp(app)
+            let inventory: [AXWindowRef]? = if let provider = controller.axEventHandler.ruleReevaluation
+                .pidInventoryForTests
+            {
+                await provider(pid)
+            } else if let app = NSRunningApplication(processIdentifier: pid) {
+                await controller.axManager.windowsForApp(app)
+            } else {
+                nil
+            }
+            if let inventory {
                 guard isCurrent
                 else {
                     return false
                 }
-                if !windows.isEmpty {
+                if !inventory.isEmpty {
                     resolvedAnyTarget = true
                 }
-                for axRef in windows {
+                for axRef in inventory {
                     let token = WindowToken(pid: pid, windowId: axRef.windowId)
                     tokensToReevaluate.insert(token)
                     liveWindowsByToken[token] = axRef

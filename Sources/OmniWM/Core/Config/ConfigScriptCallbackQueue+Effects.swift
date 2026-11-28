@@ -59,15 +59,11 @@ extension ConfigScriptCallbackQueue {
             } else if case let .workspace(request) = dispatch.operation {
                 try applyWorkspace(request, dispatch: dispatch, target: target, cause: cause, controller: controller)
                 continue
-            } else if let cause {
-                outcome = performEventCommand(
-                    dispatch.operation,
-                    target: target,
-                    cause: cause,
-                    controller: controller
-                )
+            } else if case let .ruleApply(request) = dispatch.operation {
+                try await applyRule(request, dispatch: dispatch, target: target, cause: cause, controller: controller)
+                continue
             } else {
-                outcome = controller.performConfigScriptDispatch(dispatch.operation, target: target)
+                outcome = performCommand(dispatch.operation, target: target, cause: cause, controller: controller)
             }
             guard outcome == .executed || outcome == .noChange else {
                 throw ConfigScriptError(
@@ -107,10 +103,11 @@ extension ConfigScriptCallbackQueue {
         }
     }
 
-    private func performEventCommand(
+    private func performCommand(
         _ operation: borrowing ConfigScriptDispatch.Operation, target: ConfigScriptTarget,
-        cause: ConfigScriptEventCause, controller: WMController
+        cause: ConfigScriptEventCause?, controller: WMController
     ) -> ExternalCommandResult {
+        guard let cause else { return controller.performConfigScriptDispatch(operation, target: target) }
         feedback.begin(cause, controller: controller)
         let manager = controller.workspaceManager
         let closing: WindowHandle? = if hasCloseListener {

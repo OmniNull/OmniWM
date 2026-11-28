@@ -213,6 +213,7 @@ extension ConfigScriptStage {
                     () throws(ConfigScriptError) in try .workspace(ConfigScriptWorkspaceRequest(request.pointee))
                 }
             },
+            rule_apply: ruleApplyCallback,
             dwindle: { context, tree, location, error, capacity in
                 guard let tree else { return false }
                 return Self.dispatch(into: context, at: location, error: error, capacity: capacity) {
@@ -233,7 +234,7 @@ extension ConfigScriptStage {
         )
     }
 
-    private static func dispatch(
+    static func dispatch(
         into context: UnsafeMutableRawPointer?,
         at location: omni_config_location,
         error: UnsafeMutablePointer<CChar>?,

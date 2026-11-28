@@ -19,6 +19,7 @@ final class ConfigScriptCallbackQueue {
     }
 
     let generation: ConfigScriptGeneration
+    let ruleApplyGeneration = ConfigScriptCallbackQueue.nextRuleApplyGeneration()
     let declarations: [Int: Declaration]
     private let listeners: [ConfigScriptEventKind: [Listener]]
     private let eventReads: [ConfigScriptEventKind: EventReads]?

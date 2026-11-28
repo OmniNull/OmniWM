@@ -481,5 +481,6 @@ private func measureEventFamilies(in directory: URL) async throws {
     try await measureWindowMarks(in: directory)
     try await measureWorkspaceActions(in: directory)
     try await measureWorkspaceScrolls(in: directory)
+    try await measureRuleApply(in: directory)
     try measureOrdinaryNiriReconcile(in: directory)
 }

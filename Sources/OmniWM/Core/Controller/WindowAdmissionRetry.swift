@@ -17,14 +17,14 @@ extension AXEventHandler {
         axRef: AXWindowRef,
         existingEntry: WindowState?,
         placementOrigin: WorkspacePlacementOrigin,
-        context: WindowRuleReevaluationContext = .automatic
+        ruleAuthority: WindowRuleRetryAuthority = .automatic
     ) {
         if let existingEntry {
             scheduleTrackedTilingPromotionRetry(
                 token: existingEntry.token,
                 axRef: axRef,
                 reason: .degenerateGeometry,
-                context: context
+                authority: ruleAuthority
             )
         } else if let windowId = UInt32(exactly: token.windowId) {
             scheduleCandidateAdmissionRetry(
@@ -64,12 +64,9 @@ extension AXEventHandler {
         token: WindowToken,
         axRef: AXWindowRef,
         reason: WindowAdmissionPendingReason,
-        context: WindowRuleReevaluationContext = .automatic
+        authority: WindowRuleRetryAuthority = .automatic
     ) -> Bool {
         guard let windowId = UInt32(exactly: token.windowId) else { return false }
-        let pendingTrigger = admissionRetryStateByWindowId[windowId]?.trigger
-        let keepsExplicitApply = if case .ruleReevaluation(_, _, .explicitRuleApply)? = pendingTrigger { true }
-        else { false }
         return scheduleAdmissionRetry(
             windowId: windowId,
             expectedToken: token,
@@ -78,7 +75,7 @@ extension AXEventHandler {
             trigger: .ruleReevaluation(
                 token: token,
                 axRef: axRef,
-                context: keepsExplicitApply ? .explicitRuleApply : context
+                authority: authority
             )
         )
     }
@@ -86,11 +83,12 @@ extension AXEventHandler {
     func downgradeExplicitRuleApplyRetry(windowId: Int) {
         guard let windowId = UInt32(exactly: windowId),
               var state = admissionRetryStateByWindowId[windowId],
-              case let .ruleReevaluation(token, axRef, .explicitRuleApply) = state.trigger
+              case let .ruleReevaluation(token, axRef, authority) = state.trigger,
+              authority != .automatic
         else {
             return
         }
-        state.trigger = .ruleReevaluation(token: token, axRef: axRef, context: .automatic)
+        state.trigger = .ruleReevaluation(token: token, axRef: axRef)
         admissionRetryStateByWindowId[windowId] = state
     }
 
@@ -229,7 +227,9 @@ extension AXEventHandler {
         let retainedFocusedContinuation = state.flatMap {
             $0.focusedAdmissionContinuation ?? $0.trigger.focusedAdmissionContinuation
         }
-        let effectiveTrigger = preservesPriorTrigger ? state?.trigger ?? trigger : trigger
+        let effectiveTrigger = effectiveAdmissionRetryTrigger(
+            trigger, previous: state?.trigger, retainsPrevious: preservesPriorTrigger
+        )
         let identityRebindSource: ManagedWindowIdentityRebindSource?
         if case let .identityRebind(oldWindow, _, _, _, _, _) = effectiveTrigger {
             identityRebindSource = state?.identityRebindSource
@@ -259,6 +259,30 @@ extension AXEventHandler {
             preparedSubscriptionRetainCount: (state?.preparedSubscriptionRetainCount ?? 0)
                 + preparedSubscriptionRetainContribution
         )
+    }
+
+    private func effectiveAdmissionRetryTrigger(
+        _ trigger: AdmissionRetryTrigger, previous: AdmissionRetryTrigger?, retainsPrevious: Bool
+    ) -> AdmissionRetryTrigger {
+        if retainsPrevious, let previous { return previous }
+        guard case let .ruleReevaluation(token, axRef, incoming) = trigger else { return trigger }
+        let prior: WindowRuleRetryAuthority = if case let .ruleReevaluation(previousToken, _, authority)? = previous,
+                                                 previousToken == token
+        {
+            authority
+        } else {
+            .automatic
+        }
+        let authority: WindowRuleRetryAuthority = if incoming == .explicitRuleApply || prior == .explicitRuleApply {
+            .explicitRuleApply
+        } else if incoming.isExplicit(in: controller) {
+            incoming
+        } else if prior.isExplicit(in: controller) {
+            prior
+        } else {
+            .automatic
+        }
+        return .ruleReevaluation(token: token, axRef: axRef, authority: authority)
     }
 
     private func updateExistingAdmissionRetry(

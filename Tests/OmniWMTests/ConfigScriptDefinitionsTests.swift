@@ -122,6 +122,9 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         overloads.append(workspace(.moveToMonitor, ", direction: \(directions), options: { read force: boolean? }?"))
         overloads.append(workspace(.rename, ", displayName: string"))
         overloads.append(workspace(.scroll, ", offset: number, options: { read animate: boolean? }?"))
+        overloads.append(
+            "{ read dispatch: (kind: \"rule\", action: \"apply\", target: ConfigRuleApplyTarget?) -> () }"
+        )
         return overloads.joined(separator: "\n    & ")
     }
 
@@ -134,6 +137,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
             | { read neighbor: \(direction), read of: string, read fromEdge: boolean, read column: number? }
         export type ConfigFocusCheck = { read targetOf: string?, read nativeFullscreen: boolean? }
         export type ConfigWorkspaceSelector = string | number | { read id: string }
+        export type ConfigRuleApplyTarget = { read windowId: string } | { read pid: number }
         export type ConfigFloatingFrame = { read x: number?, read y: number?, read width: number?, read height: number? }
         """
     }

@@ -20,13 +20,17 @@ extension WMController {
     func reevaluateWindowRules(
         for targets: Set<WindowRuleReevaluationTarget>,
         context: WindowRuleReevaluationContext = .automatic,
-        stillWantsExplicitApply: (() -> Bool)? = nil
+        stillWantsExplicitApply: (() -> Bool)? = nil,
+        script: ConfigScriptRuleApplyAuthorization? = nil,
+        scriptRetryOwner: ConfigScriptRuleApplyOwner? = nil
     ) async -> WindowRuleReevaluationOutcome {
         guard !targets.isEmpty else { return .none }
         var reevaluation = WindowRuleReevaluation(
             controller: self,
             context: context,
-            stillWantsExplicitApply: stillWantsExplicitApply
+            stillWantsExplicitApply: stillWantsExplicitApply,
+            script: script,
+            scriptRetryOwner: scriptRetryOwner
         )
         return await reevaluation.run(for: targets)
     }

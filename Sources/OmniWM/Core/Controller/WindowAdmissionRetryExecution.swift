@@ -141,18 +141,25 @@ extension AXEventHandler {
     }
 
     private func resumeRuleReevaluationRetry(windowId: UInt32, state: AdmissionRetryState, executionOwner: UInt64) {
-        guard case let .ruleReevaluation(token, axRef, context) = state.trigger else { return }
+        guard case let .ruleReevaluation(token, axRef, authority) = state.trigger else { return }
+        let execution = AdmissionRetryExecution(
+            windowId: windowId,
+            generation: state.generation,
+            executionOwner: executionOwner
+        )
         let task = Task { @MainActor [weak self] in
             guard let self, let controller = self.controller else { return }
+            let wantsExplicitApply = self.retryStillWantsExplicitRuleApply(execution, authority: authority)
             let outcome = await controller.reevaluateWindowRules(
                 for: [.window(token)],
-                context: context,
+                context: wantsExplicitApply ? .explicitRuleApply : .automatic,
                 stillWantsExplicitApply: {
-                    self.retryStillWantsExplicitRuleApply(windowId: windowId, generation: state.generation)
-                }
+                    self.retryStillWantsExplicitRuleApply(execution, authority: authority)
+                },
+                scriptRetryOwner: authority.scriptOwner
             )
             self.finishRuleReevaluationRetry(
-                execution: .init(windowId: windowId, generation: state.generation, executionOwner: executionOwner),
+                execution: execution,
                 identity: .init(token: token, axRef: axRef),
                 reason: state.reason,
                 stale: outcome.stale
@@ -211,7 +218,7 @@ extension AXEventHandler {
         guard var state = admissionRetryStateByWindowId[windowId],
               state.generation == generation,
               state.executionPhase == .running(executionOwner),
-              case let .ruleReevaluation(retryToken, retryAXRef, retryContext) = state.trigger,
+              case let .ruleReevaluation(retryToken, retryAXRef, authority) = state.trigger,
               retryToken == token,
               CFEqual(retryAXRef.element, axRef.element)
         else {
@@ -221,7 +228,7 @@ extension AXEventHandler {
         state.executionPhase = .waiting
         if stale {
             admissionRetryStateByWindowId[windowId] = state
-            _ = scheduleTrackedTilingPromotionRetry(token: token, axRef: axRef, reason: reason, context: retryContext)
+            _ = scheduleTrackedTilingPromotionRetry(token: token, axRef: axRef, reason: reason, authority: authority)
         } else {
             admissionRetryStateByWindowId[windowId] = state
             cancelCreatedWindowRetry(windowId: windowId)
@@ -229,11 +236,16 @@ extension AXEventHandler {
         }
     }
 
-    func retryStillWantsExplicitRuleApply(windowId: UInt32, generation: UInt64) -> Bool {
-        guard let state = admissionRetryStateByWindowId[windowId],
-              state.generation == generation,
-              case .ruleReevaluation(_, _, .explicitRuleApply) = state.trigger
-        else {
+    private func retryStillWantsExplicitRuleApply(
+        _ execution: AdmissionRetryExecution, authority: WindowRuleRetryAuthority
+    ) -> Bool {
+        guard let state = admissionRetryStateByWindowId[execution.windowId],
+              state.generation == execution.generation,
+              state.executionPhase == .running(execution.executionOwner),
+              case let .ruleReevaluation(_, _, current) = state.trigger, current == authority
+        else { return false }
+        guard authority.isExplicit(in: controller) else {
+            downgradeExplicitRuleApplyRetry(windowId: Int(execution.windowId))
             return false
         }
         return true

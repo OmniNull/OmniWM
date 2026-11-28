@@ -11,6 +11,7 @@ final class WindowRuleReevaluationScheduler {
     private(set) var pendingWindowRuleReevaluationTargets: Set<WindowRuleReevaluationTarget> = []
     private var pendingWindowRuleReevaluationGeneration: UInt64 = 0
     private let reevaluate: (WMController, Set<WindowRuleReevaluationTarget>) async -> WindowRuleReevaluationOutcome
+    var pidInventoryForTests: ((pid_t) async -> [AXWindowRef])?
     var axWindowRefProvider: (WindowToken) -> AXWindowRef? = { token in
         AXWindowService.axWindowRef(for: UInt32(token.windowId), pid: token.pid)
     }

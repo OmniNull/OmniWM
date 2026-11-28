@@ -40,6 +40,15 @@ extension StateReducer {
                 )
                 _ = focusSession.rememberFocus(token, in: workspaceId, mode: mode)
                 plan.focusSession = focusSession
+            } else if windowExistedBeforeMutation,
+                      currentSnapshot.focusSession.pendingManagedFocus.token == token,
+                      let pendingWorkspace = currentSnapshot.focusSession.pendingManagedFocus.workspaceId,
+                      pendingWorkspace != workspaceId
+            {
+                plan.focusSession = reassigningFocusState(
+                    from: currentSnapshot.focusSession, token: token,
+                    sourceWorkspaceId: pendingWorkspace, workspaceId: workspaceId
+                )
             }
         default:
             break
