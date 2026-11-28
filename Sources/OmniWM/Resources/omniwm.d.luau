@@ -126,7 +126,7 @@ export type BarStyle = {
     textColor: string?,
     statsButton: boolean,
     secureInput: boolean,
-    keyboardMode: "normal" | "paused" | "prefix" | "window",
+    keyboardMode: "normal" | "paused" | "prefix" | "window" | "named",
     previews: boolean,
     hideInFullscreen: boolean,
     hidesMenuBar: boolean,
@@ -627,6 +627,8 @@ export type IslandNavigation = {
             column: number,
         }
     },
+    dwindleSplit: ("horizontal" | "vertical")?,
+    dwindlePreselect: ("left" | "right" | "up" | "down")?,
 }
 
 export type Island = {

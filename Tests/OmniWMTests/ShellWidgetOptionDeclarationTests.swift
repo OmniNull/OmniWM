@@ -53,7 +53,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
 
     private func declaredOptions(_ widget: String, in layer: URL) throws -> [String: ShellComponentOption] {
         var options = try ShellRootSettings.load(widget, directories: [layer])?.options ?? [:]
-        let component = layer.appendingPathComponent("widgets/\(widget)/component.toml")
+        let component = layer.appendingPathComponent("widgets/\(widget)/component.manifest.luau")
         if FileManager.default.fileExists(atPath: component.path) {
             options.merge(try ShellComponentCatalog.load(widget, directories: [layer]).options) { first, _ in first }
         }
@@ -72,8 +72,11 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
     }
 
     private func files(in folder: URL) -> [URL] {
-        FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)?
-            .compactMap { $0 as? URL }.filter { $0.pathExtension == "luau" } ?? []
+        ShellWidgetSourceLoader.entries(
+            in: folder,
+            directories: false,
+            sharedLibrary: folder.lastPathComponent == "lib"
+        )
     }
 
     private func optionReads(in folder: URL) throws -> Set<String> {
@@ -124,7 +127,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
     ) throws -> [String: ShellComponentOption] {
         let folder = layer.appendingPathComponent("widgets/\(widget)")
         if FileManager.default.fileExists(atPath: folder.appendingPathComponent("component.luau").path) {
-            guard FileManager.default.fileExists(atPath: folder.appendingPathComponent("component.toml").path)
+            guard FileManager.default.fileExists(atPath: folder.appendingPathComponent("component.manifest.luau").path)
             else { return [:] }
             return try ShellComponentCatalog.load(widget, directories: [layer]).options
         }
@@ -181,7 +184,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
             "world-clock": "bar", "volume": "step", "stats": "variant"
         ]
         for widget in options.keys {
-            try FileManager.default.removeItem(at: layer.appendingPathComponent("widgets/\(widget)/settings.toml"))
+            try FileManager.default.removeItem(at: layer.appendingPathComponent("widgets/\(widget)/settings.luau"))
         }
         XCTAssertEqual(try undeclaredOptions(in: layer), Set(options.map { "\($0.key):\($0.value)" }))
     }
@@ -197,7 +200,8 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
             "converter": ["format"]
         ]
         for widget in options.keys {
-            try FileManager.default.removeItem(at: layer.appendingPathComponent("widgets/\(widget)/component.toml"))
+            try FileManager.default
+                .removeItem(at: layer.appendingPathComponent("widgets/\(widget)/component.manifest.luau"))
         }
         XCTAssertEqual(try undeclaredOptions(in: layer), Set(options.flatMap { widget, keys in
             keys.map { "\(widget):\($0)" }
@@ -222,7 +226,7 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
             [bundled, layer].map { $0.resolvingSymlinksInPath().path }
         )
         XCTAssertEqual(try undeclaredOptions(in: layer, fallback: bundled), [])
-        try FileManager.default.removeItem(at: bundled.appendingPathComponent("widgets/workspaces/settings.toml"))
+        try FileManager.default.removeItem(at: bundled.appendingPathComponent("widgets/workspaces/settings.luau"))
         XCTAssertEqual(try undeclaredOptions(in: layer, fallback: bundled), ["workspaces:occupiedBackground"])
     }
 
@@ -236,8 +240,8 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
             at: library.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let source = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("widgets/calendar/settings.toml")
-        try FileManager.default.copyItem(at: source, to: folder.appendingPathComponent("settings.toml"))
+        let source = try XCTUnwrap(ShellDefaults.bundled).appendingPathComponent("widgets/calendar/settings.luau")
+        try FileManager.default.copyItem(at: source, to: folder.appendingPathComponent("settings.luau"))
         try "return function(ctx) return ctx.data.settings.agendaEvents end"
             .write(to: library, atomically: true, encoding: .utf8)
         XCTAssertEqual(
@@ -250,11 +254,11 @@ final class ShellWidgetOptionDeclarationTests: XCTestCase {
         let layer = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.copyItem(at: source, to: layer)
         defer { try? FileManager.default.removeItem(at: layer) }
-        let manifest = layer.appendingPathComponent("widgets/lake/settings.toml")
+        let manifest = layer.appendingPathComponent("widgets/lake/settings.luau")
         let original = try String(contentsOf: manifest, encoding: .utf8)
         let schema = try XCTUnwrap(ShellRootSettings.load("lake", directories: [layer]))
         for key in schema.options.keys.sorted() {
-            let changed = original.replacingOccurrences(of: "[options.\(key)]", with: "[options.missing_\(key)]")
+            let changed = original.replacingOccurrences(of: "\(key) = {", with: "missing_\(key) = {")
             XCTAssertNotEqual(changed, original, key)
             try changed.write(to: manifest, atomically: true, encoding: .utf8)
             XCTAssertEqual(try undeclaredOptions(in: layer), ["lake:\(key)"], key)

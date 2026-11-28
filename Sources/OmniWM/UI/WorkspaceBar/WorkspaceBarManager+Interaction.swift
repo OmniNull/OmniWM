@@ -198,7 +198,7 @@ extension WorkspaceBarManager {
     private func editShellWidget(_ name: String, _ edit: ShellWidgetEdit) {
         Task { [self] in
             do {
-                try await shellConfiguration.editBar { layout in
+                try await shellConfiguration.editBar(confirm: confirmMenuEdit) { layout in
                     switch edit {
                     case .earlier: layout.shift(name, by: -1)
                     case .later: layout.shift(name, by: 1)
@@ -206,10 +206,25 @@ extension WorkspaceBarManager {
                     case .remove: layout.remove(name)
                     }
                 }
+            } catch is CancellationError {
+                return
             } catch {
                 Log.shell.error("Failed to save the bar widget layout: \(error.localizedDescription)")
             }
         }
+    }
+
+    private func confirmMenuEdit(_ request: ShellLuauConfirmation) async throws -> Bool {
+        guard let controller else { throw request }
+        let presenter = controller.settings.formulaConfirmation
+        if presenter.canPresent?() != true {
+            SettingsWindowController.shared.show(
+                settings: controller.settings,
+                controller: controller,
+                section: .styles
+            )
+        }
+        return try await presenter.confirm(request)
     }
 
     private func beginRename(workspaceId: WorkspaceDescriptor.ID, monitorId: Monitor.ID, anchor: CGRect) {

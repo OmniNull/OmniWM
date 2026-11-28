@@ -20,6 +20,9 @@ extension WorkspaceManager {
         guard isValidAssignment(workspaceId: workspace1Id, monitorId: monitor2.id),
               isValidAssignment(workspaceId: workspace2Id, monitorId: monitor1.id) else { return false }
 
+        let previousPlacement = scriptWorkspaceMoveObserver.map { _ in
+            (monitorForWorkspace(workspace1Id), monitorForWorkspace(workspace2Id))
+        }
         let previousWorkspace1 = visibleWorkspaceId(on: monitor1.id)
         let previousWorkspace2 = visibleWorkspaceId(on: monitor2.id)
 
@@ -41,6 +44,22 @@ extension WorkspaceManager {
 
         noteInvalidation(workspaceId: workspace1Id, domains: [.workspace, .layout, .focus])
         noteInvalidation(workspaceId: workspace2Id, domains: [.workspace, .layout, .focus])
+        if let previousPlacement {
+            withCatalogObserver(.move) { observer in
+                observer.workspaceMoved(
+                    workspace1Id,
+                    from: previousPlacement.0,
+                    to: ConfigScriptCatalogMonitor(monitor2),
+                    in: self
+                )
+                observer.workspaceMoved(
+                    workspace2Id,
+                    from: previousPlacement.1,
+                    to: ConfigScriptCatalogMonitor(monitor1),
+                    in: self
+                )
+            }
+        }
         notifySessionStateChanged()
         return true
     }

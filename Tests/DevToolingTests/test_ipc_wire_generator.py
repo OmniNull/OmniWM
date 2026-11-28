@@ -22,9 +22,9 @@ def encoder_body(typ):
 
 class IPCWireGeneratorTests(unittest.TestCase):
     def test_command_encoder_covers_every_declared_command_case(self):
-        source = (generator.models / "IPCCommandModels.swift").read_text()
+        source = (generator.root / "Sources/OmniWMAutomation/IPCCommand.swift").read_text()
         declaration = re.search(
-            r"public enum IPCCommandRequest: [^{]+\{(.*?)\n    public var name:", source, re.S
+            r"public enum IPCCommand: [^{]+\{(.*?)\n    public var name:", source, re.S
         )
         self.assertIsNotNone(declaration)
         expected = set(re.findall(r"^    case (\w+)", declaration.group(1), re.M))

@@ -5,7 +5,7 @@ import SwiftUI
 
 struct QuakePlacementOverrideControls: View {
     let title: LocalizedStringKey
-    let anchor: String
+    let provider: QuakeTerminalProvider
     let placement: Binding<QuakePlacementOverride?>
 
     var body: some View {
@@ -13,7 +13,8 @@ struct QuakePlacementOverrideControls: View {
             get: { [placement] in placement.wrappedValue != nil },
             set: { [placement] in placement.wrappedValue = $0 ? .defaultOverride : nil }
         ))
-        .id("Override \(anchor) Placement")
+        .id("Override \(provider.displayName) Placement")
+        .settingsField(provider == .kitty ? .quakeTerminalKittyPlacement : .quakeTerminalFootPlacement)
 
         if let current = placement.wrappedValue {
             Picker("Position", selection: Binding(
@@ -24,9 +25,13 @@ struct QuakePlacementOverrideControls: View {
                     Text(position.localizedDisplayName).tag(position)
                 }
             }
-            .id("\(anchor) Position")
+            .id("\(provider.displayName) Position")
+            .settingsField(provider == .kitty ? .quakeTerminalKittyPlacementPosition :
+                .quakeTerminalFootPlacementPosition)
 
             SettingsSliderRow(
+                field: .init(provider == .kitty ? .quakeTerminalKittyPlacementWidthPercent :
+                    .quakeTerminalFootPlacementWidthPercent),
                 label: String(localized: "Width"),
                 value: Binding(
                     get: { [placement] in placement.wrappedValue?.widthPercent ?? current.widthPercent },
@@ -36,9 +41,11 @@ struct QuakePlacementOverrideControls: View {
                 step: 5,
                 valueText: "\(Int(current.widthPercent))%"
             )
-            .id("\(anchor) Width")
+            .id("\(provider.displayName) Width")
 
             SettingsSliderRow(
+                field: .init(provider == .kitty ? .quakeTerminalKittyPlacementHeightPercent :
+                    .quakeTerminalFootPlacementHeightPercent),
                 label: String(localized: "Height"),
                 value: Binding(
                     get: { [placement] in placement.wrappedValue?.heightPercent ?? current.heightPercent },
@@ -48,7 +55,7 @@ struct QuakePlacementOverrideControls: View {
                 step: 5,
                 valueText: "\(Int(current.heightPercent))%"
             )
-            .id("\(anchor) Height")
+            .id("\(provider.displayName) Height")
         }
     }
 }
@@ -61,7 +68,7 @@ struct QuakeAutoHideOverridePicker: View {
     }
 
     let configTitle: LocalizedStringKey
-    let anchor: String
+    let provider: QuakeTerminalProvider
     let autoHide: Binding<Bool?>
 
     var body: some View {
@@ -85,13 +92,14 @@ struct QuakeAutoHideOverridePicker: View {
             Text("On").tag(Choice.on)
             Text("Off").tag(Choice.off)
         }
-        .id("\(anchor) Auto-hide on Focus Loss")
+        .id("\(provider.displayName) Auto-hide on Focus Loss")
+        .settingsField(provider == .kitty ? .quakeTerminalKittyAutoHide : .quakeTerminalFootAutoHide)
     }
 }
 
 struct QuakeOpacityOverrideControls: View {
     let title: LocalizedStringKey
-    let anchor: String
+    let provider: QuakeTerminalProvider
     let opacity: Binding<Double?>
 
     var body: some View {
@@ -99,10 +107,12 @@ struct QuakeOpacityOverrideControls: View {
             get: { [opacity] in opacity.wrappedValue != nil },
             set: { [opacity] in opacity.wrappedValue = $0 ? QuakeOpacityOverride.defaultOverride : nil }
         ))
-        .id("Override \(anchor) Opacity")
+        .id("Override \(provider.displayName) Opacity")
+        .settingsField(provider == .kitty ? .quakeTerminalKittyOpacity : .quakeTerminalFootOpacity)
 
         if let current = opacity.wrappedValue {
             SettingsSliderRow(
+                field: .init(provider == .kitty ? .quakeTerminalKittyOpacity : .quakeTerminalFootOpacity),
                 label: String(localized: "Quake Background Opacity"),
                 value: Binding(
                     get: { [opacity] in opacity.wrappedValue ?? current },
@@ -112,7 +122,7 @@ struct QuakeOpacityOverrideControls: View {
                 step: 0.05,
                 valueText: "\(Int((current * 100).rounded()))%"
             )
-            .id("\(anchor) Background Opacity")
+            .id("\(provider.displayName) Background Opacity")
         }
     }
 }

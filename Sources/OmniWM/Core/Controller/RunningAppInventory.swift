@@ -18,6 +18,95 @@ struct RunningAppInfo: Identifiable {
     }
 }
 
+struct TrackedAppGroups {
+    struct App {
+        let token: WindowToken
+        let bundleId: String?
+        let displayName: String
+        let hasName: Bool
+    }
+
+    private enum Identity: Hashable {
+        case bundle(String)
+        case process(pid_t)
+    }
+
+    private var seen: Set<Identity> = []
+    private var visitedProcesses: Set<pid_t> = []
+    private var tokens: [WindowToken] = []
+    private(set) var apps: [App] = []
+    private(set) var order: [Int] = []
+    private var mergedOrder: [Int] = []
+
+    @MainActor
+    mutating func collect(
+        windows: WindowModel.ReadView, cache: AppInfoCache, liveIcon: ((WindowToken, NSImage?) -> Void)? = nil
+    ) {
+        seen.removeAll(keepingCapacity: true)
+        visitedProcesses.removeAll(keepingCapacity: true)
+        apps.removeAll(keepingCapacity: true)
+        windows.collectStandardWindowTokens(into: &tokens)
+        for token in tokens {
+            if let liveIcon {
+                let info = cache.info(for: token.pid)
+                if append(token, bundleId: info?.bundleId, name: info?.name) { liveIcon(token, info?.icon) }
+            } else {
+                guard visitedProcesses.insert(token.pid).inserted else { continue }
+                cache.withCachedIdentity(for: token.pid) { bundleId, name in
+                    _ = append(token, bundleId: bundleId, name: name)
+                }
+            }
+        }
+        order.removeAll(keepingCapacity: true)
+        order.append(contentsOf: apps.indices)
+        var runLength = 1
+        while runLength < order.count {
+            mergeOrder(runLength: runLength)
+            swap(&order, &mergedOrder)
+            runLength *= 2
+        }
+    }
+
+    static func key(bundleId: String?, pid: pid_t) -> String {
+        bundleId ?? "pid:\(pid)"
+    }
+
+    private mutating func append(
+        _ token: WindowToken, bundleId: borrowing String?, name: borrowing String?
+    ) -> Bool {
+        let identity = (copy bundleId).map(Identity.bundle) ?? .process(token.pid)
+        guard seen.insert(identity).inserted else { return false }
+        apps.append(App(
+            token: token, bundleId: copy bundleId, displayName: (copy name) ?? "Unknown", hasName: name != nil
+        ))
+        return true
+    }
+
+    private mutating func mergeOrder(runLength: Int) {
+        mergedOrder.removeAll(keepingCapacity: true)
+        mergedOrder.reserveCapacity(order.count)
+        let apps = apps.span
+        let indices = order.span
+        for start in stride(from: 0, to: indices.count, by: runLength * 2) {
+            let middle = min(start + runLength, indices.count)
+            let end = min(middle + runLength, indices.count)
+            var left = start
+            var right = middle
+            while left < middle, right < end {
+                if apps[indices[right]].displayName < apps[indices[left]].displayName {
+                    mergedOrder.append(indices[right])
+                    right += 1
+                } else {
+                    mergedOrder.append(indices[left])
+                    left += 1
+                }
+            }
+            for index in left ..< middle { mergedOrder.append(indices[index]) }
+            for index in right ..< end { mergedOrder.append(indices[index]) }
+        }
+    }
+}
+
 enum RunningAppInventory {
     @MainActor
     static func rulePickerCandidates(

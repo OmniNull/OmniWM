@@ -11,12 +11,12 @@ enum MenuSubmenuLoadResult {
 
 @MainActor
 final class MenuAnywhereController: NSObject, NSMenuDelegate {
-    typealias SubmenuLoader = @MainActor (AXUIElement, AnyObject?, Selector?) -> MenuSubmenuLoadResult
+    typealias SubmenuLoader = @MainActor (AXUIElement, AnyObject?, Selector?, Bool) -> MenuSubmenuLoadResult
     typealias MenuLoader = @MainActor (pid_t, MenuContent, AnyObject?, Selector?) -> MenuSubmenuLoadResult
     typealias MenuPresenter = @MainActor (NSMenu, CGPoint) -> Void
     typealias NativeSubmenuOpener = @MainActor (NSRunningApplication, AXUIElement) -> Task<Void, Never>?
 
-    static let shared = MenuAnywhereController()
+    static let shared = MenuAnywhereController(extractor: MenuExtractor())
 
     private let menuLoader: MenuLoader
     private let submenuLoader: SubmenuLoader
@@ -33,15 +33,18 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
     private static let kAXPressAction = "AXPress" as CFString
     private static let appActivationDelay: TimeInterval = 0.1
 
-    override private convenience init() {
-        let extractor = MenuExtractor()
+    convenience init(extractor: MenuExtractor) {
         self.init(
             menuLoader: Self.makeMenuLoader(using: extractor),
-            submenuLoader: { root, target, action in
+            submenuLoader: { root, target, action, isAppleMenu in
                 do {
-                    return .loaded(
-                        try extractor.buildSubmenu(from: root, target: target, action: action)
+                    let items = try extractor.buildSubmenu(
+                        from: root,
+                        target: target,
+                        action: action,
+                        isAppleMenu: isAppleMenu
                     )
+                    return .loaded(items)
                 } catch {
                     return .unavailable
                 }
@@ -224,9 +227,10 @@ final class MenuAnywhereController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === activeMenu { return }
         menu.autoenablesItems = false
-        guard menu.items.isEmpty, let axRoot = menu.axRootElement else { return }
+        guard menu.items.isEmpty, let root = menu.axRootElement else { return }
 
-        populate(menu, with: submenuLoader(axRoot, self, #selector(menuAction(_:))))
+        let isAppleMenu = menu.identifier == NSMenu.appleSubmenuIdentifier
+        populate(menu, with: submenuLoader(root, self, #selector(menuAction(_:)), isAppleMenu))
     }
 
     private func populate(_ menu: NSMenu, with result: MenuSubmenuLoadResult, showsStatus: Bool = true) {

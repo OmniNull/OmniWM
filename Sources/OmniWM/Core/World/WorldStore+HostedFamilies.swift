@@ -25,6 +25,12 @@ extension WorldStore {
                 )
             }
             if case let .windowMinimizedChanged(_, _, minimized, source) = event {
+                scriptWindowMinimizeObserver?.recordMinimizedChild(
+                    token,
+                    of: root,
+                    previous: entry.observedState.isMinimized,
+                    minimized: minimized
+                )
                 return .windowMinimizedChanged(
                     token: token, workspaceId: entry.workspaceId, minimized: minimized, source: source
                 )

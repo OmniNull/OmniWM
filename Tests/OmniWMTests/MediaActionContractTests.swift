@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -26,7 +27,7 @@ final class MediaActionContractTests: XCTestCase {
             XCTAssertEqual(spec.ipcCommandName, .media(ipc))
             XCTAssertEqual(command.layoutCompatibility, .shared)
             XCTAssertEqual(IPCCommandName(rawValue: name), .media(ipc))
-            XCTAssertEqual(try IPCCommandRequest(name: .media(ipc)), .media(ipc))
+            XCTAssertEqual(try IPCCommandRequest(name: .media(ipc)), .init(.media(ipc)))
             XCTAssertEqual(IPCAutomationManifest.commandDescriptor(for: .media(ipc))?.commandWords, [name])
         }
     }

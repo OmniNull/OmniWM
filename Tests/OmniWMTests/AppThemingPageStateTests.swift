@@ -38,7 +38,6 @@ final class AppThemingPageStateTests: XCTestCase {
             state.paths["kitty"],
             ["~/.config/kitty/light-theme.auto.conf", "~/.config/kitty/dark-theme.auto.conf"]
         )
-        XCTAssertEqual(state.paths["herdr"], ["~/.config/herdr/config.toml"])
         XCTAssertEqual(state.ghosttyStatus, .notSelected)
         XCTAssertEqual(state.backupFolder, "~/.local/state/omniwm/app-theming/backups")
     }
@@ -65,17 +64,17 @@ final class AppThemingPageStateTests: XCTestCase {
         let hops = AppThemeHeldHops()
         let state = AppThemingPageState(perform: worker.perform, deliver: hops.deliver)
         let preview = AppThemePreview(
-            engine: sandbox.engine(AppThemeFakeEnvironment()), values: .init(), dark: false
+            engine: sandbox.engine(AppThemeFakeEnvironment()), dark: false
         ) { AppThemeFixtures.palette }
-        let file = ".config/herdr/config.toml"
-        let before = "[keys]\nprefix = \"x\"\n"
+        let file = ".config/kitty/dark-theme.auto.conf"
+        let before = "background #123456\n"
         var received: Result<[AppThemeChange], Error>?
-        state.review(preview, target: preview.target(for: .herdr)) { received = $0 }
+        state.review(preview, target: preview.target(for: .kitty)) { received = $0 }
         XCTAssertNil(received)
         try sandbox.write(before, to: file)
         worker.release()
         XCTAssertNil(received)
-        try sandbox.write("[keys]\nprefix = \"y\"\n", to: file)
+        try sandbox.write("background #654321\n", to: file)
         hops.release()
         let changes = try XCTUnwrap(received).get()
         let change = try XCTUnwrap(changes.first)
@@ -89,7 +88,7 @@ final class AppThemingPageStateTests: XCTestCase {
         let hops = AppThemeHeldHops()
         let state = AppThemingPageState(perform: worker.perform, deliver: hops.deliver)
         let preview = AppThemePreview(
-            engine: sandbox.engine(AppThemeFakeEnvironment()), values: .init(), dark: false
+            engine: sandbox.engine(AppThemeFakeEnvironment()), dark: false
         ) { AppThemeFixtures.palette }
         var delivered: [String] = []
         state.review(preview) { _ in delivered.append("old") }
@@ -111,14 +110,14 @@ final class AppThemingPageStateTests: XCTestCase {
         let hops = AppThemeHeldHops()
         let state = AppThemingPageState(perform: worker.perform, deliver: hops.deliver)
         let preview = AppThemePreview(
-            engine: sandbox.engine(AppThemeFakeEnvironment()), values: .init(), dark: false
+            engine: sandbox.engine(AppThemeFakeEnvironment()), dark: false
         ) { AppThemeFixtures.palette }
         let custom = SettingsExport.AppTheming.Custom(
             name: "Missing template", template: sandbox.path("missing.template").path,
             output: sandbox.path(".config/custom/theme").path
         )
         var received: Result<[AppThemeChange], Error>?
-        state.review(preview, target: preview.target(for: custom)) { received = $0 }
+        state.review(preview, target: custom.target) { received = $0 }
         worker.release()
         XCTAssertNil(received)
         hops.release()

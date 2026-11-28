@@ -65,6 +65,7 @@ final class WindowGatherCLITests: XCTestCase {
             windowActions: [],
             windowMarkActions: [],
             windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
+            dwindleActions: [],
             shellActions: []
         )
         let commandsText = try render(.success(id: "commands", kind: .query, result: IPCResult(commands: commands)))
@@ -83,6 +84,7 @@ final class WindowGatherCLITests: XCTestCase {
             windowActions: [],
             windowMarkActions: [],
             windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
+            dwindleActions: [],
             shellActions: [],
             subscriptions: []
         )

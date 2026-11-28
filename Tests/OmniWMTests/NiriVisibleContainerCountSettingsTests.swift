@@ -159,6 +159,108 @@ final class NiriVisibleContainerCountSettingsTests: XCTestCase {
         }
     }
 
+    func testTheSetVisibleContainersCommandMatchesChoosingTheCountInSettings() throws {
+        let command = try makeFixture { $0.defaultContainerPrimarySpan = nil }
+        let slider = try makeFixture { $0.defaultContainerPrimarySpan = nil }
+        let count = 4
+        XCTAssertFalse(command.controller.settings.niri.fitToVisibleContainerCount)
+
+        XCTAssertEqual(
+            command.controller.commandHandler.performCommand(.sizing(.setVisibleContainers(count))),
+            .executed
+        )
+        slider.controller.settings.niri.fitToVisibleContainerCount = true
+        slider.controller.settings.niri.visibleContainerCount = count
+        slider.controller.applyNiriVisibleContainerSettings()
+
+        let settings = command.controller.settings.niri
+        XCTAssertTrue(settings.fitToVisibleContainerCount)
+        XCTAssertEqual(settings.visibleContainerCount, count)
+        XCTAssertEqual(command.engine.effectiveSettings(for: command.leftMonitor.id).visibleContainerCount, count)
+        XCTAssertTrue(command.engine.effectiveSettings(for: command.leftMonitor.id).fitsVisibleContainerCount)
+        XCTAssertEqual(widths(command).left, widths(slider).left)
+        XCTAssertEqual(widths(command).right, widths(slider).right)
+        XCTAssertEqual(widths(command).left, [1 / CGFloat(count), 1 / CGFloat(count)])
+    }
+
+    func testTheSetVisibleContainersCommandChangesNothingWhenTheCountIsAlreadySet() throws {
+        let fixture = try makeFixture { niri in
+            niri.defaultContainerPrimarySpan = nil
+            niri.visibleContainerCount = 3
+            niri.fitToVisibleContainerCount = true
+        }
+        fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.leftWorkspaceId) {
+            fixture.engine.columns(in: fixture.leftWorkspaceId)[0].width = .proportion(0.4)
+        }
+        let before = widths(fixture)
+
+        XCTAssertEqual(fixture.controller.commandHandler.performCommand(.sizing(.setVisibleContainers(3))), .noChange)
+
+        XCTAssertEqual(widths(fixture).left, before.left)
+        XCTAssertEqual(widths(fixture).right, before.right)
+    }
+
+    func testTheSetVisibleContainersCommandLeavesADisplayOverrideInCharge() throws {
+        let fixture = try makeFixture { $0.defaultContainerPrimarySpan = nil }
+        let overrideCount = 3
+        let globalCount = 4
+        overrideVisibleContainerCount(overrideCount, on: fixture.leftMonitor, fixture: fixture)
+
+        XCTAssertEqual(
+            fixture.controller.commandHandler.performCommand(.sizing(.setVisibleContainers(globalCount))),
+            .executed
+        )
+
+        let left = fixture.engine.effectiveSettings(for: fixture.leftMonitor.id).visibleContainerCount
+        let right = fixture.engine.effectiveSettings(for: fixture.rightMonitor.id).visibleContainerCount
+        XCTAssertEqual(left, overrideCount)
+        XCTAssertEqual(right, globalCount)
+        XCTAssertEqual(widths(fixture).left, [1 / CGFloat(overrideCount), 1 / CGFloat(overrideCount)])
+        XCTAssertEqual(widths(fixture).right, [1 / CGFloat(globalCount), 1 / CGFloat(globalCount)])
+    }
+
+    func testSetVisibleContainersZeroMatchesChoosingOffInSettings() throws {
+        let configure: (NiriSettings) -> Void = { niri in
+            niri.defaultContainerPrimarySpan = nil
+            niri.visibleContainerCount = 3
+            niri.fitToVisibleContainerCount = true
+        }
+        let command = try makeFixture(configure: configure)
+        let slider = try makeFixture(configure: configure)
+        for fixture in [command, slider] {
+            fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.leftWorkspaceId) {
+                fixture.engine.columns(in: fixture.leftWorkspaceId)[0].width = .proportion(0.4)
+            }
+        }
+        let before = widths(command)
+
+        XCTAssertEqual(command.controller.commandHandler.performCommand(.sizing(.setVisibleContainers(0))), .executed)
+        slider.controller.settings.niri.fitToVisibleContainerCount = false
+        slider.controller.applyNiriVisibleContainerSettings()
+
+        XCTAssertFalse(command.controller.settings.niri.fitToVisibleContainerCount)
+        XCTAssertEqual(command.controller.settings.niri.visibleContainerCount, 3)
+        XCTAssertFalse(command.engine.effectiveSettings(for: command.leftMonitor.id).fitsVisibleContainerCount)
+        XCTAssertEqual(widths(command).left, widths(slider).left)
+        XCTAssertEqual(widths(command).left, before.left)
+        XCTAssertEqual(widths(command).right, before.right)
+        XCTAssertEqual(command.controller.commandHandler.performCommand(.sizing(.setVisibleContainers(0))), .noChange)
+    }
+
+    func testTheSetVisibleContainersCommandKeepsSizesWhenSettingsChangesKeepThem() throws {
+        let fixture = try makeFixture { niri in
+            niri.defaultContainerPrimarySpan = nil
+            niri.keepSizesOnSettingsChange = true
+        }
+        let before = widths(fixture)
+
+        XCTAssertEqual(fixture.controller.commandHandler.performCommand(.sizing(.setVisibleContainers(4))), .executed)
+
+        XCTAssertEqual(fixture.controller.settings.niri.visibleContainerCount, 4)
+        XCTAssertEqual(widths(fixture).left, before.left)
+        XCTAssertEqual(widths(fixture).right, before.right)
+    }
+
     private func drawnWidths(_ fixture: Fixture) -> [CGFloat] {
         let gap = fixture.controller.innerGap(for: fixture.leftMonitor)
         fixture.controller.workspaceManager.withEngineMutationScope(in: fixture.leftWorkspaceId) {

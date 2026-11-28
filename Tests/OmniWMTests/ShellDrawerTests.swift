@@ -11,19 +11,19 @@ final class ShellDrawerTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try Data("""
-        [profiles.default.drawer.controls]
-        widgets = ["volume", "media"]
-        hover = true
-        [profiles.default.drawer.agenda]
-        edge = "left"
-        widgets = ["calendar"]
-        [profiles.default.drawer.sideways]
-        edge = "middle"
-        widgets = ["clock"]
-        [profiles.default.drawer.empty]
-        edge = "top"
-        widgets = []
-        """.utf8).write(to: root.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    drawer = {
+                        controls = { widgets = { "volume", "media" }, hover = true },
+                        agenda = { edge = "left", widgets = { "calendar" } },
+                        sideways = { edge = "middle", widgets = { "clock" } },
+                        empty = { edge = "top", widgets = {} },
+                    },
+                },
+            },
+        }
+        """.utf8).write(to: root.appendingPathComponent("shell.luau"))
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(config.drawers, [
             ShellDrawerConfig(id: "agenda", edge: .left, widgets: ["calendar"], hover: false),
@@ -36,17 +36,18 @@ final class ShellDrawerTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try Data("""
-        [profiles.default.drawer.shelf]
-        edge = "top"
-        present = "island"
-        hover = true
-        close = "leave"
-        [profiles.default.drawer.odd]
-        widgets = ["dash"]
-        present = "window"
-        [profiles.default.drawer.bare]
-        present = "panel"
-        """.utf8).write(to: root.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    drawer = {
+                        shelf = { edge = "top", present = "island", hover = true, close = "leave" },
+                        odd = { widgets = { "dash" }, present = "window" },
+                        bare = { present = "panel" },
+                    },
+                },
+            },
+        }
+        """.utf8).write(to: root.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let drawers = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)).drawers
         let shelf = try XCTUnwrap(drawers.first { $0.id == "shelf" })
@@ -55,8 +56,10 @@ final class ShellDrawerTests: XCTestCase {
         XCTAssertEqual(shelf.edge, .top)
         XCTAssertTrue(shelf.closesOnLeave)
         XCTAssertEqual(drawers.map(\.id), ["shelf"])
-        XCTAssertTrue(problems.contains { $0.contains("present must be") }, "\(problems)")
-        XCTAssertTrue(problems.contains { $0.contains("[drawer.bare] needs at least one widget") }, "\(problems)")
+        XCTAssertEqual(problems, [
+            #"shell.luau: drawer["bare"].widgets needs at least one widget"#,
+            #"shell.luau: drawer["odd"].present must be "panel" or "island""#
+        ])
     }
 
     func testIslandDrawersHoldWhileThePointerIsOverTheIslandAndCloseAfterLeaving() {
@@ -238,18 +241,25 @@ final class ShellDrawerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try Data("""
-        [profiles.default.drawer.dashboard]
-        edge = "top"
-        widgets = ["dash"]
-        hover = true
-        reach = 10
-        width = 900
-        close = "leave"
-        chrome = false
-        [profiles.default.drawer.odd]
-        widgets = ["dash"]
-        close = "never"
-        """.utf8).write(to: root.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    drawer = {
+                        dashboard = {
+                            edge = "top",
+                            widgets = { "dash" },
+                            hover = true,
+                            reach = 10,
+                            width = 900,
+                            close = "leave",
+                            chrome = false,
+                        },
+                        odd = { widgets = { "dash" }, close = "never" },
+                    },
+                },
+            },
+        }
+        """.utf8).write(to: root.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let drawers = try XCTUnwrap(ShellConfig.load(shellDirectory: root, problems: &problems)).drawers
         let dashboard = try XCTUnwrap(drawers.first { $0.id == "dashboard" })

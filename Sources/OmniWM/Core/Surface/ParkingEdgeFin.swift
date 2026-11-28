@@ -29,7 +29,7 @@ final class ParkingEdgeFinWindow: NSPanel {
         isFloatingPanel = true
         isOpaque = false
         backgroundColor = .clear
-        level = .statusBar
+        level = ParkingEdgeMaskWindow.windowLevel
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         hasShadow = false
@@ -170,9 +170,8 @@ private final class ParkingEdgeFinView: NSView {
         addSubview(arrow)
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     override func setFrameSize(_ newSize: NSSize) {

@@ -7,9 +7,10 @@ import XCTest
 
 final class CommandPaletteSettingsTests: XCTestCase {
     func testMissingTableTurnsUnifiedSearchOffWithDefaultSearchedModes() throws {
-        let decoded = try SettingsTOMLCodec.decode(Data(removingCommandPaletteTable().utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(removingCommandPaletteTable().utf8))
 
         XCTAssertFalse(decoded.commandPalette.unifiedSearch)
+        XCTAssertFalse(decoded.commandPalette.openExpanded)
         XCTAssertEqual(decoded.commandPalette.searchedModes, [.windows, .applications, .commands, .files])
     }
 
@@ -17,22 +18,17 @@ final class CommandPaletteSettingsTests: XCTestCase {
         var settings = SettingsExport.defaults()
         settings.commandPalette.unifiedSearch = true
         settings.commandPalette.searchedModes = [.files, .clipboard, .windows]
+        settings.commandPalette.openExpanded = true
 
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(settings))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(settings))
 
         XCTAssertEqual(decoded.commandPalette, settings.commandPalette)
     }
 
     func testUnknownAndDuplicateSearchedModesAreDropped() throws {
-        let toml = try removingCommandPaletteTable() + """
+        let source = "return { commandPalette = { unifiedSearch = true, searchedModes = { 'files', 'everything', 'windows', 'files' } } }"
 
-        [commandPalette]
-        unifiedSearch = true
-        searchedModes = ["files", "everything", "windows", "files"]
-
-        """
-
-        let decoded = try SettingsTOMLCodec.decode(Data(toml.utf8))
+        let decoded = try SettingsLuauFixture.decode(Data(source.utf8))
 
         XCTAssertTrue(decoded.commandPalette.unifiedSearch)
         XCTAssertEqual(decoded.commandPalette.searchedModes, [.files, .windows])
@@ -52,6 +48,7 @@ final class CommandPaletteSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.commandPalette.unifiedSearch = true
         export.commandPalette.searchedModes = [.menu, .commands]
+        export.commandPalette.openExpanded = true
 
         settings.applyExport(export)
 
@@ -60,11 +57,8 @@ final class CommandPaletteSettingsTests: XCTestCase {
     }
 
     private func removingCommandPaletteTable() throws -> String {
-        let encoded = try String(decoding: SettingsTOMLCodec.encode(SettingsExport.defaults()), as: UTF8.self)
-        var inPaletteTable = false
-        return encoded.components(separatedBy: "\n").filter { line in
-            if line.hasPrefix("[") { inPaletteTable = line == "[commandPalette]" }
-            return !inPaletteTable
-        }.joined(separator: "\n")
+        var fields = try SettingsLuauFixture.fields()
+        fields.removeValue(forKey: "commandPalette")
+        return String(decoding: SettingsLuauFixture.source(fields), as: UTF8.self)
     }
 }

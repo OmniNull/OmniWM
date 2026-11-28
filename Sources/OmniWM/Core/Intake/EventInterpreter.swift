@@ -40,7 +40,7 @@ final class EventInterpreter: EventIntakeSink {
             handleApplicationIntakeEvent(event, sequence: stamped.seq, controller: controller)
 
         case let .axWindow(event):
-            handleAXWindowIntakeEvent(event, controller: controller)
+            handleAXWindowIntakeEvent(event, sequence: stamped.seq, controller: controller)
 
         case let .cgs(event):
             controller.axEventHandler.handleCGSEvent(event)
@@ -149,7 +149,7 @@ final class EventInterpreter: EventIntakeSink {
                 + " repeat=\(invocation.trigger?.isRepeat.description ?? "unknown")"
                 + " cmd=\(invocation.command.displayName)"
         )
-        let result = controller.commandHandler.handleHotkeyInvocation(invocation)
+        let result = CommandHandler.handleHotkeyInvocation(invocation, controller: controller)
         InputTrace.record(
             "hotkey.dispatch.end seq=\(sequence)"
                 + " selected=\(TraceFormat.token(controller.workspaceManager.selectedManagedToken))"
@@ -221,7 +221,7 @@ final class EventInterpreter: EventIntakeSink {
         }
     }
 
-    private func handleAXWindowIntakeEvent(_ event: AXWindowIntakeEvent, controller: WMController) {
+    private func handleAXWindowIntakeEvent(_ event: AXWindowIntakeEvent, sequence: UInt64, controller: WMController) {
         switch event {
         case let .focusedWindowChanged(pid, callbackGeneration):
             guard acceptsCallbackGeneration(callbackGeneration, pid: pid) else { return }
@@ -242,11 +242,16 @@ final class EventInterpreter: EventIntakeSink {
 
         case let .windowMiniaturized(pid, axRef, callbackGeneration):
             guard acceptsCallbackGeneration(callbackGeneration, pid: pid) else { return }
-            controller.axEventHandler.handleWindowMinimized(pid: pid, axRef: axRef, minimized: true)
+            controller.axEventHandler.handleWindowMinimized(pid: pid, axRef: axRef, minimized: true, sequence: sequence)
 
         case let .windowDeminiaturized(pid, axRef, callbackGeneration):
             guard acceptsCallbackGeneration(callbackGeneration, pid: pid) else { return }
-            controller.axEventHandler.handleWindowMinimized(pid: pid, axRef: axRef, minimized: false)
+            controller.axEventHandler.handleWindowMinimized(
+                pid: pid,
+                axRef: axRef,
+                minimized: false,
+                sequence: sequence
+            )
 
         case let .titleChanged(pid, windowId, callbackGeneration):
             guard acceptsCallbackGeneration(callbackGeneration, pid: pid) else { return }

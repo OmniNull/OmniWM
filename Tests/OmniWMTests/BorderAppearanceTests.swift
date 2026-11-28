@@ -6,7 +6,7 @@ import XCTest
 
 @MainActor
 final class BorderAppearanceTests: XCTestCase {
-    func testGradientAndGlowRoundTripThroughTOML() throws {
+    func testGradientAndGlowRoundTripThroughLuau() throws {
         let cases: [(BorderGradient?, BorderGlow?)] = [
             (
                 BorderGradient(enabled: true, start: solidRed, end: solidBlue, direction: .topRightToBottomLeft),
@@ -28,32 +28,31 @@ final class BorderAppearanceTests: XCTestCase {
             var export = SettingsExport.defaults()
             export.borders.gradient = gradient
             export.borders.glow = glow
-            let data = try SettingsTOMLCodec.encode(export)
-            let toml = String(decoding: data, as: UTF8.self)
-            let decoded = try SettingsTOMLCodec.decode(data)
-            XCTAssertEqual(toml.contains("[borders.gradient]"), gradient != nil)
-            XCTAssertEqual(toml.contains("[borders.glow]"), glow != nil)
-            XCTAssertFalse(toml.contains("gradient.dark"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            let fields = try SettingsLuauFixture.fields(in: data)
+            let decoded = try SettingsLuauFixture.decode(data)
+            XCTAssertEqual((fields["borders"]?["gradient"] != nil), gradient != nil)
+            XCTAssertEqual((fields["borders"]?["glow"] != nil), glow != nil)
+            XCTAssertNil(fields["borders"]?["gradient"]?["dark"])
             XCTAssertNil(decoded.borders.gradient?.dark)
             XCTAssertEqual(decoded.borders.gradient, gradient)
             XCTAssertEqual(decoded.borders.glow, glow)
         }
     }
 
-    func testAbsentGradientAndGlowRemainAbsentInTOML() throws {
+    func testAbsentGradientAndGlowRemainAbsentInLuau() throws {
         let defaults = SettingsExport.defaults().borders
         XCTAssertNil(defaults.gradient)
         XCTAssertNil(defaults.glow)
         XCTAssertNil(defaults.darkColor)
         XCTAssertTrue(defaults.enabled)
         XCTAssertEqual(defaults.width, 5)
-        let data = try SettingsTOMLCodec.encode(.defaults())
-        let toml = String(decoding: data, as: UTF8.self)
-
-        XCTAssertFalse(toml.contains("[borders.gradient]"))
-        XCTAssertFalse(toml.contains("[borders.glow]"))
-        XCTAssertFalse(toml.contains("darkColor"))
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(.defaults())
+        let fields = try SettingsLuauFixture.fields(in: data)
+        XCTAssertNil(fields["borders"]?["gradient"])
+        XCTAssertNil(fields["borders"]?["glow"])
+        XCTAssertNil(fields["borders"]?["darkColor"])
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertNil(decoded.borders.gradient)
         XCTAssertNil(decoded.borders.glow)
         XCTAssertNil(decoded.borders.darkColor)
@@ -111,32 +110,32 @@ final class BorderAppearanceTests: XCTestCase {
         }
     }
 
-    func testDarkBorderColorRoundTripsThroughTOML() throws {
+    func testDarkBorderColorRoundTripsThroughLuau() throws {
         var export = SettingsExport.defaults()
         export.borders.darkColor = solidBlue
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let fields = try SettingsLuauFixture.fields(in: data)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("[borders.darkColor]"))
+        XCTAssertTrue((fields["borders"]?["darkColor"] != nil))
         XCTAssertEqual(decoded.borders.darkColor, solidBlue)
     }
 
-    func testGradientDarkColorsRoundTripThroughTOML() throws {
+    func testGradientDarkColorsRoundTripThroughLuau() throws {
         for end in [solidRed, nil] {
             var export = SettingsExport.defaults()
             var gradient = BorderGradient.default
             gradient.enabled = true
             gradient.dark = BorderGradientColors(start: solidBlue, end: end)
             export.borders.gradient = gradient
-            let data = try SettingsTOMLCodec.encode(export)
-            let toml = String(decoding: data, as: UTF8.self)
-            let decoded = try SettingsTOMLCodec.decode(data)
-            XCTAssertTrue(toml.contains("[borders.gradient.dark]"))
+            let data = try SettingsLuauDocument.initialSource(export)
+            let fields = try SettingsLuauFixture.fields(in: data)
+            let decoded = try SettingsLuauFixture.decode(data)
+            XCTAssertTrue((fields["borders"]?["gradient"]?["dark"] != nil))
             XCTAssertEqual(decoded.borders.gradient?.dark, gradient.dark)
             if end == nil {
-                XCTAssertFalse(toml.contains("gradient.dark.end"))
+                XCTAssertNil(fields["borders"]?["gradient"]?["dark"]?["end"])
                 XCTAssertEqual(decoded.borders.gradient?.dark?.start, solidBlue)
                 XCTAssertNil(decoded.borders.gradient?.dark?.end)
                 let resolved = BorderConfig.resolvedGradient(try XCTUnwrap(decoded.borders.gradient), isDark: true)
@@ -147,7 +146,7 @@ final class BorderAppearanceTests: XCTestCase {
         }
     }
 
-    func testEditingDarkGradientStartKeepsEndInheritedThroughTOML() throws {
+    func testEditingDarkGradientStartKeepsEndInheritedThroughLuau() throws {
         let settings = BorderSettings()
         settings.gradient = .default
         settings.setDarkGradientColor(solidBlue, at: \.start)
@@ -155,11 +154,11 @@ final class BorderAppearanceTests: XCTestCase {
 
         var export = SettingsExport.defaults()
         export.borders = settings.export()
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(toml.contains("[borders.gradient.dark]"))
-        XCTAssertFalse(toml.contains("gradient.dark.end"))
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let fields = try SettingsLuauFixture.fields(in: data)
+        XCTAssertTrue((fields["borders"]?["gradient"]?["dark"] != nil))
+        XCTAssertNil(fields["borders"]?["gradient"]?["dark"]?["end"])
+        let decoded = try SettingsLuauFixture.decode(data)
         let gradient = try XCTUnwrap(decoded.borders.gradient)
         let resolved = BorderConfig.resolvedGradient(gradient, isDark: true)
 
@@ -170,7 +169,7 @@ final class BorderAppearanceTests: XCTestCase {
         XCTAssertNil(resolved.dark)
     }
 
-    func testEditingDarkGradientEndKeepsStartInheritedThroughTOML() throws {
+    func testEditingDarkGradientEndKeepsStartInheritedThroughLuau() throws {
         let settings = BorderSettings()
         settings.gradient = .default
         settings.setDarkGradientColor(solidRed, at: \.end)
@@ -178,7 +177,7 @@ final class BorderAppearanceTests: XCTestCase {
 
         var export = SettingsExport.defaults()
         export.borders = settings.export()
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         let gradient = try XCTUnwrap(decoded.borders.gradient)
         let resolved = BorderConfig.resolvedGradient(gradient, isDark: true)
 
@@ -188,7 +187,7 @@ final class BorderAppearanceTests: XCTestCase {
         XCTAssertEqual(resolved.end, solidRed)
     }
 
-    func testResettingDarkGradientEndpointsRestoresInheritanceThroughTOML() throws {
+    func testResettingDarkGradientEndpointsRestoresInheritanceThroughLuau() throws {
         let settings = BorderSettings()
         settings.gradient = .default
         settings.setDarkGradientColor(solidBlue, at: \.start)
@@ -201,18 +200,18 @@ final class BorderAppearanceTests: XCTestCase {
         settings.setDarkGradientColor(nil, at: \.end)
         var export = SettingsExport.defaults()
         export.borders = settings.export()
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
         let gradient = try XCTUnwrap(decoded.borders.gradient)
         let resolved = BorderConfig.resolvedGradient(gradient, isDark: true)
 
-        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("[borders.gradient.dark]"))
+        XCTAssertNil(try SettingsLuauFixture.fields(in: data)["borders"]?["gradient"]?["dark"])
         XCTAssertNil(gradient.dark)
         XCTAssertEqual(resolved.start, gradient.start)
         XCTAssertEqual(resolved.end, gradient.end)
     }
 
-    func testResettingBorderAndGlowColorsRestoresInheritanceThroughTOML() throws {
+    func testResettingBorderAndGlowColorsRestoresInheritanceThroughLuau() throws {
         let settings = BorderSettings()
         settings.color = solidRed
         settings.darkColor = solidBlue
@@ -224,7 +223,7 @@ final class BorderAppearanceTests: XCTestCase {
         settings.glow?.color = nil
         var export = SettingsExport.defaults()
         export.borders = settings.export()
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         let glow = try XCTUnwrap(decoded.borders.glow)
 
         XCTAssertNil(decoded.borders.darkColor)

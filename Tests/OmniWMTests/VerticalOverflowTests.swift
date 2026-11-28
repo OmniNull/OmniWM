@@ -271,7 +271,7 @@ final class VerticalOverflowTests: XCTestCase {
         )
         let pass = NiriColumnLayoutPass(
             context: context, viewport: viewport, activeIndex: isActive ? 1 : 0,
-            viewPosition: 0, selectedNodeId: nil, settledContentFrame: nil
+            viewPosition: 0, selectedNodeId: nil, isSettled: false, tuckContentFrame: nil
         )
         var result = LayoutResult(frames: [:], hiddenHandles: [:])
         engine.layoutProjectedColumn(

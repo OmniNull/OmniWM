@@ -16,4 +16,4 @@ Hover at the top centre to open the dashboard, with Dashboard, Media, Performanc
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). Appearance follows Caelestia. Rubik and Google Sans Flex are supplied under the SIL Open Font License; retain [fonts/OFL.txt](fonts/OFL.txt) and [fonts/GoogleSansFlex-LICENSE.txt](fonts/GoogleSansFlex-LICENSE.txt). Material Symbols Rounded is supplied under the Apache License 2.0; retain [fonts/MaterialSymbols-LICENSE.txt](fonts/MaterialSymbols-LICENSE.txt).
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). Appearance follows Caelestia. Rubik and Google Sans Flex are supplied under the SIL Open Font License; retain [fonts/OFL.txt](fonts/OFL.txt) and [fonts/GoogleSansFlex-LICENSE.txt](fonts/GoogleSansFlex-LICENSE.txt). Material Symbols Rounded is supplied under the Apache License 2.0; retain [fonts/MaterialSymbols-LICENSE.txt](fonts/MaterialSymbols-LICENSE.txt).

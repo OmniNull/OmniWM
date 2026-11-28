@@ -100,10 +100,19 @@ extension WorkspaceBarManager {
 
     func applyVisibility(_ visible: Bool, on monitorId: Monitor.ID) {
         guard let instance = barsByMonitor[monitorId] else { return }
-        let panels = [instance.primary.panel, instance.secondary?.panel].compactMap { $0 }
-        for panel in panels where panel.isVisible != visible {
-            if visible { panel.orderFrontRegardless() } else { panel.orderOut(nil) }
-        }
+        shownBarFrames[monitorId] = WorkspaceBarShownFrames(
+            primary: Self.order(instance.primary.panel, visible: visible),
+            secondary: instance.secondary.flatMap { Self.order($0.panel, visible: visible) }
+        )
         if !visible { closeShellSystemStats(on: monitorId) }
+    }
+
+    private static func order(_ panel: WorkspaceBarPanel, visible: Bool) -> CGRect? {
+        var shown = panel.isVisible
+        if shown != visible {
+            if visible { panel.orderFrontRegardless() } else { panel.orderOut(nil) }
+            shown = panel.isVisible
+        }
+        return shown ? panel.frame : nil
     }
 }

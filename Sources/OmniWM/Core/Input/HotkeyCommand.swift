@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 struct PhysicalHotkeyTrigger: Equatable, Hashable, Sendable {
@@ -56,6 +57,7 @@ enum HotkeyCommand: Equatable, Hashable {
 
     case openCommandPalette
     case openCommandPaletteMode(IPCCommandPaletteMode)
+    case windowSwitcher(direction: IPCWindowSwitcherDirection, scope: WindowSwitcherScope?)
 
     case raiseAllFloatingWindows
     case toggleFloatingFocus
@@ -63,6 +65,7 @@ enum HotkeyCommand: Equatable, Hashable {
     case windowState(IPCWindowStateCommand)
 
     case openMenuAnywhere
+    case openSettings
     case windowMark(WindowMarkHotkeyAction)
 
     case presentation(IPCPresentationCommand)
@@ -79,6 +82,10 @@ enum HotkeyCommand: Equatable, Hashable {
     case sizing(SizingAction)
     case dwindle(DwindleAction)
     case scratchpad(ScratchpadAction)
+    case configFunction(Int)
+    case namedKeyMode(Int)
+    case runProgram([String])
+    case showNotice(String)
 
     var displayName: String {
         ActionCatalog.title(for: self) ?? String(describing: self)
@@ -89,10 +96,15 @@ enum HotkeyCommand: Equatable, Hashable {
     }
 
     var layoutCompatibility: LayoutCompatibility {
-        if case let .sizing(action) = self {
-            return action.compatibility
+        switch self {
+        case .configFunction,
+             .namedKeyMode,
+             .runProgram,
+             .showNotice: .shared
+        case let .sizing(action): action.compatibility
+        case let .workspace(action): action.compatibility
+        default: ActionCatalog.layoutCompatibility(for: self) ?? .shared
         }
-        return ActionCatalog.layoutCompatibility(for: self) ?? .shared
     }
 
     var repeatsInPrefix: Bool {
@@ -107,7 +119,8 @@ enum HotkeyCommand: Equatable, Hashable {
              .sizing(.resizeWindowPrimarySpan),
              .sizing(.resizeWindowSecondarySpan),
              .dwindle(.resizeAlongAxis),
-             .dwindle(.resizeFocusedWindow):
+             .dwindle(.resizeFocusedWindow),
+             .dwindle(.resizeInDirection):
             true
         default:
             false

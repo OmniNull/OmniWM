@@ -153,7 +153,8 @@ extension DwindleLayoutEngine {
             return nil
         }
 
-        _ = tile.toggleFullscreen(for: handle)
+        let fullscreen = tile.toggleFullscreen(for: handle)
+        onFullscreenChange?(handle, !fullscreen)
         return handle
     }
 
@@ -163,7 +164,8 @@ extension DwindleLayoutEngine {
               let tile = state.leafByToken[token]?.tile,
               visibleMember(in: tile, excluding: state.excludedTokens)?.token == token
         else { return false }
-        _ = tile.toggleFullscreen(for: token)
+        let fullscreen = tile.toggleFullscreen(for: token)
+        onFullscreenChange?(token, !fullscreen)
         return true
     }
 }

@@ -39,7 +39,7 @@ extension AXEventHandler {
         admissionRetryStateByWindowId.values.contains { state in
             guard !state.exhausted,
                   !state.identityRebindTargetDestroyed,
-                  case let .identityRebind(oldWindow, _, metadata, _, _) = state.trigger
+                  case let .identityRebind(oldWindow, _, metadata, _, _, _) = state.trigger
             else {
                 return false
             }

@@ -61,7 +61,7 @@ extension NiriLayoutHandler {
 
         let scrollTrace = ScrollTickTrace.shared.isActive
         let animsStart = scrollTrace ? CACurrentMediaTime() : 0
-        let windowAnimationsRunning = engine.tickAllWindowAnimations(in: wsId, at: targetTime)
+        let windowAxes = engine.advanceWindowAnimations(in: wsId, at: targetTime)
         let columnAnimationsRunning = engine.tickAllColumnAnimations(in: wsId, at: targetTime)
         let viewportTick = controller.workspaceManager.animationDriver.tickResult(in: wsId, at: targetTime)
         applyExpiredViewportGesture(viewportTick, workspaceId: wsId, controller: controller)
@@ -71,7 +71,7 @@ extension NiriLayoutHandler {
         let animsMs = scrollTrace ? (CACurrentMediaTime() - animsStart) * 1000 : 0
         let state = controller.workspaceManager.niriViewportState(for: wsId)
         let animationsOngoing = viewportMotionRunning
-            || windowAnimationsRunning
+            || !windowAxes.isEmpty
             || columnAnimationsRunning
 
         let didApplyFrames = applyFramesOnDemand(
@@ -81,7 +81,9 @@ extension NiriLayoutHandler {
             monitor: monitor,
             animationTime: targetTime,
             settlesAnimation: !animationsOngoing,
-            animsMs: animsMs
+            animsMs: animsMs,
+            edgeTuck: !viewportMotionRunning && !state.hasPendingOffsetAnimation && !columnAnimationsRunning
+                ? .windowAnimations(windowAxes) : .settledOnly
         )
         guard didApplyFrames else {
             controller.layoutRefreshController.requestRelayout(
@@ -120,6 +122,7 @@ extension NiriLayoutHandler {
         animationTime: TimeInterval? = nil,
         settlesAnimation: Bool = false,
         animsMs: Double = 0,
+        edgeTuck: NiriEdgeTuck? = nil,
         isInteractiveMove: Bool = false,
         requiringSettledFrameFor carried: WindowToken? = nil
     ) -> Bool {
@@ -148,7 +151,8 @@ extension NiriLayoutHandler {
         let buildStart = CACurrentMediaTime()
         let plan = buildOnDemandLayoutPlan(
             snapshot: snapshot, engine: engine, monitor: monitor,
-            animationTime: animationTime, settlesAnimation: settlesAnimation, isInteractiveMove: isInteractiveMove
+            animationTime: animationTime, settlesAnimation: settlesAnimation,
+            edgeTuck: edgeTuck, isInteractiveMove: isInteractiveMove
         )
         let buildSeconds = CACurrentMediaTime() - buildStart
         controller.layoutRefreshController.recordScrollBuild(
@@ -174,6 +178,25 @@ extension NiriLayoutHandler {
         }
         guard applied, let carried else { return applied }
         return LayoutDiffExecutor.isFrameOnly(plan.diff) && plan.diff.frameChanges.contains { $0.token == carried }
+    }
+
+    func onDemandIsIdle(_ snapshot: NiriWorkspaceSnapshot, engine: NiriLayoutEngine) -> Bool {
+        guard let controller else { return false }
+        return !hasPendingNiriAnimationWork(
+            state: snapshot.viewportState, driver: controller.workspaceManager.animationDriver,
+            engine: engine, workspaceId: snapshot.workspaceId
+        )
+    }
+
+    func onDemandTuck(
+        snapshot: NiriWorkspaceSnapshot, engine: NiriLayoutEngine, time: TimeInterval?
+    ) -> NiriEdgeTuck {
+        guard time != nil,
+              !snapshot.viewportState.hasPendingOffsetAnimation,
+              controller?.workspaceManager.animationDriver.hasMotion(in: snapshot.workspaceId) == false,
+              !engine.hasAnyColumnAnimationsRunning(in: snapshot.workspaceId)
+        else { return .settledOnly }
+        return .windowAnimations(engine.windowAnimationAxes(in: snapshot.workspaceId))
     }
 
     private struct ScrollTickSpans {

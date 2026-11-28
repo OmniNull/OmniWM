@@ -7,13 +7,49 @@
     "Switching to a workspace whose remembered window is in macOS native fullscreen focuses that window, so macOS moves to its Space. When off, the workspace selects the window’s placeholder." : {
 
     },
+    "Mode key overridden by init.luau" : {
+
+    },
+    "Not registered" : {
+
+    },
+    "Shortcut overridden by init.luau" : {
+
+    },
+    "Shortcuts overridden by init.luau" : {
+
+    },
+    "To restore a Settings shortcut, remove the overlapping binding from init.luau." : {
+
+    },
+    "Edit init.luau" : {
+
+    },
+    "Fix the reported problem and save the file." : {
+
+    },
+    "Settings…" : {
+
+    },
+    "init.luau error" : {
+
+    },
+    "Code · %@:%lld" : {
+
+    },
     "Apply to Every New Matching Window" : {
 
     },
     "App’s Own Size" : {
 
     },
+    "Correct the reported value in %@ and save the file to apply your settings." : {
+
+    },
     "Keep Existing Window Sizes" : {
+
+    },
+    "Resolve the reported file problem at %@, then reload or restart OmniWM." : {
 
     },
     "With fewer columns than this number, columns grow to fill the display. Off keeps their own widths in horizontal strips and heights in vertical strips." : {
@@ -106,6 +142,9 @@
     "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way." : {
 
     },
+    "Automatically Show Secure Input Explanation" : {
+
+    },
     "Slide Workspace Switches" : {
 
     },
@@ -122,9 +161,6 @@
 
     },
     "App Theming guide" : {
-
-    },
-    "Color Ghostty, kitty, herdr, Neovim and your own templates from OmniWM’s palette." : {
 
     },
     "Neovim Theme" : {
@@ -172,9 +208,6 @@
     "%@ is not a regular file, so OmniWM won’t replace it" : {
 
     },
-    "%@ is not valid TOML, so OmniWM left it unchanged" : {
-
-    },
     "%@ is outside ~/.config and ~/Library/Application Support, so OmniWM won’t write it" : {
 
     },
@@ -198,6 +231,7 @@
 
     },
     "%lld of %lld saved machines reloaded" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -213,9 +247,6 @@
     "A custom template writes one file inside ~/.config or ~/Library/Application Support, rendered for the current macOS appearance." : {
 
     },
-    "A herdr client attached to another machine draws with this terminal’s colors, so OmniWM reloads every enabled saved machine after the terminal." : {
-
-    },
     "Add Custom Template" : {
 
     },
@@ -229,9 +260,6 @@
 
     },
     "Already up to date" : {
-
-    },
-    "Also reload saved herdr machines" : {
 
     },
     "App Theming" : {
@@ -334,19 +362,10 @@
     "Reload Ghostty" : {
 
     },
-    "Reload herdr" : {
-
-    },
     "Reload kitty" : {
 
     },
     "Reloaded Ghostty" : {
-
-    },
-    "Reloaded herdr" : {
-
-    },
-    "Reloaded herdr with warnings" : {
 
     },
     "Reloaded kitty" : {
@@ -356,9 +375,6 @@
 
     },
     "Replace Changed Files" : {
-
-    },
-    "Replacing the table would change other settings in the file, so OmniWM left it unchanged" : {
 
     },
     "Review and Replace…" : {
@@ -382,12 +398,6 @@
     "Terminal colors 0 to 15. Colors 1 to 15 keep at least 4.5:1 contrast with the background." : {
 
     },
-    "The [theme.custom] table of herdr’s config · reloads herdr through its socket API" : {
-
-    },
-    "The rendered template is not a valid TOML table" : {
-
-    },
     "The template %@ can’t be read" : {
 
     },
@@ -395,9 +405,6 @@
 
     },
     "Then reloads Ghostty" : {
-
-    },
-    "Then reloads herdr" : {
 
     },
     "Then reloads kitty" : {
@@ -421,31 +428,7 @@
     "Wrote %@" : {
 
     },
-    "herdr Theme" : {
-
-    },
-    "herdr couldn’t apply its config" : {
-
-    },
-    "herdr didn’t reload" : {
-
-    },
-    "herdr isn’t running; it uses the new colors when it starts" : {
-
-    },
-    "it closed the connection without a reply" : {
-
-    },
     "it isn’t valid app theming state" : {
-
-    },
-    "its output didn’t finish" : {
-
-    },
-    "its reply was too long" : {
-
-    },
-    "its socket path is too long" : {
 
     },
     "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark." : {
@@ -458,15 +441,6 @@
 
     },
     "kitty isn’t running; it uses the new theme when it opens" : {
-
-    },
-    "saved machines couldn’t be listed" : {
-
-    },
-    "the request couldn’t be written" : {
-
-    },
-    "timed out" : {
 
     },
     "Clear Pick History" : {
@@ -484,6 +458,9 @@
     "Open Command Palette searches several palette modes at once and shows up to three top hits above the results. Each mode’s own Command Palette shortcut still opens just that mode." : {
 
     },
+    "Opening" : {
+
+    },
     "Priority" : {
 
     },
@@ -499,7 +476,13 @@
     "Search…" : {
 
     },
+    "Show Results on Open" : {
+
+    },
     "Show all in %@" : {
+
+    },
+    "The palette opens with its results showing, so you can pick one with the arrow keys without typing first." : {
 
     },
     "Top Hits" : {
@@ -34187,6 +34170,7 @@
       }
     },
     "Compare %@ with %@, restore valid values, and then remove the recovery file." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -38288,6 +38272,7 @@
       }
     },
     "Correct the reported value at %@; OmniWM applies the file once it decodes. Saving from the Settings window first secures the rejected bytes as a recovery file." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -68457,6 +68442,7 @@
       }
     },
     "Inspect %@/settings.toml.corrupt and %@/settings.toml.corrupt.1 if present, then delete the recovery files to dismiss this notice." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -69331,6 +69317,7 @@
       }
     },
     "Invalid settings recovered" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -90565,6 +90552,7 @@
       }
     },
     "OmniWM could not decode %@: %@ The exact rejected bytes were preserved at %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -91702,6 +91690,7 @@
       }
     },
     "OmniWM left %@ untouched and blocked configuration writes: %@ The exact original bytes are at %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -91956,6 +91945,7 @@
       }
     },
     "OmniWM preserved settings data it could not parse as settings.toml.corrupt or settings.toml.corrupt.1." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -92576,6 +92566,7 @@
       }
     },
     "OmniWM upgraded %@ from schema version %lld to %lld. The exact original bytes were preserved at %@. %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -95433,130 +95424,6 @@
         }
       }
     },
-    "Opening OmniWM Settings…" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM設定を開いています…"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM-Einstellungen werden geöffnet…"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Åpner OmniWM-innstillinger…"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Öppnar OmniWM-inställningar…"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abriendo la configuración de OmniWM…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在打开 OmniWM 设置…"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM सेटिंग्स खोलना…"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "جارٍ فتح إعدادات OmniWM…"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otvaranje OmniWM podešavanja…"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Άνοιγμα ρυθμίσεων OmniWM…"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "פותח את הגדרות OmniWM…"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Открытие настроек OmniWM…"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otwieranie ustawień OmniWM…"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Відкриваємо налаштування OmniWM…"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouverture des paramètres OmniWM..."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM-instellingen worden geopend…"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apertura delle impostazioni di OmniWM…"
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avataan OmniWM-asetukset…"
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Åbner OmniWM-indstillinger…"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM 설정 여는 중..."
-          }
-        }
-      }
-    },
     "Opens macOS Trackpad settings. Select More Gestures to review system gestures." : {
       "localizations" : {
         "ja" : {
@@ -96548,6 +96415,9 @@
           }
         }
       }
+    },
+    "Overridden by Settings" : {
+
     },
     "Overrides" : {
       "localizations" : {
@@ -106611,6 +106481,7 @@
       }
     },
     "Remove or fix the keys in %@." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -107725,6 +107596,9 @@
           }
         }
       }
+    },
+    "Replace calculated settings?" : {
+
     },
     "Replaces compact markers with app icons. Applies to Niri and Dwindle." : {
       "localizations" : {
@@ -110831,6 +110705,7 @@
       }
     },
     "Resolve the reported schema or backup problem at %@, then reload or restart OmniWM." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -118280,6 +118155,15 @@
         }
       }
     },
+    "Script Commands" : {
+
+    },
+    "Script Rules" : {
+
+    },
+    "Script Shortcuts" : {
+
+    },
     "Secure Input Active" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -119782,6 +119666,7 @@
       }
     },
     "Settings recovery file available" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -119906,6 +119791,7 @@
       }
     },
     "Settings upgraded" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -125625,7 +125511,7 @@
     "Shrink Columns to Fit" : {
 
     },
-    "Keyboard resizing also resizes the other visible columns to fill the view. If a window can't shrink to its share, resize again." : {
+    "Keyboard resizing also resizes the other visible columns to fill the view, and visible columns that would extend past it are fitted on their own." : {
 
     },
     "Stack above" : {
@@ -126988,130 +126874,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기록을 시작하고 문제 하나를 재현한 다음 기록을 중지하고 저장된 추적 로그를 첨부하세요. 앱과 창의 증거는 자동으로 수집됩니다. 이 상세 기록은 실행 중 작업량을 바꾸므로 에너지 사용량 비교에 사용하면 안 됩니다."
-          }
-        }
-      }
-    },
-    "Starting OmniWM…" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWMを起動しています…"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM wird gestartet…"
-          }
-        },
-        "nb" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Starter OmniWM…"
-          }
-        },
-        "sv" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Startar OmniWM…"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Iniciando OmniWM…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在启动 OmniWM…"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM शुरू हो रहा है…"
-          }
-        },
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "جارٍ بدء OmniWM…"
-          }
-        },
-        "sr-Latn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokretanje OmniWM-a…"
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Εκκίνηση του OmniWM…"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "מפעיל את OmniWM…"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Запуск OmniWM…"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Uruchamianie OmniWM…"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Запуск OmniWM…"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Démarrage d’OmniWM…"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM wordt gestart…"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avvio di OmniWM…"
-          }
-        },
-        "fi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Käynnistetään OmniWM…"
-          }
-        },
-        "da" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Starter OmniWM…"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OmniWM 시작 중…"
           }
         }
       }
@@ -138948,6 +138710,7 @@
       }
     },
     "Unrecognized settings keys" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -140938,6 +140701,7 @@
       }
     },
     "Verify the upgraded settings, then keep the backup or delete %@ to dismiss this notice." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -150815,10 +150579,8 @@
         }
       }
     },
-    "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin" : {
-
-    },
     "settings.toml contains keys OmniWM does not recognize: %@. They are ignored." : {
+      "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -152345,6 +152107,9 @@
     "Removed mark ‘%@’ from the selected window." : {},
     "Marked the selected window as ‘%@’." : {},
     "Window mark name" : {},
+    "This script command is no longer available." : {
+
+    },
     "This window or mark is no longer available. Search again for a current result." : {},
     "Summon right is unavailable. Focus a managed window in the active workspace first." : {},
     "Choose which mark to remove from this window." : {},
@@ -159222,6 +158987,7 @@
 
     },
     "Edge navigation interval" : {},
+    "Niri Edge Navigation" : {},
     "Hover at a Niri screen edge to move one column after this interval, then repeat while the pointer stays on the edge or preview. Move away to stop." : {},
     "Each setting comes from the most specific matching rule that sets it; ties break by order — drag to reorder." : {
       "localizations" : {
@@ -160462,6 +160228,21 @@
           }
         }
       }
+    },
+    "%@ mode: its keys run their commands until you press Escape." : {
+
+    },
+    "%@ · Escape exits" : {
+
+    },
+    "Key Mode" : {
+
+    },
+    "Leave %@ Mode" : {
+
+    },
+    "In the %@ key mode" : {
+
     },
     "Leave Window Mode" : {
       "localizations" : {
@@ -164834,7 +164615,7 @@
     "Opens a persistent copy in your external editor. Visual options are in Styles & Widgets." : {
 
     },
-    "Rename this drawer in shell.toml to edit it here." : {
+    "Rename this drawer in shell.luau to edit it here." : {
 
     },
     "Sample data and panel layout. Hover settings change the trigger area, not the panel." : {
@@ -164987,7 +164768,7 @@
     "Allowed" : {
 
     },
-    "Declared by your shell.toml" : {
+    "Declared by your shell.luau" : {
 
     },
     "Needs approval" : {

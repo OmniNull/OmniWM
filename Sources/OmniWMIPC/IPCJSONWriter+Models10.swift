@@ -2,8 +2,146 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 extension IPCJSONWriter {
+    mutating func argument(_ name: StaticString, _ value: borrowing String, _ first: inout Bool) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key(name, &argumentFirst)
+        try self.value(value)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCWindowSwitcherDirection) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func value(_ value: borrowing IPCWindowSwitcherScope) throws {
+        try self.value(value.rawValue)
+    }
+
+    mutating func windowSwitcherArguments(
+        _ direction: IPCWindowSwitcherDirection,
+        _ scope: IPCWindowSwitcherScope?,
+        _ first: inout Bool
+    ) throws {
+        self.key("arguments", &first)
+        begin(123)
+        var argumentFirst = true
+        self.key("direction", &argumentFirst)
+        try self.value(direction)
+        switch scope {
+        case let fieldValue?:
+            self.key("scope", &argumentFirst)
+            try self.value(fieldValue)
+        case nil:
+            break
+        }
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCCommandRequest) throws {
+        begin(123)
+        var first = true
+        switch value.command {
+        case let .shellAppOpen(appID),
+             let .shellAppNewWindow(appID):
+            try argument("appId", appID, &first)
+        case let .focus(command):
+            try arguments(command, &first)
+        case let .windowMovement(command):
+            try arguments(command, &first)
+        case let .workspace(command):
+            try arguments(command, &first)
+        case let .column(command):
+            try arguments(command, &first)
+        case let .sizing(command):
+            try arguments(command, &first)
+        case let .dwindle(command):
+            try arguments(command, &first)
+        case let .workspaceLayout(command):
+            try arguments(command, &first)
+        case let .scratchpad(command):
+            try arguments(command, &first)
+        case let .swapWorkspaceWithMonitor(argument):
+            try self.argument("direction", argument, &first)
+        case let .openCommandPaletteMode(argument):
+            try self.argument("mode", argument.rawValue, &first)
+        case let .windowSwitcher(direction, scope):
+            try windowSwitcherArguments(direction, scope, &first)
+        case .monitorFocus,
+             .openCommandPalette,
+             .raiseAllFloatingWindows,
+             .toggleFloatingFocus,
+             .rescueOffscreenWindows,
+             .fullscreen,
+             .presentation,
+             .media,
+             .keyboardMode,
+             .windowState,
+             .openMenuAnywhere,
+             .openSettings:
+            break
+        }
+        self.key("name", &first)
+        try self.value(value.name)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing IPCCaptureRequest) throws {
+        switch value {
+        case let .start(profile):
+            begin(123)
+            var first = true
+            self.key("name", &first)
+            try self.value("start")
+            self.key("profile", &first)
+            try self.value(profile)
+            end(125)
+        case .stop:
+            begin(123)
+            var first = true
+            self.key("name", &first)
+            try self.value("stop")
+            end(125)
+        case .status:
+            begin(123)
+            var first = true
+            self.key("name", &first)
+            try self.value("status")
+            end(125)
+        }
+    }
+
+    mutating func fields0(_ value: borrowing IPCQuerySelectors, _ first: inout Bool) throws {
+        if let fieldValue = value.app {
+            self.key("app", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.bundleId {
+            self.key("bundleId", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.current {
+            self.key("current", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.display {
+            self.key("display", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.floating {
+            self.key("floating", &first)
+            try self.value(fieldValue)
+        }
+        if let fieldValue = value.focused {
+            self.key("focused", &first)
+            try self.value(fieldValue)
+        }
+    }
+
     mutating func fields1(_ value: borrowing IPCQuerySelectors, _ first: inout Bool) throws {
         if let fieldValue = value.main {
             self.key("main", &first)
@@ -119,142 +257,5 @@ extension IPCJSONWriter {
         try fields1(value, &first)
         try fields2(value, &first)
         end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCRuleApplyTarget) throws {
-        switch value {
-        case .focused:
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("focused")
-            end(125)
-        case let .window(id):
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("window")
-            self.key("windowId", &first)
-            try self.value(id)
-            end(125)
-        case let .pid(pid):
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("pid")
-            self.key("pid", &first)
-            try self.value(pid)
-            end(125)
-        }
-    }
-
-    mutating func ruleRequestAdd(_ rule: borrowing IPCRuleDefinition) throws {
-        begin(123)
-        var first = true
-        self.key("arguments", &first)
-        begin(123)
-        var firstNested = true
-        self.key("rule", &firstNested)
-        try self.value(rule)
-        end(125)
-        self.key("name", &first)
-        try self.value("add")
-        end(125)
-    }
-
-    mutating func ruleRequestReplace(_ id: borrowing String, _ rule: borrowing IPCRuleDefinition) throws {
-        begin(123)
-        var first = true
-        self.key("arguments", &first)
-        begin(123)
-        var firstNested = true
-        self.key("id", &firstNested)
-        try self.value(id)
-        self.key("rule", &firstNested)
-        try self.value(rule)
-        end(125)
-        self.key("name", &first)
-        try self.value("replace")
-        end(125)
-    }
-
-    mutating func ruleRequestRemove(_ id: borrowing String) throws {
-        begin(123)
-        var first = true
-        self.key("arguments", &first)
-        begin(123)
-        var firstNested = true
-        self.key("id", &firstNested)
-        try self.value(id)
-        end(125)
-        self.key("name", &first)
-        try self.value("remove")
-        end(125)
-    }
-
-    mutating func ruleRequestMove(_ id: borrowing String, _ position: borrowing Int) throws {
-        begin(123)
-        var first = true
-        self.key("arguments", &first)
-        begin(123)
-        var firstNested = true
-        self.key("id", &firstNested)
-        try self.value(id)
-        self.key("position", &firstNested)
-        try self.value(position)
-        end(125)
-        self.key("name", &first)
-        try self.value("move")
-        end(125)
-    }
-
-    mutating func ruleRequestApply(_ target: borrowing IPCRuleApplyTarget) throws {
-        begin(123)
-        var first = true
-        self.key("arguments", &first)
-        begin(123)
-        var firstNested = true
-        self.key("target", &firstNested)
-        try self.value(target)
-        end(125)
-        self.key("name", &first)
-        try self.value("apply")
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCRuleRequest) throws {
-        switch value {
-        case let .add(rule):
-            try ruleRequestAdd(rule)
-        case let .replace(id, rule):
-            try ruleRequestReplace(id, rule)
-        case let .remove(id):
-            try ruleRequestRemove(id)
-        case let .move(id, position):
-            try ruleRequestMove(id, position)
-        case let .apply(target):
-            try ruleRequestApply(target)
-        }
-    }
-
-    mutating func value(_ value: borrowing WorkspaceTarget) throws {
-        switch value {
-        case let .rawID(text):
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("raw-id")
-            self.key("value", &first)
-            try self.value(text)
-            end(125)
-        case let .displayName(text):
-            begin(123)
-            var first = true
-            self.key("kind", &first)
-            try self.value("display-name")
-            self.key("value", &first)
-            try self.value(text)
-            end(125)
-        }
     }
 }

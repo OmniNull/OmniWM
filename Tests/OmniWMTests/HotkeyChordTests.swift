@@ -125,14 +125,14 @@ final class HotkeyChordTests: XCTestCase {
         XCTAssertEqual(restored[1].binding, literalBound.binding)
     }
 
-    func testTOMLDecodeAppliesHyperCompositionBeforeHotkeys() throws {
+    func testLuauDecodeAppliesHyperCompositionBeforeHotkeys() throws {
         defer { KeySymbolMapper.setHyperKeyModifiers(.default) }
-        let toml = try canonicalTOML(
+        let source = try canonicalLuau(
             hyperKeyModifiers: "Control+Option+Command",
             bindings: [(id: "focus.left", binding: "Hyper+H"), (id: "focus.right", binding: "Hyper+Shift+H")]
         )
 
-        let export = try SettingsTOMLCodec.decode(toml)
+        let export = try SettingsLuauFixture.decode(source)
 
         XCTAssertEqual(export.hyperKeyModifiers.humanReadableString, "Control+Option+Command")
         let left = try XCTUnwrap(export.hotkeyBindings.first { $0.id == "focus.left" })
@@ -150,28 +150,28 @@ final class HotkeyChordTests: XCTestCase {
         )
     }
 
-    func testFailedTOMLDecodeRestoresHyperComposition() throws {
+    func testFailedLuauDecodeRestoresHyperComposition() throws {
         defer { KeySymbolMapper.setHyperKeyModifiers(.default) }
-        let toml = try canonicalTOML(
+        let source = try canonicalLuau(
             hyperKeyModifiers: "Control+Option+Command",
             bindings: [(id: "focus.left", binding: "NotAKey+1")]
         )
 
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(toml))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(source))
         XCTAssertEqual(KeySymbolMapper.hyperModifiers, HyperKeyModifiers.default.carbonMask)
     }
 
-    func testSuccessfulTOMLDecodeLeavesActiveHyperCompositionUnchanged() throws {
+    func testSuccessfulLuauDecodeLeavesActiveHyperCompositionUnchanged() throws {
         defer { KeySymbolMapper.setHyperKeyModifiers(.default) }
         let threeModifiers = try XCTUnwrap(HyperKeyModifiers.fromHumanReadable("Control+Option+Command"))
         KeySymbolMapper.setHyperKeyModifiers(threeModifiers)
 
-        let toml = try canonicalTOML(
+        let source = try canonicalLuau(
             hyperKeyModifiers: "Control+Option+Shift+Command",
             bindings: [(id: "focus.left", binding: "Hyper+H")]
         )
 
-        let export = try SettingsTOMLCodec.decode(toml)
+        let export = try SettingsLuauFixture.decode(source)
 
         XCTAssertEqual(export.hyperKeyModifiers, .default)
         let left = try XCTUnwrap(export.hotkeyBindings.first { $0.id == "focus.left" })
@@ -185,25 +185,25 @@ final class HotkeyChordTests: XCTestCase {
         XCTAssertEqual(KeySymbolMapper.hyperModifiers, threeModifiers.carbonMask)
     }
 
-    func testTOMLEncodingUsesExportHyperCompositionAndRestoresActiveComposition() throws {
+    func testLuauEncodingUsesExportHyperCompositionAndRestoresActiveComposition() throws {
         defer { KeySymbolMapper.setHyperKeyModifiers(.default) }
-        let source = try canonicalTOML(
+        let source = try canonicalLuau(
             hyperKeyModifiers: "Control+Option+Command",
             bindings: [(id: "focus.left", binding: "Hyper+H"), (id: "move.left", binding: "Hyper+Shift+H")]
         )
-        let export = try SettingsTOMLCodec.decode(source)
+        let export = try SettingsLuauFixture.decode(source)
         let encodings = [
-            try SettingsTOMLCodec.encode(export),
-            try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: source)
+            try SettingsLuauDocument.initialSource(export),
+            try SettingsLuauFixture.editing(source, to: export)
         ]
 
         for encoded in encodings {
-            let toml = String(decoding: encoded, as: UTF8.self)
-            XCTAssertFalse(toml.contains("leaderKey"))
-            XCTAssertFalse(toml.contains("sequenceTimeoutMilliseconds"))
-            XCTAssertTrue(toml.contains("binding = \"Hyper+H\"\nid = \"focus.left\""))
-            XCTAssertTrue(toml.contains("binding = \"Hyper+Shift+H\"\nid = \"move.left\""))
-            XCTAssertEqual(try SettingsTOMLCodec.decode(encoded), export)
+            let source = String(decoding: encoded, as: UTF8.self)
+            XCTAssertFalse(source.contains("leaderKey"))
+            XCTAssertFalse(source.contains("sequenceTimeoutMilliseconds"))
+            XCTAssertTrue(source.contains("binding = \"Hyper+H\""))
+            XCTAssertTrue(source.contains("binding = \"Hyper+Shift+H\""))
+            XCTAssertEqual(try SettingsLuauFixture.decode(encoded), export)
             XCTAssertEqual(KeySymbolMapper.hyperModifiers, HyperKeyModifiers.default.carbonMask)
         }
     }
@@ -843,24 +843,17 @@ final class HotkeyChordTests: XCTestCase {
         XCTAssertEqual(decoded.side, .right)
     }
 
-    private func canonicalTOML(
+    private func canonicalLuau(
         hyperKeyModifiers: String,
         bindings: [(id: String, binding: String)]
     ) throws -> Data {
-        var toml = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        toml = toml.replacingOccurrences(
-            of: "hyperKeyModifiers = \"[^\"]*\"",
-            with: "hyperKeyModifiers = \"\(hyperKeyModifiers)\"",
-            options: .regularExpression
-        )
-        for entry in bindings {
-            toml = toml.replacingOccurrences(
-                of: "binding = \"[^\"]*\"\nid = \"\(entry.id)\"",
-                with: "binding = \"\(entry.binding)\"\nid = \"\(entry.id)\"",
-                options: .regularExpression
-            )
+        let rows = bindings.map { entry in
+            SettingsLuauValue.record(["id": .string(entry.id), "binding": .string(entry.binding)])
         }
-        return Data(toml.utf8)
+        return SettingsLuauFixture.source([
+            "general": .record(["hyperKeyModifiers": .string(hyperKeyModifiers)]),
+            "hotkeys": .list(rows)
+        ])
     }
 }
 

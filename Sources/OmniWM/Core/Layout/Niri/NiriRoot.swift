@@ -33,6 +33,10 @@ class NiriRoot: NiriContainer {
         return result
     }
 
+    var cachedProjectedColumns: [NiriProjectedColumn]? {
+        _cachedProjectedColumns
+    }
+
     var projectedColumns: [NiriProjectedColumn] {
         if let cached = _cachedProjectedColumns { return cached }
         let result = columns.enumerated().map {

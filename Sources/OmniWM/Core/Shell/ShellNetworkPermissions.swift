@@ -6,7 +6,7 @@ import Observation
 import Synchronization
 
 struct ShellWidgetPrincipal: Hashable, Sendable {
-    enum Role: String, Codable, Sendable {
+    enum Role: String, Codable, CaseIterable, Sendable {
         case root
         case bar
         case component

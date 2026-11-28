@@ -71,12 +71,10 @@ final class StatusBarController: NSObject {
         button.action = #selector(handleClick(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         button.setAccessibilityElement(true)
-        controller.workspaceBarManager.menuBarIsDark = { [weak button] in
-            button.map { WorkspaceBarManager.isDark($0.effectiveAppearance) } ?? false
+        menuBarAppearanceObservation = button.observe(\.effectiveAppearance) { [weak self] _, _ in
+            Task { @MainActor in self?.updateMenuBarAppearance() }
         }
-        menuBarAppearanceObservation = button.observe(\.effectiveAppearance) { [weak controller] _, _ in
-            Task { @MainActor in controller?.workspaceBarManager.refreshMenuBarAppearance() }
-        }
+        updateMenuBarAppearance()
 
         let model = StatusMenuModel(settings: settings, controller: controller)
         model.ipcMenuEnabled = cliManager != nil
@@ -96,6 +94,12 @@ final class StatusBarController: NSObject {
         hiddenBarController.statusItems.bind(omniButton: button)
         hiddenBarController.setup()
         refreshWorkspaces()
+    }
+
+    private func updateMenuBarAppearance() {
+        guard let button = statusButton, let manager = controller?.workspaceBarManager else { return }
+        manager.menuBarIsDark = WorkspaceBarManager.isDark(button.effectiveAppearance)
+        manager.refreshMenuBarAppearance()
     }
 
     enum StatusItemClickRoute {
@@ -214,8 +218,8 @@ final class StatusBarController: NSObject {
             button.image?.accessibilityDescription = String(localized: "OmniWM, Secure Input is on")
             button.toolTip = String(localized: "Secure Input is on: Option shortcuts are paused")
         } else if let kind = controller?.keyboardModeKind, kind != .normal {
-            button.image = Self.keyboardModeStatusImage(kind)
-            button.toolTip = Self.keyboardModeToolTip(kind)
+            button.image = Self.keyboardModeStatusImage(kind, name: controller?.keyboardModeName)
+            button.toolTip = Self.keyboardModeToolTip(kind, name: controller?.keyboardModeName)
         } else if let layout {
             button.image = settings.statusBar.showIcon ? Self.brandedLayoutImage(layout) : Self.layoutGlyph(layout)
             button.toolTip = Self.layoutDisplayName(layout)
@@ -281,7 +285,10 @@ final class StatusBarController: NSObject {
         let summary = settings.statusBar.showWorkspaceName || settings.statusBar.showLayout
             ? controller?.activeStatusBarWorkspaceSummary()
             : nil
-        let modeTitle = Self.keyboardModeTitle(controller?.keyboardModeKind ?? .normal)
+        let modeTitle = Self.keyboardModeTitle(
+            controller?.keyboardModeKind ?? .normal,
+            name: controller?.keyboardModeName
+        )
         let hasStateIcon = controller?.traceCaptureStatus.profile != nil || controller?.isSecureInputIndicated == true
             || modeTitle != nil
         updateButtonAppearance(button, controller: controller, summary: summary, hasStateIcon: hasStateIcon)
@@ -318,6 +325,7 @@ final class StatusBarController: NSObject {
         menuHost = nil
         hiddenBarController.cleanup()
         menuBarAppearanceObservation = nil
+        controller?.workspaceBarManager.menuBarIsDark = false
         if let item = statusItem {
             NSStatusBar.system.removeStatusItem(item)
             statusItem = nil

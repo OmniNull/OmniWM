@@ -298,6 +298,344 @@ typedef struct omni_render_stats {
     uint32_t changed;
 } omni_render_stats;
 
+#define OMNI_CONFIG_DECLARATION_LIMIT 4096u
+#define OMNI_CONFIG_BYTE_LIMIT 1048576u
+
+typedef struct omni_config_span {
+    const char *data;
+    size_t length;
+} omni_config_span;
+
+#define OMNI_CONFIG_MAX_SAFE_INTEGER 9007199254740991ULL
+
+typedef struct omni_config_word {
+    omni_config_span text;
+    uint64_t selector;
+} omni_config_word;
+
+typedef uint32_t (*omni_settings_field)(void *context, uint32_t parent, omni_config_span key,
+    size_t begin, size_t end, uint32_t line, bool literal, bool record);
+typedef void (*omni_settings_formula)(void *context, uint32_t field, size_t begin, size_t end, uint32_t line);
+typedef struct omni_settings_item {
+    omni_config_span key;
+    size_t begin, value_begin, end, separator;
+    size_t list_position, index_begin, index_end;
+} omni_settings_item;
+typedef void (*omni_settings_constructor)(void *context, uint32_t field, size_t begin, size_t end,
+    const omni_settings_item *items, size_t count);
+typedef void (*omni_settings_comment)(void *context, size_t begin, size_t end);
+typedef void (*omni_settings_return_site)(void *context, size_t begin, size_t end, uint32_t line, size_t insertion);
+typedef void (*omni_settings_table)(void *context, const uint8_t *json, size_t length);
+
+#define OMNI_CONFIG_MODULE_LIMIT 64u
+#define OMNI_CONFIG_ERROR_CAPACITY 1024u
+#define OMNI_CONFIG_COMMAND_LIMIT 64u
+#define OMNI_CONFIG_ARGC_LIMIT 64u
+#define OMNI_CONFIG_GATHER_LIMIT 64u
+#define OMNI_CONFIG_ARG_BYTE_LIMIT 4096u
+#define OMNI_CONFIG_ARGV_BYTE_LIMIT 32768u
+#define OMNI_CONFIG_BUNDLE_BYTE_LIMIT 255u
+#define OMNI_CONFIG_NOTICE_BYTE_LIMIT 512u
+#define OMNI_CONFIG_TIMER_LIMIT 16u
+#define OMNI_CONFIG_TIMER_MINIMUM_SECONDS 1u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOWS 1u
+#define OMNI_CONFIG_READ_WINDOWS 2u
+#define OMNI_CONFIG_READ_WORKSPACES 4u
+#define OMNI_CONFIG_READ_MONITORS 8u
+#define OMNI_CONFIG_READ_PLACEMENT 16u
+#define OMNI_CONFIG_READ_FOCUS_TARGET 32u
+#define OMNI_CONFIG_READ_LISTS 63u
+#define OMNI_CONFIG_READ_FRAME_SHIFT 6u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOW_FRAMES 64u
+#define OMNI_CONFIG_READ_WINDOW_FRAMES 128u
+#define OMNI_CONFIG_READ_MONITOR_FRAMES 512u
+#define OMNI_CONFIG_READ_DWINDLE 4096u
+#define OMNI_CONFIG_READ_COLUMN_SHIFT 13u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOW_COLUMNS 8192u
+#define OMNI_CONFIG_READ_WINDOW_COLUMNS 16384u
+
+#define OMNI_CONFIG_READ_DETAIL_SHIFT 16u
+#define OMNI_CONFIG_READ_WORKSPACE_WINDOW_DETAILS (1u << 16)
+#define OMNI_CONFIG_READ_WINDOW_DETAILS (1u << 17)
+#define OMNI_CONFIG_READ_WORKSPACE_DETAILS (1u << 18)
+#define OMNI_CONFIG_READ_MONITOR_DETAILS (1u << 19)
+#define OMNI_CONFIG_READ_APPS (1u << 20)
+#define OMNI_CONFIG_READ_WORKSPACE_BAR (1u << 21)
+#define OMNI_CONFIG_READ_RULES (1u << 22)
+#define OMNI_CONFIG_READ_SHELL (1u << 23)
+#define OMNI_CONFIG_READ_MARKS (1u << 24)
+
+#define OMNI_CONFIG_SECTION_TRUNCATED 1u
+#define OMNI_CONFIG_SECTION_FRAMES 2u
+#define OMNI_CONFIG_SECTION_COLUMNS 4u
+#define OMNI_CONFIG_SECTION_DETAILS 8u
+#define OMNI_CONFIG_SECTION_DETAILS_TRUNCATED 16u
+#define OMNI_CONFIG_FRAME_PRESENT 1u
+
+#define OMNI_CONFIG_WINDOW_FLOATING 1u
+#define OMNI_CONFIG_WINDOW_FULLSCREEN 2u
+#define OMNI_CONFIG_WINDOW_MINIMIZED 4u
+#define OMNI_CONFIG_WINDOW_NATIVE_FULLSCREEN 8u
+
+#define OMNI_CONFIG_DETAIL_VISIBLE 1u
+#define OMNI_CONFIG_DETAIL_APP_HIDDEN 2u
+#define OMNI_CONFIG_DETAIL_NATIVE_FULLSCREEN 4u
+#define OMNI_CONFIG_DETAIL_FORCE_TILE 8u
+#define OMNI_CONFIG_DETAIL_FORCE_FLOAT 16u
+#define OMNI_CONFIG_DETAIL_HIDDEN_SHIFT 5u
+#define OMNI_CONFIG_DETAIL_WORKSPACE_INACTIVE 1u
+#define OMNI_CONFIG_DETAIL_TAB_INACTIVE 2u
+#define OMNI_CONFIG_DETAIL_LAYOUT_TRANSIENT 3u
+#define OMNI_CONFIG_DETAIL_SCRATCHPAD 4u
+
+#define OMNI_CONFIG_WORKSPACE_DETAIL_FOCUSED 1u
+#define OMNI_CONFIG_WORKSPACE_DETAIL_VISIBLE 2u
+#define OMNI_CONFIG_WORKSPACE_DETAIL_CURRENT 4u
+#define OMNI_CONFIG_WORKSPACE_DETAIL_DWINDLE 8u
+#define OMNI_CONFIG_WORKSPACE_DETAIL_COLUMNS 16u
+#define OMNI_CONFIG_COLUMN_TABBED 1u
+#define OMNI_CONFIG_COLUMN_VIEWPORT_SHIFT 1u
+#define OMNI_CONFIG_COLUMN_VIEWPORT_BEFORE 0u
+#define OMNI_CONFIG_COLUMN_VIEWPORT_INTERSECTING 1u
+#define OMNI_CONFIG_COLUMN_VIEWPORT_AFTER 2u
+
+#define OMNI_CONFIG_MONITOR_DETAIL_MAIN 1u
+#define OMNI_CONFIG_MONITOR_DETAIL_CURRENT 2u
+#define OMNI_CONFIG_MONITOR_DETAIL_HAS_NOTCH 4u
+#define OMNI_CONFIG_MONITOR_DETAIL_NOTCH 8u
+#define OMNI_CONFIG_MONITOR_DETAIL_VERTICAL 16u
+#define OMNI_CONFIG_MONITOR_DETAIL_FULLSCREEN_OUTER_GAPS 32u
+#define OMNI_CONFIG_MONITOR_BAR_FRAME_LIMIT 2u
+
+#define OMNI_CONFIG_PLACEMENT_COLUMN 1u
+#define OMNI_CONFIG_PLACEMENT_VERTICAL 2u
+
+#define OMNI_CONFIG_FOCUS_TARGET_NATIVE_FULLSCREEN 1u
+
+#define OMNI_CONFIG_SECTION_DWINDLE 64u
+#define OMNI_CONFIG_SECTION_MARKS 65u
+#define OMNI_CONFIG_SECTION_APPS 66u
+#define OMNI_CONFIG_SECTION_RULES 67u
+#define OMNI_CONFIG_SECTION_WORKSPACE_BAR 68u
+#define OMNI_CONFIG_BAR_ROW_HEADER 1u
+#define OMNI_CONFIG_BAR_ROW_DISPLAY 2u
+#define OMNI_CONFIG_BAR_ROW_SCRATCHPAD 3u
+#define OMNI_CONFIG_BAR_ROW_WORKSPACE 4u
+#define OMNI_CONFIG_BAR_ROW_PILL 5u
+#define OMNI_CONFIG_BAR_ENABLED 1u
+#define OMNI_CONFIG_BAR_VISIBLE 2u
+#define OMNI_CONFIG_BAR_LABELS 4u
+#define OMNI_CONFIG_BAR_FOCUSED 8u
+#define OMNI_CONFIG_SECTION_SHELL 69u
+#define OMNI_CONFIG_SHELL_STATE_LOADING 0u
+#define OMNI_CONFIG_SHELL_STATE_LOADED 1u
+#define OMNI_CONFIG_SHELL_STATE_FAILED 2u
+#define OMNI_CONFIG_SHELL_STATE_FALLBACK 3u
+#define OMNI_CONFIG_RULE_ASSIGN_ALL_PRESENT 1u
+#define OMNI_CONFIG_RULE_ASSIGN_ALL 2u
+#define OMNI_CONFIG_RULE_INITIAL_SPAN 4u
+#define OMNI_CONFIG_RULE_MIN_WIDTH 8u
+#define OMNI_CONFIG_RULE_MIN_HEIGHT 16u
+#define OMNI_CONFIG_RULE_SCRATCHPAD 32u
+#define OMNI_CONFIG_RULE_VALID 64u
+#define OMNI_CONFIG_DWINDLE_SPLIT 0u
+#define OMNI_CONFIG_DWINDLE_LEAF 1u
+#define OMNI_CONFIG_DWINDLE_HORIZONTAL 0u
+#define OMNI_CONFIG_DWINDLE_VERTICAL 1u
+#define OMNI_CONFIG_DWINDLE_LEFT 1u
+#define OMNI_CONFIG_DWINDLE_RIGHT 2u
+#define OMNI_CONFIG_DWINDLE_UP 3u
+#define OMNI_CONFIG_DWINDLE_DOWN 4u
+#define OMNI_CONFIG_DWINDLE_MEMBER_LIMIT 256u
+
+#define OMNI_CONFIG_STORE_STRING_LIMIT 4096u
+#define OMNI_CONFIG_STORE_LIST_LIMIT 64u
+#define OMNI_CONFIG_STORE_BYTE_LIMIT 65536u
+#define OMNI_CONFIG_STORE_WRITE_LIMIT 64u
+
+typedef struct omni_config_vm omni_config_vm;
+
+typedef struct omni_config_timer {
+    uint32_t callback_id;
+    bool repeats;
+    double seconds;
+    uint32_t reads;
+} omni_config_timer;
+
+typedef struct omni_config_rect {
+    double x, y, width, height;
+    bool present;
+} omni_config_rect;
+
+typedef enum omni_config_edge_kind {
+    OMNI_EDGE_WORKSPACE, OMNI_EDGE_MONITOR, OMNI_EDGE_GEOMETRY, OMNI_WINDOW_TITLE,
+    OMNI_WINDOW_MINIMIZED, OMNI_WINDOW_FULLSCREEN, OMNI_WINDOW_FLOATING
+} omni_config_edge_kind;
+
+typedef struct omni_config_edge {
+    omni_config_edge_kind kind;
+    bool flag;
+    uint64_t missed;
+    omni_config_span id, name, previous_id, previous_name;
+    omni_config_rect frame, previous_frame, visible_frame, previous_visible_frame;
+} omni_config_edge;
+
+typedef struct omni_config_trigger {
+    omni_config_span id;
+    omni_config_span bundle_id;
+    omni_config_span name;
+    omni_config_span layout;
+    const omni_config_edge *edge;
+    omni_config_span snapshot;
+} omni_config_trigger;
+
+typedef struct omni_config_location {
+    uint32_t source_id;
+    int line;
+} omni_config_location;
+
+typedef struct omni_config_module {
+    uint32_t id;
+    omni_config_span name;
+    omni_config_span source;
+} omni_config_module;
+
+typedef bool (*omni_read_module)(void *context, uint32_t requester, omni_config_span spec,
+    omni_config_module *module, char *error, size_t capacity);
+
+omni_status omni_metadata_parse(omni_config_span source, void *context, omni_settings_table table,
+    uint32_t *line, char *error, size_t capacity) OMNI_NOEXCEPT;
+
+omni_status omni_settings_evaluate(const char *filename, omni_config_span source, size_t heap_limit, uint64_t budget, bool shellNumbers,
+    void *context, omni_settings_field field, omni_settings_formula formula, omni_settings_constructor constructor,
+    omni_settings_comment comment, omni_settings_return_site return_site,
+    omni_settings_table table, omni_read_module read_module, omni_config_location *site, char *error, size_t capacity) OMNI_NOEXCEPT;
+
+#define OMNI_NATIVE_BUDGET_INTERVAL 4096u
+
+void omni_native_budget_expire_next_check(void) OMNI_NOEXCEPT;
+bool omni_native_budget_cancel_expiry(void) OMNI_NOEXCEPT;
+
+typedef enum omni_config_value_kind {
+    OMNI_CONFIG_STRING,
+    OMNI_CONFIG_NUMBER,
+    OMNI_CONFIG_BOOLEAN
+} omni_config_value_kind;
+
+typedef struct omni_config_field {
+    omni_config_span name;
+    omni_config_value_kind kind;
+    omni_config_span string_value;
+    double number_value;
+    bool bool_value;
+} omni_config_field;
+
+typedef enum omni_config_effect_kind {
+    OMNI_CONFIG_OPEN_APP,
+    OMNI_CONFIG_RUN_PROGRAM,
+    OMNI_CONFIG_SHOW_NOTICE
+} omni_config_effect_kind;
+
+typedef struct omni_config_dwindle_node {
+    uint8_t kind;
+    uint8_t orientation;
+    double ratio;
+    uint16_t first_member;
+    uint16_t member_count;
+    uint16_t active;
+} omni_config_dwindle_node;
+
+typedef struct omni_config_dwindle_tree {
+    omni_config_span workspace_id;
+    omni_config_span revision;
+    uint8_t preselect;
+    const omni_config_dwindle_node *nodes;
+    size_t node_count;
+    const omni_config_span *members;
+    size_t member_count;
+} omni_config_dwindle_tree;
+
+typedef enum omni_config_store_kind {
+    OMNI_CONFIG_STORE_NONE,
+    OMNI_CONFIG_STORE_BOOLEAN,
+    OMNI_CONFIG_STORE_NUMBER,
+    OMNI_CONFIG_STORE_STRING,
+    OMNI_CONFIG_STORE_LIST
+} omni_config_store_kind;
+
+typedef struct omni_config_store_value {
+    omni_config_store_kind kind;
+    bool boolean;
+    double number;
+    const omni_config_span *items;
+    size_t count;
+} omni_config_store_value;
+
+typedef struct omni_config_store_read {
+    omni_config_store_value value;
+    char *bytes;
+    size_t capacity;
+    omni_config_span *items;
+} omni_config_store_read;
+
+typedef struct omni_config_store_callbacks {
+    bool (*get)(void *context, omni_config_span key, omni_config_store_read *read, char *error, size_t capacity);
+    bool (*set)(void *context, omni_config_span key, const omni_config_store_value *value,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*clear)(void *context, const omni_config_span *key, omni_config_location location, char *error,
+        size_t capacity);
+} omni_config_store_callbacks;
+
+typedef struct omni_config_callbacks {
+    bool (*resolve)(void *context, uint16_t group, const omni_config_word *words, size_t count,
+        omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
+    bool (*bind)(void *context, omni_config_span chord, uint32_t action_id, omni_config_span mode_key,
+        omni_config_span mode, omni_config_location location, char *error, size_t capacity);
+    omni_read_module read_module;
+    bool (*rule)(void *context, const omni_config_field *fields, size_t count,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*bind_function)(void *context, omni_config_span chord, uint32_t callback_id, omni_config_span mode_key,
+        omni_config_span mode, uint32_t reads, omni_config_location location, char *error, size_t capacity);
+    bool (*dispatch)(void *context, uint32_t action_id, omni_config_location location, char *error, size_t capacity);
+    void (*log)(void *context, omni_config_span message, omni_config_location location);
+    bool (*named_function)(void *context, bool is_event, omni_config_span name, uint32_t callback_id, uint32_t reads,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*effect)(void *context, omni_config_effect_kind kind, const omni_config_span *words, size_t count,
+        omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
+    bool (*window)(void *context, const omni_config_span *words, size_t count, uint64_t selector,
+        const omni_config_field *destination, size_t destination_count, omni_config_location location,
+        char *error, size_t capacity);
+    bool (*mark)(void *context, omni_config_span action, omni_config_span name,
+        omni_config_location location, char *error, size_t capacity);
+    bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
+        size_t capacity);
+    bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,
+        size_t capacity);
+    omni_config_store_callbacks store;
+} omni_config_callbacks;
+
+typedef struct omni_config_stats {
+    size_t peak_bytes;
+    omni_config_location location;
+    uint32_t module_executions;
+    uint32_t cancelled_timers;
+    uint64_t allocations;
+    bool store_used;
+} omni_config_stats;
+
+omni_status omni_config_evaluate(const char *chunk_name, omni_config_span source,
+    size_t heap_limit, uint64_t cpu_budget_ns, const omni_config_callbacks *callbacks,
+    void *context, omni_config_stats *stats, char *error, size_t error_capacity) OMNI_NOEXCEPT;
+omni_status omni_config_load(const char *chunk_name, omni_config_span source,
+    size_t heap_limit, uint64_t cpu_budget_ns, const omni_config_callbacks *callbacks,
+    void *context, omni_config_stats *stats, char *error, size_t error_capacity, omni_config_vm **resident) OMNI_NOEXCEPT;
+omni_status omni_config_invoke(omni_config_vm *resident, uint32_t callback_id, omni_config_trigger trigger,
+    uint64_t cpu_budget_ns, void *context, omni_config_stats *stats, char *error, size_t error_capacity) OMNI_NOEXCEPT;
+void omni_config_destroy(omni_config_vm *resident) OMNI_NOEXCEPT;
+const omni_config_timer *omni_config_timers(const omni_config_vm *resident, size_t *count) OMNI_NOEXCEPT;
+uint64_t omni_config_live_vm_count(void) OMNI_NOEXCEPT;
+uint64_t omni_config_vm_entry_count(void) OMNI_NOEXCEPT;
+
 omni_vm *omni_vm_create(size_t memory_limit_bytes, const char *data_keys, size_t data_keys_length) OMNI_NOEXCEPT;
 omni_status omni_vm_destroy(omni_vm *vm) OMNI_NOEXCEPT;
 omni_status omni_vm_load(omni_vm *vm, const char *chunk_name, const char *source, size_t source_length, uint64_t budget_ns, char *error, size_t error_capacity) OMNI_NOEXCEPT;

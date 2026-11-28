@@ -100,7 +100,7 @@ final class BorderSurfaceTests: XCTestCase {
             BorderWindow.Operations(
                 createLayerPanel: { [weak self] frame in
                     _ = NSApplication.shared
-                    guard let panel = RecordingLayerPanel(frame: frame) else { return nil }
+                    guard let panel = RecordingLayerPanel(frame: frame, prefersNativeRim: true) else { return nil }
                     panel.invalidWindowNumber = self?.failsNextCreation == true
                     self?.failsNextCreation = false
                     self?.layerPanels.append(panel)
@@ -466,6 +466,7 @@ final class BorderSurfaceTests: XCTestCase {
     func testMouseUpRestoresFocusBorderOnlyWhenWindowServerReportsItBelowTheTarget() async throws {
         let (controller, entry) = try reconcileFixture()
         let recorder = BorderOperationsRecorder()
+        recorder.windowInfoProvider = { WindowServerInfo(id: $0, pid: entry.pid, level: 0, frame: .zero) }
         let applier = makeApplier(recorder) { _ in self.sample(WindowCornerRadii(uniform: 13)) }
         let reconciler = SurfaceReconciler(
             controller: controller,

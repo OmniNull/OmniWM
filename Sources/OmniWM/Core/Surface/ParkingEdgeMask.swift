@@ -65,6 +65,8 @@ final class ParkingEdgeMaskManager {
 
 @MainActor
 final class ParkingEdgeMaskWindow: NSPanel {
+    static let windowLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)) - 1)
+
     private enum HoverPhase {
         case outside
         case entered
@@ -115,7 +117,7 @@ final class ParkingEdgeMaskWindow: NSPanel {
         isFloatingPanel = true
         isOpaque = true
         backgroundColor = .black
-        level = .statusBar
+        level = Self.windowLevel
         ignoresMouseEvents = false
         acceptsMouseMovedEvents = true
         hasShadow = false

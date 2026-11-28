@@ -165,7 +165,8 @@ final class ShellDocumentationExampleTests: XCTestCase {
                 at: examples.appendingPathComponent(name), to: shell.appendingPathComponent(name)
             )
         }
-        try Data("profile = \"tutorial-island\"\n".utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profile = \"tutorial-island\" }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: shell, problems: &problems))
         XCTAssertEqual(problems, [])

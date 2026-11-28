@@ -24,8 +24,21 @@ extension WorkspaceManager {
 
     func removeWorkspaces(_ ids: [WorkspaceDescriptor.ID]) {
         guard !ids.isEmpty else { return }
+        guard let observer = scriptWorkspaceRemovalObserver else {
+            removeCatalogEntries(ids, unique: Set(ids))
+            return
+        }
+        var unique = Set<WorkspaceDescriptor.ID>(minimumCapacity: ids.count)
+        var removed = ConfigScriptWorkspaceRemovals()
+        for id in ids where unique.insert(id).inserted {
+            guard let name = workspaceCatalog.name(for: id) else { continue }
+            removed.append(id: id, name: name, in: self)
+        }
+        removeCatalogEntries(ids, unique: unique)
+        removed.publish(to: observer, in: self)
+    }
 
-        let toRemove = Set(ids)
+    private func removeCatalogEntries(_ ids: [WorkspaceDescriptor.ID], unique toRemove: Set<WorkspaceDescriptor.ID>) {
         for id in toRemove {
             noteInvalidation(workspaceId: id, domains: [.workspace, .layout, .focus])
         }

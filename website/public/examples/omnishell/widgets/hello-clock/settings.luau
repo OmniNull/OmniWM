@@ -1,0 +1,9 @@
+return {
+    options = {
+        date = {
+            type = "boolean",
+            title = "Show date",
+            default = true,
+        },
+    },
+}

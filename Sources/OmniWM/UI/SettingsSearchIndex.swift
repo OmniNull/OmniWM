@@ -26,6 +26,7 @@ enum SettingsSearchIndex {
         setting("Execution Defaults", section: .launcher, anchor: "launcher-execution"),
         setting("Shell", section: .launcher, anchor: "launcher-execution"),
         setting("Terminal", section: .launcher, anchor: "launcher-execution"),
+        setting("Show Results on Open", section: .commandPalette),
         setting("Enable Unified Search", section: .commandPalette),
         setting("Searched Modes", section: .commandPalette),
         setting("Clear Pick History", section: .commandPalette),
@@ -154,6 +155,7 @@ enum SettingsSearchIndex {
         setting("Inner Gap", section: .layouts, tab: "dwindle", anchor: "Dwindle Gaps"),
         setting("Default Layout", section: .workspaces, anchor: "Default Layout"),
         setting("Layout Algorithm", section: .workspaces, anchor: "Layout Algorithm"),
+        setting("Wrap Around", section: .workspaces, anchor: "Wrap Around"),
         setting("Delete Workspace", section: .workspaces, anchor: "Delete Workspace"),
         setting("Cancel", section: .workspaces, anchor: "Cancel"),
         setting("Display Name (optional)", section: .workspaces, anchor: "Display Name (optional)"),
@@ -231,6 +233,7 @@ enum SettingsSearchIndex {
             "Only Focus Fully Visible Niri Windows", section: .mouseTrackpad, tab: "mouse",
             anchor: "Only Focus Fully Visible Niri Windows"
         ),
+        setting("Niri Edge Navigation", section: .mouseTrackpad, tab: "mouse", anchor: "Niri Edge Navigation"),
         setting("Edge navigation interval", section: .mouseTrackpad, tab: "mouse", anchor: "Edge navigation interval"),
         setting("Quake Terminal", section: .quakeTerminal, anchor: "Quake Terminal"),
         setting("Enable Quake Terminal", section: .quakeTerminal, anchor: "Enable Quake Terminal"),
@@ -262,7 +265,6 @@ enum SettingsSearchIndex {
         setting("About", section: .quakeTerminal, anchor: "About"),
         setting("Ghostty Theme", section: .appTheming),
         setting("kitty Theme", section: .appTheming),
-        setting("herdr Theme", section: .appTheming),
         setting("Neovim Theme", section: .appTheming),
         setting("Terminal Colors", section: .appTheming),
         setting("Add Custom Template…", section: .appTheming),
@@ -274,6 +276,11 @@ enum SettingsSearchIndex {
             "Pause Palette Paste During Secure Input",
             section: .hotkeys,
             anchor: "Pause Palette Paste During Secure Input"
+        ),
+        setting(
+            "Automatically Show Secure Input Explanation",
+            section: .hotkeys,
+            anchor: "Automatically Show Secure Input Explanation"
         ),
         setting("Reset to Defaults", section: .hotkeys, anchor: "Reset to Defaults"),
         setting("Shortcuts", section: .hotkeys, anchor: "Shortcuts"),
@@ -430,7 +437,7 @@ extension SettingsSearchIndex {
         case .windowSwitcher: ["alt-tab", "command-tab", "option-tab", "app switcher", "previews"]
         case .commandPalette: ["palette", "unified search", "top hits", "spotlight", "alfred"]
         case .hotkeys: ["hotkeys", "keyboard", "shortcuts", "hyper", "commands", "pause", "prefix", "mode key"]
-        case .advanced: ["config", "toml", "luau", "ipc", "cli", "terminal"]
+        case .advanced: ["config", "luau", "luau", "ipc", "cli", "terminal"]
         default: [section.rawValue]
         }
     }

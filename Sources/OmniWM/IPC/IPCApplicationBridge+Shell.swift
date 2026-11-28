@@ -11,7 +11,7 @@ extension IPCApplicationBridge {
         case let .toggle(widget) where request.isValid:
             controller.commandHandler.performCommand(.shellToggle(widget))
         case .trigger where request.isValid:
-            IPCCommandValidation.controllerState(controller)
+            controller.automationRefusal
                 ?? controller.workspaceBarManager.applyShellRequest(request)
         case .profile,
              .theme,

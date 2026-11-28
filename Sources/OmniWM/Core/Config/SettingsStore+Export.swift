@@ -19,6 +19,7 @@ extension SettingsStore {
             keyboardModes: keyboardModes.export(),
             workspaceAutoBackAndForth: workspaces.autoBackAndForth,
             focusNativeFullscreenOnWorkspaceSwitch: workspaces.focusNativeFullscreenOnSwitch,
+            workspaceSwitchWrapAround: workspaces.switchWrapAround,
             hotkeyBindings: hotkeyBindings,
             systemHyperTrigger: systemHyperTrigger,
             hyperKeyModifiers: hyperKeyModifiers,
@@ -43,6 +44,7 @@ extension SettingsStore {
             animationSpeed: animationSpeed,
             slideWorkspaceSwitches: slideWorkspaceSwitches,
             pausePalettePasteDuringSecureInput: pausePalettePasteDuringSecureInput,
+            showSecureInputExplanation: showSecureInputExplanation,
             language: language,
             launcher: launcher,
             commandPalette: commandPalette.export(),
@@ -52,5 +54,30 @@ extension SettingsStore {
             tabRailAppIcons: tabRailAppIcons,
             shellPermissions: shellPermissions.export()
         )
+    }
+
+    func applyServiceSettings(_ export: SettingsExport) {
+        preventSleepEnabled = export.preventSleepEnabled
+        updateChecksEnabled = export.updateChecksEnabled
+        ipcEnabled = export.ipcEnabled
+        gestures.apply(export.gestures)
+        statusBar.apply(export.statusBar)
+        statusMenu.apply(export.statusMenu)
+        hiddenBar.apply(export.hiddenBar)
+        animationsEnabled = export.animationsEnabled
+        animationSpeed = export.animationSpeed
+        slideWorkspaceSwitches = export.slideWorkspaceSwitches
+        pausePalettePasteDuringSecureInput = export.pausePalettePasteDuringSecureInput
+        showSecureInputExplanation = export.showSecureInputExplanation
+        language = export.language
+        clipboard.apply(export.clipboard)
+        launcher = export.launcher
+        commandPalette.apply(export.commandPalette)
+
+        quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
+
+        tabRailAppIcons = export.tabRailAppIcons
+        shellPermissions.apply(export.shellPermissions)
+        appTheming.apply(export.appTheming)
     }
 }

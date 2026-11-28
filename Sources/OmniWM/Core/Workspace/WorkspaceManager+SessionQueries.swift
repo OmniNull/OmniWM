@@ -6,6 +6,32 @@ import Foundation
 import QuartzCore
 
 extension WorkspaceManager {
+    func indexWindowFocusRanks(into ranks: inout [WindowToken: Int]) {
+        Self.indexWindowFocusRanks(focusSession.windowFocusHistory, into: &ranks)
+    }
+
+    func indexWindowScratchpadSlots(into slots: inout [WindowToken: Int]) {
+        slots.removeAll(keepingCapacity: true)
+        for (slot, members) in scratchpadState.membersBySlot {
+            for token in members where slots[token] == nil {
+                slots[token] = slot.rawValue
+            }
+        }
+    }
+
+    private static func indexWindowFocusRanks(
+        _ history: borrowing [WindowToken],
+        into ranks: inout [WindowToken: Int]
+    ) {
+        ranks.removeAll(keepingCapacity: true)
+        let tokens = history.span
+        ranks.reserveCapacity(tokens.count)
+        for rank in tokens.indices {
+            let token = tokens[rank]
+            if ranks[token] == nil { ranks[token] = rank }
+        }
+    }
+
     var interactionMonitorId: Monitor.ID? {
         focusSessionSnapshot.interactionMonitorId
     }
@@ -19,7 +45,7 @@ extension WorkspaceManager {
     }
 
     var nativeFocusOwner: NativeFocusOwner {
-        focusSessionSnapshot.nativeFocusOwner
+        focusSession.nativeFocusOwner
     }
 
     var nativeManagedFocusToken: WindowToken? {
@@ -93,7 +119,7 @@ extension WorkspaceManager {
     }
 
     var pendingFocusedToken: WindowToken? {
-        focusSessionSnapshot.pendingManagedFocus.token
+        focusSession.pendingManagedFocus.token
     }
 
     var pendingFocusedHandle: WindowHandle? {

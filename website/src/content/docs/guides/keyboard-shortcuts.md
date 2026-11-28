@@ -13,6 +13,8 @@ Optionally pick a **System Hyper Trigger** — a single key (Caps Lock, F13–F2
 
 Settings > Keyboard Shortcuts lists all actions that can be assigned a shortcut, including advanced actions.
 
+An overlapping [`init.luau` shortcut](/config/init-luau/#rules-and-shortcuts-two-homes) takes precedence. The saved chord or mode key stays visible with a note that `init.luau` overrides it. Assignments without an overlap, including mouse buttons, keep working.
+
 ## Keyboard modes
 
 Keyboard modes help when OmniWM shortcuts clash with app shortcuts. Their actions — **Pause or Resume Shortcuts**, **Begin Prefix**, **Enter or Leave Window Mode**, and **Leave Keyboard Mode** — are unassigned by default; assign them in Settings > Keyboard Shortcuts.
@@ -25,9 +27,18 @@ Mode keys are a single key, optionally with `Shift`, set per action with [`modeK
 
 While a mode is on, a pill at the bottom of every display names it. In Prefix and Window mode, the display you were working on also lists the mode keys above the pill. The focused window's border turns amber for Pause and green for Prefix and Window mode, and the menu bar shows the mode's name. On the workspace bar, the OmniWM button gains a matching chip; custom Luau widgets can read `ctx.data.bar.style.keyboardMode`. The OmniWM menu then offers **Resume Shortcuts**, **Cancel Prefix** or **Leave Window Mode**. Settings > Keyboard Shortcuts > Keyboard Modes sets the Pause timeout. Once Begin Prefix or Enter or Leave Window Mode has a shortcut, every command there except the keyboard-mode actions gets a **Mode Key** button.
 
+To show a notice when the mode changes, add this to `init.luau`. OmniWM uses Hyprland’s event name, `keybinds.submap`, for its keyboard modes. The event’s `name` is `normal`, `paused`, `prefix` or `window`.
+
+```lua
+local wm = omniwm
+wm.on("keybinds.submap", function(e: ConfigSubmapEvent)
+    wm.notify("Keyboard mode: " .. e.name)
+end)
+```
+
 ## When a shortcut does not fire
 
-Confirm the binding and any registration warning in **Settings > Keyboard Shortcuts**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.toml`.
+Confirm the binding and any registration warning in **Settings > Keyboard Shortcuts**, then check **Settings > Troubleshooting** for related diagnostics. If skhd, Raycast, or another shortcut utility is still running with the same binding, stop it or reassign the conflicting shortcut before editing `settings.luau`.
 
 [HotkeyClash](https://github.com/Wunderlandmedia/HotkeyClash) can inspect shortcuts across supported apps, config files, and macOS. It does not parse Raycast settings.
 
@@ -58,6 +69,8 @@ Creating workspace 10 or higher adds its Switch, Move, and Move Column actions t
 
 Turn on **Settings > Workspaces > Go Back When Switching to the Current Workspace** ([`workspaceAutoBackAndForth`](/config/settings-reference/#general)) to make pressing the shortcut of the workspace you are on return to the previous one, as i3 and AeroSpace do.
 
+Turn off **Settings > Workspaces > Workspace Switching > Wrap Around** ([`workspaceSwitchWrapAround`](/config/settings-reference/#general)) to stop the sequential shortcuts at the first and last workspace on the current monitor.
+
 ## Focus
 
 | Action | Default Shortcut | Layout |
@@ -75,6 +88,7 @@ Turn on **Settings > Workspaces > Go Back When Switching to the Current Workspac
 | Focus Window 1-9 in Column | `Unassigned` | `Niri` |
 | Toggle Command Palette | `Control + Option + Space` | `Shared` |
 | Open Menu Anywhere | `Control + Option + M` | `Shared` |
+| Open Settings | `Hyper + Comma` | `Shared` |
 | Set Mark on Focused Window | `Unassigned` | `Shared` |
 | Remove Mark from Focused Window | `Unassigned` | `Shared` |
 | Close Focused Window | `Unassigned` | `Shared` |
@@ -141,6 +155,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Toggle OmniWM Fullscreen | `Option + Return` | `Shared` |
 | Toggle Native Fullscreen | `Unassigned` | `Shared` |
 | Balance Sizes | `Option + Shift + B` | `Shared` |
+| Set Visible Containers to Off / 1-5 (**Unreleased**) | `Unassigned` | `Shared` |
 | Cycle Size Forward | `Option + .` | `Shared` |
 | Cycle Size Backward | `Option + ,` | `Shared` |
 | Move to Root | `Unassigned` | `Dwindle` |
@@ -179,7 +194,7 @@ The window-to-monitor actions send the focused window directly to the current wo
 | Center Focused Column | `Unassigned` | `Niri` |
 | Center Visible Columns | `Unassigned` | `Niri` |
 
-Niri grow/shrink actions use a configurable increment, defaulting to 5% instead of 10%. Change **Resize Increment** in Niri settings or `[niri].resizeStepPercent` in TOML (1–100). Explicit `omniwmctl` size arguments keep their specified amounts.
+Niri grow/shrink actions use a configurable increment, defaulting to 5% instead of 10%. Change **Resize Increment** in Niri settings or `niri.resizeStepPercent` in `settings.luau` (1–100). Explicit `omniwmctl` size arguments keep their specified amounts.
 
 `Consume or Expel Window Left / Right` exist as automation-only actions. They are reachable from `omniwmctl` but never appear in Settings > Keyboard Shortcuts, because they intentionally cannot be bound to a shortcut.
 
@@ -193,12 +208,12 @@ Dwindle groups use the existing Focus and Move bindings, so there are no separat
 |------|------------------|----------|
 | Focus another tile | `Option + Arrow Keys` | Left / Right are always spatial. Up / Down are spatial for a singleton tile. |
 | Select the next / previous tab | `Option + Down / Up Arrow` | Within a group, Down advances and Up goes back. At the group edge OmniWM tries a spatial tile, then the configured monitor transition, and wraps locally only when neither exit succeeds. |
-| Join a singleton into a tile or group | `Option + Shift + Arrow Keys` | Joins the focused singleton with the touching tile in that direction. |
+| Join a singleton into a tile or group | `Option + Shift + Arrow Keys` | Joins the focused singleton with the touching tile in that direction. With no tile on that side, moves the singleton to that edge of the workspace, where it takes half the space. |
 | Extract the active tab | `Option + Shift + Arrow Keys` | When the focused tile is grouped, extracts only its active tab onto the requested side. |
 | Move the complete tile or group | `Control + Option + Shift + Left / Right Arrow` | `Move Container` swaps the whole structure. Up / Down are advanced, unassigned Dwindle actions. |
 | Select an exact tab | Click its tab rail item | Reveals and focuses that member without changing the group order. |
 
-Moving a tab directly from one existing group into another is intentionally a two-step operation: extract it first, then move the resulting singleton toward the destination group. A singleton at a genuine workspace edge can still use the normal cross-monitor Move behavior; a rejected group mutation does not fall through to tile swapping or monitor movement.
+Moving a tab directly from one existing group into another is intentionally a two-step operation: extract it first, then move the resulting singleton toward the destination group. A singleton uses the normal cross-monitor Move behavior only when its tile already covers that whole workspace edge; otherwise the first press moves it to that edge within the workspace and a second press crosses. A rejected group mutation does not fall through to tile swapping or monitor movement.
 
 The unassigned advanced actions are available in Settings > Keyboard Shortcuts. `Focus Next / Previous Window (Wrap)` always wraps within the active Niri column or Dwindle group. `Move Window to Previous / Next Position` changes the active member's position by one without wrapping. `Move Container` is the whole-structure escape hatch and never transfers to another monitor at a workspace edge. Dwindle join/extract and Move Container operations are intentionally unavailable while Overview is open; leave Overview before changing a Dwindle tree.
 

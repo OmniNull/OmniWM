@@ -437,7 +437,7 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-barstyle",
-      "declaration": "export type BarStyle = {\n    height: number,\n    labels: boolean,\n    backgrounds: boolean,\n    accents: boolean,\n    inactive: number,\n    position: \"overlappingMenuBar\" | \"belowMenuBar\" | \"bottom\" | \"left\" | \"right\" | \"top\",\n    vertical: boolean,\n    fullWidth: boolean,\n    notch: string,\n    notchWidth: number,\n    level: string,\n    offsetX: number,\n    offsetY: number,\n    autoHide: boolean,\n    reveal: string,\n    opacity: number,\n    transparent: boolean,\n    solidBlack: boolean,\n    accentColor: string?,\n    textColor: string?,\n    statsButton: boolean,\n    secureInput: boolean,\n    keyboardMode: \"normal\" | \"paused\" | \"prefix\" | \"window\",\n    previews: boolean,\n    hideInFullscreen: boolean,\n    hidesMenuBar: boolean,\n}",
+      "declaration": "export type BarStyle = {\n    height: number,\n    labels: boolean,\n    backgrounds: boolean,\n    accents: boolean,\n    inactive: number,\n    position: \"overlappingMenuBar\" | \"belowMenuBar\" | \"bottom\" | \"left\" | \"right\" | \"top\",\n    vertical: boolean,\n    fullWidth: boolean,\n    notch: string,\n    notchWidth: number,\n    level: string,\n    offsetX: number,\n    offsetY: number,\n    autoHide: boolean,\n    reveal: string,\n    opacity: number,\n    transparent: boolean,\n    solidBlack: boolean,\n    accentColor: string?,\n    textColor: string?,\n    statsButton: boolean,\n    secureInput: boolean,\n    keyboardMode: \"normal\" | \"paused\" | \"prefix\" | \"window\" | \"named\",\n    previews: boolean,\n    hideInFullscreen: boolean,\n    hidesMenuBar: boolean,\n}",
       "fields": [
         "height",
         "labels",
@@ -1324,13 +1324,15 @@
       "kind": "type",
       "topic": "context-data",
       "anchor": "api-islandnavigation",
-      "declaration": "export type IslandNavigation = {\n    workspace: string,\n    name: string,\n    layout: \"niri\" | \"dwindle\",\n    focused: string?,\n    windows: {\n        {\n            id: string,\n            bundle: string,\n            name: string,\n            title: string,\n            column: number,\n        }\n    },\n}",
+      "declaration": "export type IslandNavigation = {\n    workspace: string,\n    name: string,\n    layout: \"niri\" | \"dwindle\",\n    focused: string?,\n    windows: {\n        {\n            id: string,\n            bundle: string,\n            name: string,\n            title: string,\n            column: number,\n        }\n    },\n    dwindleSplit: (\"horizontal\" | \"vertical\")?,\n    dwindlePreselect: (\"left\" | \"right\" | \"up\" | \"down\")?,\n}",
       "fields": [
         "workspace",
         "name",
         "layout",
         "focused",
-        "windows"
+        "windows",
+        "dwindleSplit",
+        "dwindlePreselect"
       ],
       "related": []
     },

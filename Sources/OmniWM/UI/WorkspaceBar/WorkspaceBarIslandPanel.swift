@@ -12,11 +12,16 @@ final class WorkspaceBarIslandPanel {
     var lastAppliedFrame: NSRect?
     private var lastObservedFrame: NSRect?
 
-    init(panel: WorkspaceBarPanel, rootView: WorkspaceBarView, resolved: ResolvedBarSettings, monitor: Monitor) {
+    init(
+        panel: WorkspaceBarPanel,
+        rootView: WorkspaceBarView,
+        resolved: ResolvedBarSettings,
+        monitor: Monitor,
+        appearance: NSAppearance?
+    ) {
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.sizingOptions = []
         panel.contentView = hostingView
-        let appearance = NSApplication.shared.appearance
         panel.appearance = appearance
         hostingView.appearance = appearance
         self.panel = panel
@@ -34,9 +39,7 @@ final class WorkspaceBarIslandPanel {
         let level = resolved.windowLevel.nsWindowLevel
         panel.level = if fillsMenuBar {
             NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
-        } else if resolved.fullWidth,
-                  WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar
-        {
+        } else if WorkspaceBarGeometry.effectivePosition(for: monitor, resolved: resolved) == .overlappingMenuBar {
             NSWindow.Level(rawValue: max(level.rawValue, NSWindow.Level.statusBar.rawValue + 1))
         } else {
             level

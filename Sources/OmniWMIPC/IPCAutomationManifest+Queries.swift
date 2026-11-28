@@ -132,6 +132,10 @@ extension IPCAutomationManifest {
             fields: displayFieldCatalog
         ),
         IPCQueryDescriptor(
+            name: .dwindleTree,
+            summary: "Read the interaction workspace's Dwindle tree."
+        ),
+        IPCQueryDescriptor(
             name: .rules,
             summary: "Return persisted user window rules with normalized public fields."
         ),

@@ -4,6 +4,65 @@
 import Foundation
 
 extension IPCJSONWriter {
+    mutating func value(_ value: borrowing IPCCapabilitiesQueryResult) throws {
+        begin(123)
+        var first = true
+        if let fieldValue = value.appVersion {
+            self.key("appVersion", &first)
+            try self.value(fieldValue)
+        }
+        self.key("authorizationRequired", &first)
+        try self.value(value.authorizationRequired)
+        self.key("captureActions", &first)
+        try self.value(value.captureActions)
+        self.key("commands", &first)
+        try self.value(value.commands)
+        self.key("dwindleActions", &first)
+        try self.value(value.dwindleActions)
+        self.key("protocolVersion", &first)
+        try self.value(value.protocolVersion)
+        self.key("queries", &first)
+        try self.value(value.queries)
+        self.key("ruleActions", &first)
+        try self.value(value.ruleActions)
+        self.key("shellActions", &first)
+        try self.value(value.shellActions)
+        self.key("subscriptions", &first)
+        try self.value(value.subscriptions)
+        self.key("windowActions", &first)
+        try self.value(value.windowActions)
+        self.key("windowGatherActions", &first)
+        try self.value(value.windowGatherActions)
+        self.key("windowIdScope", &first)
+        try self.value(value.windowIdScope)
+        self.key("windowMarkActions", &first)
+        try self.value(value.windowMarkActions)
+        self.key("workspaceActions", &first)
+        try self.value(value.workspaceActions)
+        end(125)
+    }
+
+    mutating func value(_ value: borrowing [IPCSubscriptionChannel]) throws {
+        begin(91)
+        var first = true
+        let span = value.span
+        var index = 0
+        while index < span.count {
+            item(&first)
+            try self.value(span[index])
+            index += 1
+        }
+        end(93)
+    }
+
+    mutating func value(_ value: borrowing IPCSubscribeResult) throws {
+        begin(123)
+        var first = true
+        self.key("channels", &first)
+        try self.value(value.channels)
+        end(125)
+    }
+
     mutating func value(_ value: borrowing IPCWindowMarkEntry) throws {
         begin(123)
         var first = true
@@ -196,62 +255,6 @@ extension IPCJSONWriter {
         try self.value(value.completedRelayoutCycles)
         self.key("totalBuilds", &first)
         try self.value(value.totalBuilds)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCProcessResourceMetrics) throws {
-        begin(123)
-        var first = true
-        self.key("energyNanojoules", &first)
-        try self.value(value.energyNanojoules)
-        self.key("interruptWakeups", &first)
-        try self.value(value.interruptWakeups)
-        self.key("packageIdleWakeups", &first)
-        try self.value(value.packageIdleWakeups)
-        self.key("physicalFootprintBytes", &first)
-        try self.value(value.physicalFootprintBytes)
-        self.key("residentSizeBytes", &first)
-        try self.value(value.residentSizeBytes)
-        self.key("systemTimeNanoseconds", &first)
-        try self.value(value.systemTimeNanoseconds)
-        self.key("userTimeNanoseconds", &first)
-        try self.value(value.userTimeNanoseconds)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCMetricsQueryResult) throws {
-        begin(123)
-        var first = true
-        self.key("axWrites", &first)
-        try self.value(value.axWrites)
-        self.key("displayTicks", &first)
-        try self.value(value.displayTicks)
-        self.key("layoutBuilds", &first)
-        try self.value(value.layoutBuilds)
-        if let fieldValue = value.process {
-            self.key("process", &first)
-            try self.value(fieldValue)
-        }
-        self.key("traceCaptureActive", &first)
-        try self.value(value.traceCaptureActive)
-        end(125)
-    }
-
-    mutating func value(_ value: borrowing IPCShellWidget) throws {
-        begin(123)
-        var first = true
-        if let fieldValue = value.error {
-            self.key("error", &first)
-            try self.value(fieldValue)
-        }
-        self.key("name", &first)
-        try self.value(value.name)
-        self.key("placements", &first)
-        try self.value(value.placements)
-        self.key("source", &first)
-        try self.value(value.source)
-        self.key("state", &first)
-        try self.value(value.state)
         end(125)
     }
 }

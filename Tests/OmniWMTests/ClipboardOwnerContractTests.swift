@@ -48,7 +48,7 @@ final class ClipboardOwnerContractTests: XCTestCase {
         settings.clipboard.historyEnabled = true
 
         XCTAssertEqual(observedData.withLock { $0 }, originalData)
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: fileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: fileURL)).export
         XCTAssertTrue(saved.clipboard.historyEnabled)
         XCTAssertEqual(saved, settings.toExport())
     }
@@ -72,7 +72,7 @@ final class ClipboardOwnerContractTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: settings.settingsFileURL), originalData)
         settings.clipboard.historyEnabled = false
         desired.clipboard.historyEnabled = false
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(saved, desired)
     }
 

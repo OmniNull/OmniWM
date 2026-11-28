@@ -19,9 +19,11 @@ extension NiriLayoutEngine {
         if node.packingHints != packingHints {
             node.packingHints = packingHints
             column?.invalidateCachedPrimarySpans()
+            requestAutoFit(in: workspaceId)
         }
         guard node.constraints != normalized else { return }
         node.constraints = normalized
+        requestAutoFit(in: workspaceId)
         guard let column else { return }
         clampColumnHeightToBounds(column, in: workspaceId, motion: motion)
         clampColumnWidthToBounds(column, in: workspaceId, motion: motion)
@@ -77,7 +79,8 @@ extension NiriLayoutEngine {
         to workspaceId: WorkspaceDescriptor.ID,
         afterSelection selectedNodeId: NodeId?,
         focusedToken: WindowToken? = nil,
-        containerSizingState: NiriContainerSizingState? = nil
+        containerSizingState: NiriContainerSizingState? = nil,
+        placement: NiriColumnPlacement? = nil
     ) -> NiriWindow {
         let state = ensureState(for: workspaceId)
         if let existing = state.nodesByToken[token] {
@@ -109,7 +112,9 @@ extension NiriLayoutEngine {
 
         let newColumn = NiriContainer()
         initializeNewContainerSizing(newColumn, in: workspaceId, initialState: containerSizingState)
-        if let refCol = referenceColumn {
+        if let placement {
+            insertColumn(newColumn, at: placement, in: workspaceId)
+        } else if let refCol = referenceColumn {
             root.insertAfter(newColumn, reference: refCol)
         } else {
             root.appendChild(newColumn)

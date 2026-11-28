@@ -102,7 +102,6 @@ final class AppThemeNeovimTests: XCTestCase {
         let outcome = AppThemeReloader(environment: fake.environment).reload(.neovim)
         XCTAssertTrue(outcome.succeeded)
         XCTAssertEqual(fake.signals, [.init(pid: AppThemeFakeEnvironment.neovimPID, signal: SIGUSR1)])
-        XCTAssertTrue(fake.calls.isEmpty)
     }
 
     func testNoNeovimRunningIsSuccess() {
@@ -115,20 +114,18 @@ final class AppThemeNeovimTests: XCTestCase {
         )
     }
 
-    func testNeovimReloadsAfterTerminalsAndBeforeHerdr() throws {
+    func testNeovimReloadsAfterTerminals() throws {
         fake.runGhostty()
         var settings = SettingsExport.AppTheming()
-        settings.herdr = .init(enabled: true, reloadSavedMachines: false)
         settings.neovim.enabled = true
         settings.ghostty.enabled = true
         let report = sandbox.engine(fake).run(AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: settings.targets(configHome: sandbox.policy.configHome)
         ))
         XCTAssertEqual(fake.events.map { $0.components(separatedBy: " ").last }, [
-            "\(SIGUSR2)", "\(SIGUSR1)", "server.reload_config"
+            "\(SIGUSR2)", "\(SIGUSR1)"
         ])
         XCTAssertEqual(report.results["neovim"]?.outcome, .updated)
         XCTAssertNotNil(sandbox.read(".config/nvim/lua/omniwm.lua"))
@@ -141,7 +138,6 @@ final class AppThemeNeovimTests: XCTestCase {
         var job = AppThemeJob(
             palette: AppThemeFixtures.palette,
             dark: true,
-            appearanceChanged: false,
             targets: settings.targets(configHome: sandbox.policy.configHome)
         )
         XCTAssertEqual(sandbox.engine(fake).run(job).results["neovim"]?.outcome, .conflict)
@@ -154,9 +150,9 @@ final class AppThemeNeovimTests: XCTestCase {
         XCTAssertFalse(SettingsExport.defaults().appTheming.neovim.enabled)
         var settings = SettingsExport.defaults()
         settings.appTheming.neovim.enabled = true
-        let data = try SettingsTOMLCodec.encode(settings)
-        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("[appTheming.neovim]"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).appTheming.neovim.enabled)
+        let data = try SettingsLuauDocument.initialSource(settings)
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("neovim = {"))
+        XCTAssertTrue(try SettingsLuauFixture.decode(data).appTheming.neovim.enabled)
     }
 
     func testModuleCarriesBothPalettesAndFollowsTheBackgroundOption() throws {
@@ -209,10 +205,18 @@ final class AppThemeNeovimTests: XCTestCase {
     }
 
     #if OMNIWM_LIVE_CHECKS
-        func testAColorschemeChosenAfterOmniWMIsKeptOnReload() throws {
-            guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
+        private func neovimExecutable() throws -> String {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            let folders = [home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", home + "/.cargo/bin"]
+            guard let path = folders.map({ $0 + "/nvim" }).first(where: FileManager.default.isExecutableFile(atPath:))
+            else {
                 throw MissingTestPrerequisite("Neovim is not installed here")
             }
+            return path
+        }
+
+        func testAColorschemeChosenAfterOmniWMIsKeptOnReload() async throws {
+            let nvim = try neovimExecutable()
             let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
             for (relative, text) in [
                 ("lua/omniwm.lua", try module(AppThemeFixtures.palette, dark: true)),
@@ -241,17 +245,19 @@ final class AppThemeNeovimTests: XCTestCase {
             vim.api.nvim_exec_autocmds("Signal", { pattern = "SIGUSR1" })
             io.write(kept .. " " .. vim.g.colors_name .. " " .. seen)
             """#.write(to: script, atomically: true, encoding: .utf8)
-            let result = AppThemeProcessRunner.run(nvim, [
+            let result = try await LauncherProcess.run(executable: nvim, arguments: [
                 "--headless", "-u", "NONE", "-i", "NONE", "--cmd", "set rtp^=\(runtime.path)",
                 "--cmd", "set background=dark", "-c", "luafile \(script.path)", "-c", "qa!"
-            ], timeout: failureBound)
-            XCTAssertEqual(result.output, "retrobox 1 omniwm 3", "status \(result.status)")
+            ], environment: ProcessInfo.processInfo.environment, deadline: failureBound)
+            XCTAssertEqual(
+                String(decoding: result.output, as: UTF8.self),
+                "retrobox 1 omniwm 3",
+                "status \(result.status)"
+            )
         }
 
-        func testModuleLoadsReloadsAndAnnouncesInHeadlessNeovim() throws {
-            guard let nvim = AppThemeEnvironment.live.executable("nvim") else {
-                throw MissingTestPrerequisite("Neovim is not installed here")
-            }
+        func testModuleLoadsReloadsAndAnnouncesInHeadlessNeovim() async throws {
+            let nvim = try neovimExecutable()
             let runtime = sandbox.root.appendingPathComponent("rtp", isDirectory: true)
             let file = runtime.appendingPathComponent("lua/omniwm.lua")
             try FileManager.default.createDirectory(
@@ -295,12 +301,12 @@ final class AppThemeNeovimTests: XCTestCase {
                 ("dark", palette.dark, palette.light),
                 ("light", palette.light, palette.dark)
             ] {
-                let result = AppThemeProcessRunner.run(nvim, [
+                let result = try await LauncherProcess.run(executable: nvim, arguments: [
                     "--headless", "-u", "NONE", "-i", "NONE", "--cmd", "set rtp^=\(runtime.path)",
                     "--cmd", "set background=\(background)", "-c", "luafile \(script.path)", "-c", "qa!"
-                ], timeout: failureBound)
+                ], environment: ProcessInfo.processInfo.environment, deadline: failureBound)
                 XCTAssertEqual(
-                    result.output,
+                    String(decoding: result.output, as: UTF8.self),
                     "true nil true omniwm 3 \(expected(first)) \(expected(second))",
                     "background \(background), status \(result.status)"
                 )

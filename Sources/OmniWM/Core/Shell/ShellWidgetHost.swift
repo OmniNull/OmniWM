@@ -344,6 +344,7 @@ final class ShellWidgetHost {
     var powerStateObserver: NSObjectProtocol?
     var displaySleepObservers: [NSObjectProtocol] = []
     var watchedPaths: [URL] = []
+    var failedConfigHelpers: Set<URL> = []
     var barColors: (accent: SettingsColor?, foreground: SettingsColor?) = (nil, nil)
     let latestData = ShellLatestWidgetData()
     var outbox: ShellWidgetOutbox?
@@ -379,7 +380,7 @@ final class ShellWidgetHost {
     var onToggleNamesChange: (@MainActor () -> Void)?
     var onWidgetsChange: (@MainActor () -> Void)?
     var publishedToggleNames: [String] = []
-    var publishedReport: IPCShellWidgetsQueryResult?
+    var publishedReport: ShellWidgetReport?
     var configProblems: [String] = []
     var reportedMissing: Set<String> = []
     var ownWidgets: Set<String> = []

@@ -1,38 +1,29 @@
 ---
 title: Settings Reference
-description: Complete reference for every table, array, key, and default in OmniWM's settings.toml.
+description: Complete reference for every table, array, key, and default in OmniWM's settings.luau.
 sidebar:
-  order: 2
+  order: 3
 ---
 
 This reference follows current `main`; features newer than the latest release are marked **Unreleased**.
 
-Complete reference for `settings.toml`, in the file's canonical order. The authoritative schema is [`CanonicalTOMLConfig.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/CanonicalTOMLConfig.swift); defaults come from [`SettingsExport.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/SettingsExport.swift) and [`BuiltInSettingsDefaults.swift`](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/BuiltInSettingsDefaults.swift).
-
-:::caution
-The current schema is strict — a missing required key in a version 5 file invalidates the whole file, `hotkeys` may list each action only once (an action left out is unassigned), and an enumerated string key must use one of its listed values (an unknown value rejects the whole file, exactly like a missing key). Conflicting trackpad gesture finger counts under [`gestures`](#gestures), or one mouse button shared by a hotkey, `systemHyperTrigger`, or Overview, reject the whole file too. Edit values in place; see [Configuration](/config/configuration/).
-:::
-
-**Conventions**
-
-- Keys marked *(optional)* may be omitted; every other key is required.
-- **Colors** are tables with `red`, `green`, `blue`, `alpha` floats in `0.0`–`1.0`.
-- **`singleWindowFit`** values are strings: `"fill"`, a custom size `"WIDTHxHEIGHT"` (e.g. `"1920x1080"`), or — Niri only — `"container_primary_span"`. `"fill"` is the Settings window's "Full Screen" fit: the lone window takes the fullscreen layout frame, so it follows `fullscreenUsesOuterGaps` rather than the regular tiling gaps.
-- Values listed as enums accept exactly the raw strings shown.
+The tables below list the keys in `settings.luau` and their defaults. The [editor definitions](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Resources/omniwm-config.d.luau) describe the accepted shapes. Defaults come from [SettingsExport](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/SettingsExport.swift) and the [built-in defaults](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/BuiltInSettingsDefaults.swift).
 
 ## File schema
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `schemaVersion` | integer | `5` | Version of the complete `settings.toml` schema. This top-level key appears before the first table. |
+Return one table of settings. Each example below shows the fields for one task. To combine examples, add their fields to the same table. Omitted settings use their defaults. A list you supply, such as `workspaces`, is the whole saved list. For example:
 
-The canonical file declares:
-
-```toml
-schemaVersion = 5
+```lua
+return {
+    general = { animationsEnabled = true },
+    gaps = { size = 8 },
+}
 ```
 
-An absent version identifies a legacy version 0 file, while OmniWM v0.6.4 emitted version 1. OmniWM upgrades version 0, 1, 2, 3, and 4 files sequentially in memory before strict version 5 validation, retaining the compatibility guarantee for settings emitted by v0.6.2 through v0.6.4. The version 2 to version 3 step moves the old flat routing rows into one saved arrangement; version 3 to version 4 adds the unassigned set/remove window-mark hotkey actions; version 4 to version 5 renames the resize span hotkey actions to their grow and shrink ids and keeps their bindings. A successful upgrade creates an exact write-once `settings.toml.pre-v5` or `settings.toml.pre-v5.1` backup, then atomically rewrites canonical TOML once; this can reorder keys and removes comments, while preserving unrecognized keys when their owner can be matched safely. Valid release migrations never use the `.corrupt` recovery slots. Older schema-less files are attempted but remain untouched with defaults active if they cannot validate, and files declaring a newer unsupported version remain untouched with configuration writes blocked. See [Automatic version upgrades](/config/configuration/#automatic-version-upgrades) for the migration rules and recovery behavior.
+- Rows in an explicit list must supply their required fields. A supplied `hotkeys` list can assign each action once. Omitted actions in that list are unassigned.
+- **Colors** have `red`, `green`, `blue` and `alpha` values between `0` and `1`.
+- **`singleWindowFit`** accepts `"fill"`, a size such as `"1920x1080"`, and, in Niri, `"container_primary_span"`. The Settings window calls `"fill"` **Full Screen**. It follows `fullscreenUsesOuterGaps`.
+- Enums accept the strings shown. An unknown key, wrong type, invalid enum or conflicting trackpad finger-count assignment rejects the edit. See [Configuration](/config/configuration/#live-reload-and-recovery) for recovery.
 
 ## general
 
@@ -51,9 +42,11 @@ Global switches: hotkeys, Hyper key, default layout, sleep, updates, IPC, animat
 | `animationSpeed` *(optional)* | float | `1.0` | Tiling animation speed multiplier: `2.0` is twice as fast, `0.5` is half as fast. Applies to Niri focus, window/column movement and resizing, Dwindle layout changes, workspace swipe settling, and workspace switch slides. Values are clamped to `0.25`–`4.0`; nonfinite values use `1.0`. Changes apply to newly started transitions. Direct gesture tracking, inertial scrolling, Overview, and Quake terminal animations keep their own behavior. |
 | `slideWorkspaceSwitches` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Workspace switches from shortcuts, the command palette and `omniwmctl` slide between workspaces like a workspace swipe, in the same direction as a workspace swipe, whether or not `workspaceSwipeEnabled` is on. Needs `animationsEnabled` and Screen Recording; without them, or while the destination workspace has no captured preview yet, the switch is instant. While on, OmniWM keeps previews of the neighboring workspaces captured in the background. Settings > Appearance > App & Motion. |
 | `pausePalettePasteDuringSecureInput` *(optional)* | boolean | `true` | **Unreleased:** Available when building from `main`. While macOS Secure Input is on, command palette clipboard entries don't paste. Set to `false` when an app holds Secure Input in the background and you still want to paste from the palette. Keyboard modes don't start during Secure Input either way, and macOS still pauses Hyper and left/right-specific shortcuts, and those on letter, number or symbol keys without Control or Command. Settings > Hotkeys > Controls. |
+| `showSecureInputExplanation` *(optional)* | boolean | `true` | **Unreleased**. Automatically opens the explanation after Secure Input has been on for 10 seconds. While Secure Input is indicated, you can also open the explanation from the OmniWM status menu. Settings > Hotkeys > Controls. |
 | `language` *(optional)* | string | unset | Interface language as a packaged localization code, such as `"ja"` or `"sr-Latn"`. Leave it unset to follow macOS. Takes effect the next time OmniWM starts. |
 | `workspaceAutoBackAndForth` *(optional)* | boolean | `false` | When a workspace shortcut or command palette entry targets the workspace you are already on, switch to the previously active workspace instead, like i3's `workspace_auto_back_and_forth`. `omniwmctl` workspace commands are unaffected. Settings > Workspaces > Workspace Switching. |
 | `focusNativeFullscreenOnWorkspaceSwitch` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. When you switch to a workspace whose remembered window is in macOS native fullscreen, focus that window so macOS moves to its Space, like AeroSpace. When `false`, the workspace selects the window's placeholder. Settings > Workspaces > Workspace Switching. |
+| `workspaceSwitchWrapAround` *(optional)* | boolean | `true` | Set to `false` to stop Next and Previous Workspace commands at the ends of the current monitor's workspace order. Applies to shortcuts, the command palette, and `omniwmctl`. Settings > Workspaces > Workspace Switching. |
 
 ## focus
 
@@ -64,7 +57,8 @@ Pointer-driven focus and monitor-edge focus/move behavior.
 | `followsMouse` | boolean | `false` | Focuses a managed window when the pointer enters it, no click needed. |
 | `followsMouseOnlyFullyVisible` (optional) | boolean | `false` | Restricts Niri hover focus to tiled windows whose current WindowServer bounds fit inside their assigned monitor's screen bounds and contain the pointer. If those bounds are unavailable, hover leaves focus unchanged. Also disables hover navigation at Niri screen edges. Clicks, keyboard navigation, Dwindle, and floating windows are unaffected. Requires `followsMouse`. |
 | `clickFocusWithoutScrolling` (optional) | boolean | `false` | **Unreleased:** Available when building from `main`. A left click without modifiers on a partially visible Niri window focuses it and leaves the viewport where it is. Keyboard navigation, gestures, Cmd-Tab, the Dock, and other activations still scroll the window into view. With `followsMouse`, hovering focuses and scrolls the window before you click. Enable `followsMouseOnlyFullyVisible` as well to avoid that. Has no effect when `centerFocusedColumn` is `always`. Dwindle and floating windows are unaffected. |
-| `edgeNavigationInterval` *(optional)* | float | `1.5` | Seconds before hovering at a Niri edge moves one column, and between further moves while the pointer stays on the edge or preview. Requires `followsMouse`; moving away stops navigation. Values are clamped to `0.25`–`2.0` and rounded to the nearest `0.25`; nonfinite values use `1.5`. |
+| `edgeNavigationEnabled` *(optional)* | boolean | `true` | **Unreleased.** Shows the Niri edge preview and enables pointer navigation between columns at the screen edge. Settings > Mouse & Trackpad > Mouse & Focus > Niri Edge Navigation. |
+| `edgeNavigationInterval` *(optional)* | float | `1.5` | Seconds before hovering at a Niri edge moves one column, and between further moves while the pointer stays on the edge or preview. Requires `edgeNavigationEnabled` and `followsMouse`. Moving away stops navigation. Values are clamped to `0.25`–`2.0` and rounded to the nearest `0.25`. Nonfinite values use `1.5`. |
 | `raiseOnMouseFocus` | boolean | `false` | Also raises the window when focus-follows-mouse focuses it. A tiled window that a visible floating window overlaps from the front is focused without raising. |
 | `lockModifier` | string | `"off"` | Modifier that holds focus in place while pressed: `off`, `option`, `leftOption`, `rightOption`, `command`, `leftCommand`, `rightCommand`, `control`, `leftControl`, `rightControl`, `shift`, `leftShift`, `rightShift`. |
 | `moveMouseToFocusedWindow` | boolean | `false` | Moves the pointer to the window that gains focus. |
@@ -89,35 +83,42 @@ How monitors are arranged for cross-monitor focus, move, and warp.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `mode` | string | `"macOS"` | `macOS` follows the system display arrangement; `custom` selects a saved arrangement for the connected displays. |
-| `arrangements` | array of tables | `[]` | Saved custom routing grids, written as `[[routing.arrangements]]` with nested `[[routing.arrangements.monitors]]` rows. |
+| `arrangements` | array of tables | `{}` | Saved custom routing grids, written as `routing.arrangements` with nested `routing.arrangements.monitors` rows. |
 
 Each arrangement has a required `id` UUID and a required `monitors` array. Each monitor row requires `monitorName`, `gridColumn`, and `gridRow`; `monitorDisplayUUID` and `monitorDisplayId` are optional identity fields. Grid coordinates are integers. Settings records display UUIDs automatically; matching uses UUID first and the existing display-ID/name fallback for displays without UUIDs.
 
 OmniWM selects the first exact connected-set match. Otherwise, it selects the arrangement with the fewest total rows that contains every connected display; the first arrangement wins ties. It then uses only the connected displays' grid positions. An uncovered set or an invalid selected grid follows macOS. Resolution, enumeration order, and macOS placement do not affect selection.
 
-Editing, resetting, or finishing Monitor Setup saves exactly the connected set and retains an existing exact arrangement's ID. An edit to an inherited grid creates a separate arrangement without changing its larger source. Connecting displays or opening Settings does not create arrangements. Keep arrangement IDs stable when editing by hand so unrecognized configuration fields remain associated with the right arrangement.
+Editing, resetting, or finishing Monitor Setup saves exactly the connected set and retains an existing exact arrangement's ID. An edit to an inherited grid creates a separate arrangement without changing its larger source. Connecting displays or opening Settings does not create arrangements. Keep arrangement IDs stable when editing by hand so the same arrangement is recognized after a change.
 
-```toml
-[routing]
-mode = "custom"
-
-[[routing.arrangements]]
-id = "FBE84D50-689B-4B97-A820-B8E3BFD581B7"
-
-[[routing.arrangements.monitors]]
-gridColumn = 0
-gridRow = 1
-monitorDisplayUUID = "8D575171-D0DD-43BB-9FEF-356E6B7C917D"
-monitorName = "Built-in Retina Display"
-
-[[routing.arrangements.monitors]]
-gridColumn = 0
-gridRow = 0
-monitorDisplayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B"
-monitorName = "DELL U2720Q"
+```lua
+return {
+    routing = {
+        mode = "custom",
+        arrangements = {
+            {
+                id = "FBE84D50-689B-4B97-A820-B8E3BFD581B7",
+                monitors = {
+                    {
+                        gridColumn = 0,
+                        gridRow = 1,
+                        monitorDisplayUUID = "8D575171-D0DD-43BB-9FEF-356E6B7C917D",
+                        monitorName = "Built-in Retina Display",
+                    },
+                    {
+                        gridColumn = 0,
+                        gridRow = 0,
+                        monitorDisplayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B",
+                        monitorName = "DELL U2720Q",
+                    },
+                },
+            },
+        },
+    },
+}
 ```
 
-For no saved arrangements, use `arrangements = []` inside `[routing]` and omit the array-of-table entries. The example UUIDs above are illustrative; use the identities recorded for your displays by **Settings > Displays**.
+For no saved arrangements, use `arrangements = {}` inside `routing`. The example UUIDs above are illustrative; use the identities recorded for your displays by **Settings > Displays**.
 
 ## monitors
 
@@ -125,18 +126,25 @@ Optional table that ranks displays for OmniWM's monitor roles. Omit it to keep t
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `ranking` | array of tables | unset | Displays in preference order, written as `[[monitors.ranking]]` rows. The highest-ranked connected display is Main, the next connected one is Secondary, the third is Tertiary, and unranked displays follow in the default order. |
+| `ranking` | array of tables | unset | Displays in preference order, written as `monitors.ranking` rows. The highest-ranked connected display is Main, the next connected one is Secondary, the third is Tertiary, and unranked displays follow in the default order. |
 
 Each row requires `name`; `displayUUID` and `displayId` are optional identity fields that Settings records automatically. A row with a `displayUUID` matches only that display. A row without one falls back to the display-ID/name pair, and then to a case-insensitive name match when it identifies exactly one connected display. A row whose display is disconnected is skipped, so a docked external display can outrank the built-in display while the built-in display becomes Main again when undocked.
 
-```toml
-[[monitors.ranking]]
-displayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B"
-name = "DELL U2720Q"
-
-[[monitors.ranking]]
-displayUUID = "8D575171-D0DD-43BB-9FEF-356E6B7C917D"
-name = "Built-in Retina Display"
+```lua
+return {
+    monitors = {
+        ranking = {
+            {
+                displayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B",
+                name = "DELL U2720Q",
+            },
+            {
+                displayUUID = "8D575171-D0DD-43BB-9FEF-356E6B7C917D",
+                name = "Built-in Retina Display",
+            },
+        },
+    },
+}
 ```
 
 Workspaces whose home is Main, Secondary, or Tertiary follow this ranking, and so does the Quake terminal's `mainMonitor` mode. The `is-main` field and selector in `omniwmctl` keep reporting the macOS main display.
@@ -154,7 +162,7 @@ Gaps between tiled windows and screen edges (points).
 | `outer.top` | float | `0.0` | Outer gap measured from the physical top edge of each display. The menu bar height is subtracted first and the result is clamped at 0, so a display without a menu bar needs a smaller value than the main display for the same visual gap below the menu bar. |
 | `outer.bottom` | float | `0.0` | Outer gap at the bottom screen edge. |
 
-Per-display values come from [`[[monitorGapOverrides]]`](#per-monitor-overrides). An override row must match the connected display’s UUID, or both display ID and name if that display has no UUID. An unmatched row is ignored and the global values apply; the override row’s own `id` does not identify the display.
+Per-display values come from [`monitorGapOverrides`](#per-monitor-overrides). An override row must match the connected display’s UUID, or both display ID and name if that display has no UUID. An unmatched row is ignored and the global values apply; the override row’s own `id` does not identify the display.
 
 ## niri
 
@@ -171,7 +179,7 @@ Options for the scrolling (Niri) layout.
 | `allowOverscroll` *(optional)* | boolean | `false` | Allows trackpad scrolling past the first or last container to leave the desktop exposed after release. Applies to both snap and continuous scrolling, including single-window workspaces. Explicit focus navigation reveals the target normally. |
 | `overscrollVisibleStripPercent` *(optional)* | integer | `5` | Minimum visible strip at either overscroll limit, as a percentage of the edge container's primary span capped at the viewport span. Clamped to 1–100; used only when `allowOverscroll` is enabled. |
 | `singleWindowFit` | string | `"fill"` | Size of a lone window: `fill` (the "Full Screen" fit, which uses the fullscreen layout frame and honors `fullscreenUsesOuterGaps`), `container_primary_span`, or `WIDTHxHEIGHT`. |
-| `containerPrimarySpanPresets` *(optional)* | float array | `[1/3, 1/2, 2/3]` | Span fractions the span-cycling actions step through. |
+| `containerPrimarySpanPresets` *(optional)* | float array | `{ 1/3, 1/2, 2/3 }` | Span fractions the span-cycling actions step through. |
 | `defaultContainerPrimarySpan` *(optional)* | float or string | `0.5` | Primary-axis span fraction for new containers. Leave it out for an automatic span. `"app"` (**unreleased**, available when building from `main`) opens a new window at its app’s width in a horizontal strip or height in a vertical strip; a window with an opening-size rule keeps its rule. |
 | `keepExistingWindowWidth` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip. Settings calls this **Keep Existing Window Sizes**. |
 | `keepSizeOnUnstack` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. A window moved out of a stack into a column of its own, or gathered into a new column, takes the size of the column it came from instead of the default span. |
@@ -179,7 +187,7 @@ Options for the scrolling (Niri) layout.
 | `keepSizesOnSettingsChange` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Changing Visible Containers or the default span in Settings leaves open columns as they are. |
 | `resizeStepPercent` *(optional)* | integer | `5` | Increment for Niri grow/shrink actions in percentage points, clamped to 1–100. Applies to container primary, window primary, and window secondary spans. Explicit CLI sizes are unaffected. |
 | `edgeGaps` *(optional)* | boolean | `true` | Keeps the inner gap between columns and the screen edges, in addition to the outer gaps. `false` uses the inner gap only between columns and between stacked windows. A lone window is unaffected. |
-| `shrinkToFit` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Resizing a column with the keyboard (set, adjust or cycle its span) resizes the other visible columns, up to the Visible Containers count, so together they fill the working area, keeping each within its size limits. Their own widths come back when the column count or the gaps change. Mouse resizing is unchanged, and nothing is refitted automatically: if a window can't shrink to its share, the row can still extend into the outer gaps until the next keyboard resize. |
+| `shrinkToFit` *(optional)* | boolean | `false` | **Unreleased:** Available when building from `main`. Resizing a column with the keyboard (set, adjust or cycle its span) resizes the other visible columns, up to the Visible Containers count, so together they fill the working area, keeping each within its size limits. The same fit also runs on its own when the sizes behind the row change and the visible columns would extend past the working area: a window refuses the size it was given, a window opens or closes, Balance Sizes runs, or the gaps, the display or the Visible Containers count change. Each column keeps its own width, which comes back once the row fits without it. When the minimums can't all fit, whole columns move out of view. Moving focus, mouse resizing and rows with a full-span column are left alone. |
 | `moveWindowStacksIntoColumn` *(optional)* | boolean | `true` | Moving a lone window left or right stacks it into the adjacent column. `false` swaps its column with the adjacent one instead, unless the adjacent column is tabbed: then the window joins its tabs. A window that shares a column still moves out into its own column. |
 | `edgePeekPercent` *(optional)* | float | `0.0` | Peripheral Vision: keeps a strip of the next column showing at each screen edge that has more columns beyond it, as a percentage of the display's width for horizontal strips or height for vertical strips, clamped to 0–10. `0` shows none. Columns are laid out no larger along the strip than the display minus these strips, unless a window's minimum size or the size it is known to settle at needs more; the strip is then smaller or absent. An edge shared with another display shows none. A display can set its own value with `edgePeekPercent` in its monitor Niri settings. |
 
@@ -265,7 +273,7 @@ The [window switcher](/features/window-switcher/). The table is optional; when a
 
 ## workspaceBar
 
-The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverrides`](#per-monitor-overrides). A [shell profile or theme](/omnishell/configuration/profiles-palettes/#profile-settings) can override most of these keys in its own `[workspaceBar]`.
+The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverrides`](#per-monitor-overrides). A [shell profile or theme](/omnishell/configuration/profiles-palettes/#profile-settings) can override most of these keys in its own `workspaceBar`.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -284,7 +292,7 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 | `systemStatsButton` | boolean | `false` | Adds a system stats button to the bar. The button needs the shell's `system-stats` widget in one of the bar's groups. |
 | `deduplicateAppIcons` | boolean | `false` | Collapses repeated icons of the same app within a pill. |
 | `hideEmptyWorkspaces` | boolean | `false` | Hides inactive empty workspaces in the bar and Overview; next/previous navigation skips them. |
-| `excludedBundleIDs` | string array | `[]` | Bundle IDs whose windows never contribute icons to the bar. |
+| `excludedBundleIDs` | string array | `{}` | Bundle IDs whose windows never contribute icons to the bar. |
 | `iconOverrides` | table | `{}` | Bundle ID → custom icon source (see below). |
 | `reserveLayoutSpace` | boolean | `false` | Reserves space at the selected edge for tiled and layout-fullscreen windows. Overlapping placement reserves only how far the bar's screen-constrained bottom edge extends below the top of the usable frame, including `yOffset` (zero when it fits within the menu-bar area). Other positions reserve the configured bar thickness regardless of offsets. |
 | `autoHide` *(optional)* | boolean | `false` | Reveal when the pointer touches the bar's edge span. Hide after the pointer moves inward past the bar and interactions end; moving along the edge keeps it visible. Never reserves layout space. Supports per-display overrides and combines with modifier-hold reveal. |
@@ -307,10 +315,15 @@ The per-monitor workspace bar. Per-monitor exceptions live in [`monitorBarOverri
 
 `iconOverrides` maps a bundle ID to either an image file path — absolute, `~/`-relative, or relative to the `omniwm` config directory — or `bundle-resource:NAME` for an image resource inside that app's own bundle:
 
-```toml
-[workspaceBar.iconOverrides]
-"com.apple.Safari" = "~/Pictures/safari-alt.png"
-"com.mitchellh.ghostty" = "bundle-resource:AppIcon"
+```lua
+return {
+    workspaceBar = {
+        iconOverrides = {
+            ["com.apple.Safari"] = "~/Pictures/safari-alt.png",
+            ["com.mitchellh.ghostty"] = "bundle-resource:AppIcon",
+        },
+    },
+}
 ```
 
 ## island
@@ -321,7 +334,7 @@ The Dynamic Island master switch. The table is optional; when absent, the island
 | --- | --- | --- | --- |
 | `enabled` | boolean | `false` | Shows the active shell profile's Dynamic Island independently of the Workspace Bar. Selecting a profile does not turn it on. |
 
-The island's root, placement and component configuration belong to the selected profile in `shell.toml`. See [Islands and components](/omnishell/configuration/islands-components/#enable-and-place-an-island).
+The island's root, placement and component configuration belong to the selected profile in `shell.luau`. See [Islands and components](/omnishell/configuration/islands-components/#enable-and-place-an-island).
 
 ## gestures
 
@@ -341,7 +354,7 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `workspaceSwipeEnabled` | boolean | `false` | Trackpad swipe switches to the next/previous workspace. |
 | `workspaceSwipeFingerCount` | integer | `3` | Workspace-swipe finger count: `2`, `3`, or `4`. |
 | `workspaceSwipeAxis` | string | `"vertical"` | Workspace-swipe axis: `horizontal` or `vertical`. Workspace switch slides from shortcuts go the same way as workspace swipes. |
-| `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes only; next/previous workspace hotkeys always wrap. |
+| `workspaceSwipeEdgeBehavior` *(optional)* | string | `"cycle"` | What a workspace swipe does past the first or last workspace: `cycle` wraps around, `none` ignores the swipe, and `onePast` moves from the last occupied workspace to an empty one, creating it if needed, while ignoring swipes past an empty last workspace or before the first. Applies to trackpad swipes. See [`workspaceSwitchWrapAround`](#general) for Next and Previous Workspace commands. |
 | `overviewGestureEnabled` *(optional)* | boolean | `false` | Enable the trackpad gesture that opens Overview with an upward swipe and closes it with a downward swipe. |
 | `overviewGestureFingerCount` *(optional)* | integer | `4` | Overview gesture finger count: `3` or `4`. |
 | `windowMoveEnabled` *(optional)* | boolean | `false` | Move the tiled window under the pointer without clicking. Other windows make room as you drag. Lift to settle. |
@@ -352,7 +365,7 @@ The seven optional `overviewGesture…` and `window…` keys below configure Ove
 | `windowGestureSensitivity` *(optional)* | float | `1.0` | Resize speed, clamped to `0.1…5.0`. Non-finite values use `1.0`. |
 | `dwindleGroupDragAcrossDisplays` *(optional)* | string | `"group"` | What a title-bar drag of a Dwindle tab group moves onto another display: `group` moves the whole group, which becomes one tabbed column in Niri; `window` moves only the dragged window. The same choice decides whether a swap onto a Dwindle group exchanges the whole group or only the window under the pointer. |
 
-Window move and resize gestures use all directions, so their finger counts must differ from every other enabled gesture. Configuration loading rejects overlaps with each other, column scrolling, workspace switching, or Overview. In Settings, **Set Up…** previews the conflicting assignments and lets you choose which gestures to turn off before applying the change. When editing TOML, disable or reassign conflicting gestures in the same edit. Moving stays on the starting monitor; resizing can continue beyond its bounds. Lift all fingers to finish, and turn off matching macOS gestures under System Settings → Trackpad → More Gestures. These gestures are inactive while Overview is open and do not use `invertDirection`.
+Window move and resize gestures use all directions, so their finger counts must differ from every other enabled gesture. Configuration loading rejects overlaps with each other, column scrolling, workspace switching, or Overview. In Settings, **Set Up…** previews the conflicting assignments and lets you choose which gestures to turn off before applying the change. When editing `settings.luau`, disable or reassign conflicting gestures in the same edit. Moving stays on the starting monitor; resizing can continue beyond its bounds. Lift all fingers to finish, and turn off matching macOS gestures under System Settings → Trackpad → More Gestures. These gestures are inactive while Overview is open and do not use `invertDirection`.
 
 Overview follows your fingers like Mission Control. Swipe up with the configured finger count and the thumbnails fly out as you move; release past the halfway point, or flick upward, to finish opening, and release earlier to cancel without disturbing the app you were in. Swipe down while Overview is open to close it the same way. Closing matches Escape: it activates the highlighted window, or restores the previously active app when there is no selection. Touching the trackpad while Overview is animating catches it in place. With `animationsEnabled` off or macOS Reduce Motion on, the swipe triggers immediately after a short travel instead of tracking. Direction is independent of `invertDirection`. Lift all fingers between gestures. Configuration validation rejects enabled gestures that share the same fingers and upward movement; the Settings **Set Up…** flow helps resolve those conflicts. Horizontal swipes may share fingers with Overview. Validation accounts for connected monitors' column orientations and workspace swipes running perpendicular to column scrolling when their finger counts match. Without column scrolling, workspace swipes use their configured axis. If a display change creates an overlap, ambiguous upward swipes are ignored until the assignments are corrected. Disable the matching macOS Mission Control gesture to avoid interception.
 
@@ -379,8 +392,8 @@ Contents of the OmniWM status menu panel (the dropdown on OmniWM's menu bar item
 | `showControls` | boolean | `true` | Master switch for the CONTROLS grid and its help card. |
 | `showControlHelp` | boolean | `true` | Shows the description card under the controls grid. Has no effect while `showControls` is off. |
 | `showMenuItems` | boolean | `true` | Master switch for OmniWM's own rows: Settings, App Rules, Open Shell Folder, Check for Updates…, Advanced, Diagnostics, Help & Links, Omni Sponsors. Quit OmniWM always stays. |
-| `hiddenControls` | string array | `[]` | Control tiles to hide individually: `bordersEnabled`, `workspaceBarEnabled`, `preventSleepEnabled`, `focusFollowsMouse`, `focusCrossesMonitorAtEdge`, `moveMouseToFocusedWindow`, `focusFollowsWindowToMonitor`, `moveCrossesMonitorAtEdge`, `mouseWarpEnabled`, `hiddenBarEnabled`. |
-| `hiddenMenuItems` | string array | `[]` | OmniWM rows to hide individually: `hiddenIcons`, `settings`, `appRules`, `openShellFolder`, `checkForUpdates`, `advanced`, `diagnostics`, `helpLinks`, `sponsors`. |
+| `hiddenControls` | string array | `{}` | Control tiles to hide individually: `bordersEnabled`, `workspaceBarEnabled`, `preventSleepEnabled`, `focusFollowsMouse`, `focusCrossesMonitorAtEdge`, `moveMouseToFocusedWindow`, `focusFollowsWindowToMonitor`, `moveCrossesMonitorAtEdge`, `mouseWarpEnabled`, `hiddenBarEnabled`. |
+| `hiddenMenuItems` | string array | `{}` | OmniWM rows to hide individually: `hiddenIcons`, `settings`, `appRules`, `openShellFolder`, `checkForUpdates`, `advanced`, `diagnostics`, `helpLinks`, `sponsors`. |
 
 The master switches and the per-item arrays are independent: turning a master off hides the group without changing the individual choices, so turning it back on restores exactly the previous selection. Unknown ids are ignored.
 
@@ -391,10 +404,10 @@ Menu-bar icon concealment (requires macOS 27+ and Full Disk Access).
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Enables the Hidden Bar feature while the workspace bar is on. |
-| `hiddenBundleIDs` | string array | `[]` | Bundle IDs of menu-bar apps whose icons are concealed. |
+| `hiddenBundleIDs` | string array | `{}` | Bundle IDs of menu-bar apps whose icons are concealed. |
 | `rehideIntervalSeconds` | float | `5.0` | Seconds before revealed icons re-hide automatically. |
 
-A [shell profile](/omnishell/configuration/profiles-palettes/#profile-settings) can override `enabled` and `rehideIntervalSeconds` in its own `[hiddenBar]`.
+A [shell profile](/omnishell/configuration/profiles-palettes/#profile-settings) can override `enabled` and `rehideIntervalSeconds` in its own `hiddenBar`.
 
 ## clipboard
 
@@ -406,7 +419,7 @@ Clipboard history limits. History content itself is stored in the state director
 | `maxItems` | integer | `200` | Maximum number of unpinned history entries. |
 | `maxItemBytes` | integer | `8388608` | Maximum size of a single entry (8 MiB). |
 | `maxTotalBytes` | integer | `67108864` | Maximum total history size, including pins (64 MiB). |
-| `ignoredTypes` *(optional)* | string array | `[]` | Exact pasteboard type identifiers that exclude a copy from history. |
+| `ignoredTypes` *(optional)* | string array | `{}` | Exact pasteboard type identifiers that exclude a copy from history. |
 
 ## launcher
 
@@ -414,18 +427,18 @@ The table and all of its keys are optional; omitted keys take the defaults below
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `appFolders` | string array | `[]` | Extra app folders, scanned alongside standard app folders and active Nix profiles. |
-| `cliFolders` | string array | `[]` | Extra executable folders, searched after the selected shell's PATH and standard Homebrew/Nix bin folders. |
+| `appFolders` | string array | `{}` | Extra app folders, scanned alongside standard app folders and active Nix profiles. |
+| `cliFolders` | string array | `{}` | Extra executable folders, searched after the selected shell's PATH and standard Homebrew/Nix bin folders. |
 | `shell` | string | `"system"` | `system`, `nushell`, `fish`, `zsh`, or `bash`. |
 | `shellExecutable` | string | `""` | Optional explicit executable path for the selected shell. |
 | `terminal` | string | `"terminal"` | Default terminal: `builtIn`, `terminal`, `ghostty`, `iterm`, or `kitty`. |
-| `entries` | table array | `[]` | Named applications, commands, scripts, and saved CLI launches. |
+| `entries` | table array | `{}` | Named applications, commands, scripts, and saved CLI launches. |
 
 Commands and scripts can override the default shell and terminal, including Background execution. Use Refresh Launcher after changing shell startup configuration.
 
 ### launcher.entries
 
-Each `[[launcher.entries]]` table describes one saved entry. All fields are optional when decoding, but running a command requires nonblank `command` text, and running an application, script or executable requires a suitable `path`. Give entries a `name` so you can recognize them in Launcher.
+Each `launcher.entries` table describes one saved entry. All fields are optional when decoding, but running a command requires nonblank `command` text, and running an application, script or executable requires a suitable `path`. Give entries a `name` so you can recognize them in Launcher.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -434,7 +447,7 @@ Each `[[launcher.entries]]` table describes one saved entry. All fields are opti
 | `kind` | string | `"command"` | `application`, `command`, `script`, or `executable`. |
 | `path` | string | `""` | App bundle, script or executable path for the corresponding kind; use an absolute path or `~/…`. |
 | `command` | string | `""` | Command text, interpreted using the selected shell's syntax for `kind = "command"`. |
-| `arguments` | string array | `[]` | Arguments for scripts and executables, each passed separately. For commands, put arguments in `command` using the shell's syntax. |
+| `arguments` | string array | `{}` | Arguments for scripts and executables, each passed separately. For commands, put arguments in `command` using the shell's syntax. |
 | `keywords` | string | `""` | Additional searchable text. |
 | `workingDirectory` | string | `""` | Working folder for commands, scripts and executables. Empty uses your home folder; `~` expands. |
 | `shell` | string | `"defaultShell"` | Inherit the configured shell, or choose `system`, `nushell`, `fish`, `zsh`, or `bash`. |
@@ -442,39 +455,45 @@ Each `[[launcher.entries]]` table describes one saved entry. All fields are opti
 | `interpreter` | string | `""` | Interpreter executable for a script or executable entry. Empty launches the file directly, requiring execute permission and a valid shebang for a script. |
 | `terminal` | string | `"defaultTerminal"` | Inherit the configured terminal, or choose `builtIn`, `terminal`, `ghostty`, `iterm`, `kitty`, or `background`. |
 
-Merge this fragment into your existing settings and replace the example paths. If `[launcher]` already has an `entries` value, replace it with the array-of-table entries rather than declaring both forms:
+Merge this fragment into your existing settings and replace the example paths. If `launcher` already has an `entries` value, replace it with the array-of-table entries rather than declaring both forms:
 
-```toml
-[launcher]
-shell = "zsh"
-terminal = "terminal"
-
-[[launcher.entries]]
-id = "9B839481-B222-4A1F-B74E-B86C63A2FD19"
-name = "Project status"
-kind = "command"
-command = "git status --short"
-workingDirectory = "~/Projects/example"
-keywords = "git status"
-
-[[launcher.entries]]
-id = "DB1789D1-7C71-461E-A65B-719E789D4C2E"
-name = "Weekly report"
-kind = "script"
-path = "~/Scripts/report.py"
-interpreter = "/usr/bin/python3"
-arguments = ["--title", "Weekly report"]
-terminal = "background"
+```lua
+return {
+    launcher = {
+        shell = "zsh",
+        terminal = "terminal",
+        entries = {
+            {
+                id = "9B839481-B222-4A1F-B74E-B86C63A2FD19",
+                name = "Project status",
+                kind = "command",
+                command = "git status --short",
+                workingDirectory = "~/Projects/example",
+                keywords = "git status",
+            },
+            {
+                id = "DB1789D1-7C71-461E-A65B-719E789D4C2E",
+                name = "Weekly report",
+                kind = "script",
+                path = "~/Scripts/report.py",
+                interpreter = "/usr/bin/python3",
+                arguments = { "--title", "Weekly report" },
+                terminal = "background",
+            },
+        },
+    },
+}
 ```
 
 ## commandPalette
 
-**Unreleased — available when building from `main`.** The [command palette](/features/command-palette/#unified-search). The table and both keys are optional; when absent, every key takes its default. Configure these values in **Settings > Command Palette**.
+**Unreleased — available when building from `main`.** The [command palette](/features/command-palette/#unified-search). The table and its keys are optional; when absent, every key takes its default. Configure these values in **Settings > Command Palette**.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `unifiedSearch` | boolean | `false` | Open Command Palette shows unified search instead of the last-used mode. Each mode's own Command Palette shortcut still opens just that mode. |
-| `searchedModes` | string array | `["windows", "applications", "commands", "files"]` | Palette modes unified search covers, in the order their groups appear: `windows`, `menu`, `clipboard`, `commands`, `applications` (Launcher), `files`. Unknown and repeated names are ignored. |
+| `openExpanded` | boolean | `false` | The palette opens with its results showing in every mode and in unified search, instead of only the search field. Unified search without Windows among its searched modes still opens collapsed until you type. Launcher and Files already open with their results showing. Settings > Command Palette > Show Results on Open. |
+| `searchedModes` | string array | `{ "windows", "applications", "commands", "files" }` | Palette modes unified search covers, in the order their groups appear: `windows`, `menu`, `clipboard`, `commands`, `applications` (Launcher), `files`. Unknown and repeated names are ignored. |
 
 What unified search learns from your picks is stored in the state directory, not in the config file.
 
@@ -546,8 +565,6 @@ Optional. When present, OmniWM sends the position and an explicit width and heig
 | `terminalColors` | string | `"palette"` | How terminal colors 1 to 6 and 9 to 14 are made: `palette` follows an accent-only palette such as the wallpaper's (a theme with its own hues keeps them), `standard` keeps standard hues tinted toward the accent. See [terminal colors](/features/app-theming/#terminal-colors). |
 | `ghostty.enabled` | boolean | `false` | Writes `omniwm-light` and `omniwm-dark` to `ghostty/themes/` in your config folder and reloads Ghostty when the palette changes. |
 | `kitty.enabled` | boolean | `false` | Writes kitty's `light-theme.auto.conf` and `dark-theme.auto.conf` and reloads kitty with `SIGUSR1`. |
-| `herdr.enabled` | boolean | `false` | Keeps `[theme.custom]` in herdr's `config.toml` in step with the palette. Turn it on in Settings, which shows the change and makes a backup first; OmniWM won't change an existing herdr config it hasn't been allowed to. |
-| `herdr.reloadSavedMachines` | boolean | `true` | Also runs `herdr --machine <label> server reload-config` for every enabled saved machine. Custom templates with `reload = "herdr"` follow it too. When it is off, OmniWM runs no herdr command; the local server always reloads through herdr's socket. |
 | `neovim.enabled` | boolean | `false` | Writes the `omniwm.lua` base16 module, with light and dark palettes chosen by Neovim's `background`, to `nvim/lua/` in your config folder, plus `nvim/colors/omniwm.lua`, and reloads running Neovim with `SIGUSR1`. See [Neovim](/features/app-theming/#neovim). |
 
 ### appTheming.custom
@@ -562,7 +579,7 @@ An array of tables, one per custom template.
 | `template` | string | `""` | Path of the template file; `~/` is your home folder. |
 | `darkTemplate` *(optional)* | string | unset | Template used in dark mode instead of `template`. |
 | `output` | string | `""` | File to write, inside `~/.config` (or `$XDG_CONFIG_HOME`) or `~/Library/Application Support`. |
-| `reload` | string | `"none"` | After writing: `none`, `ghostty`, `kitty` or `herdr`. `herdr` also reloads saved machines when `herdr.reloadSavedMachines` is on. Any other value, and an older `reloadCommand` key, is ignored; nothing is run. |
+| `reload` | string | `"none"` | After writing the template output, use `"ghostty"` or `"kitty"` to reload that app, or `"none"` to skip reloading. |
 
 ## scratchpads
 
@@ -572,10 +589,15 @@ Optional labels for the ten scratchpad slots. A label replaces the slot number i
 | --- | --- | --- | --- |
 | `labels` | table | `{}` | Slot number (`1`–`10`) → label string. |
 
-```toml
-[scratchpads.labels]
-1 = "term"
-2 = "notes"
+```lua
+return {
+    scratchpads = {
+        labels = {
+            ["1"] = "term",
+            ["2"] = "notes",
+        },
+    },
+}
 ```
 
 ## appearance
@@ -588,23 +610,31 @@ Appearance of OmniWM's own UI.
 
 The **Show app icons in tab rails** toggle in **Settings → Appearance → App & Motion** controls the same option. Changes apply live without restarting.
 
-```toml
-[appearance]
-tabRailAppIcons = true
+```lua
+return {
+    appearance = {
+        tabRailAppIcons = true,
+    },
+}
 ```
 
 ## hotkeys
 
 Array of tables — one entry per assignable action, each with an `id` (the action identifier) and a `binding`:
 
-```toml
-[[hotkeys]]
-binding = "Option+1"
-id = "switchWorkspace.0"
-
-[[hotkeys]]
-binding = "Unassigned"
-id = "toggleScratchpad.1"
+```lua
+return {
+    hotkeys = {
+        {
+            binding = "Option+1",
+            id = "switchWorkspace.0",
+        },
+        {
+            binding = "Unassigned",
+            id = "toggleScratchpad.1",
+        },
+    },
+}
 ```
 
 - `binding` is a human-readable chord: `+`-joined modifiers (`Control`, `Option`, `Shift`, `Command`, or the `Hyper` shorthand for the full [`hyperKeyModifiers`](#general) set) followed by a key name — or `"Unassigned"`. A `Left `/`Right ` prefix pins a modifier to one side (e.g. `"Left Option+H"`). A binding can instead be an extra mouse button, `MouseButton2`–`MouseButton31`, alone or after modifiers without side prefixes (e.g. `"Option+MouseButton3"`); a button used by `systemHyperTrigger` or Overview cannot also be a hotkey.
@@ -632,15 +662,20 @@ For `specificDisplay`, `displayUUID` takes precedence when present. Without it, 
 
 Default: nine workspaces named `1`–`9`, all Niri — `1`–`5` and `8`–`9` on the main monitor, `6` (shown as ❤️) and `7` (shown as 🚀) on the secondary, matching the default `Option + 1`–`9` bindings.
 
-```toml
-[[workspaces]]
-displayName = "❤️"
-id = "5953F2BF-A378-4266-91B2-287174C4FA4D"
-layoutType = "niri"
-name = "6"
-
-[workspaces.monitorAssignment]
-type = "secondary"
+```lua
+return {
+    workspaces = {
+        {
+            displayName = "❤️",
+            id = "5953F2BF-A378-4266-91B2-287174C4FA4D",
+            layoutType = "niri",
+            name = "6",
+            monitorAssignment = {
+                type = "secondary",
+            },
+        },
+    },
+}
 ```
 
 ## appRules
@@ -666,35 +701,47 @@ Array of per-app window rules, editable in the **App Rules** window. Matchers se
 
 The defaults ship 13 rules that set minimum sizes for apps with known resize floors (Codex, Commander One, Chrome, Zed, Safari, Zen, Firefox, Dia, Spotify, Discord, Ghostty, Outlook, Messages).
 
-```toml
-[[appRules]]
-bundleId = "com.apple.Safari"
-id = "81426D13-C1A5-475E-AFBC-00BBA05042D0"
-minHeight = 220.0
-minWidth = 574.0
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "com.apple.Safari",
+            id = "81426D13-C1A5-475E-AFBC-00BBA05042D0",
+            minHeight = 220.0,
+            minWidth = 574.0,
+        },
+    },
+}
 ```
 
 ## shellPermissions
 
-**Settings > Network & Permissions** writes these decisions to the app’s `settings.toml`. They are separate from widget `settings.toml` declarations and `shell.toml` layout/options. External edits are live-reloaded. The section is optional: missing widget/program lists are empty, and missing service switches default to on.
+**Settings > Network & Permissions** writes these decisions to the app’s `settings.luau`. They are separate from widget `settings.luau` declarations and `shell.luau` layout/options. External edits are live-reloaded. The section is optional: missing widget/program lists are empty, and missing service switches default to on.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `widgets` *(optional)* | array of tables | `[]` | Remembered per-host Allow and Deny for widget principals |
-| `programs` *(optional)* | array of tables | `[]` | Native program trust or denial, bound to the source, command and executable digest |
+| `widgets` *(optional)* | array of tables | `{}` | Remembered per-host Allow and Deny for widget principals |
+| `programs` *(optional)* | array of tables | `{}` | Native program trust or denial, bound to the source, command and executable digest |
 | `services` *(optional)* | table | both on | Global `weather` and `lyrics` switches |
 
 ### shellPermissions.widgets
 
 Each row requires `role` (`root`, `bar` or `component`), `name` and `source` (the canonical resolved widget folder). `allowed` and `denied` are host arrays, both empty by default. A host absent from both is **Not asked**. Reset removes its user decision. One principal’s choices apply across its instances, displays and profiles; an override or symlink retarget to another source folder has separate decisions.
 
-```toml
-[[shellPermissions.widgets]]
-role = "component"
-name = "ci-status"
-source = "/Users/me/.config/omniwm/shell/lake/widgets/ci-status"
-allowed = ["api.github.com"]
-denied = []
+```lua
+return {
+    shellPermissions = {
+        widgets = {
+            {
+                role = "component",
+                name = "ci-status",
+                source = "/Users/me/.config/omniwm/shell/lake/widgets/ci-status",
+                allowed = { "api.github.com" },
+                denied = {},
+            },
+        },
+    },
+}
 ```
 
 Hosts are exact names or IP literals, not URLs, with no wildcard or subdomain grant. Case and trailing dots are normalized. Declared hosts still need consent; adding instance `capabilities.network` only extends the declaration. Organization blocks win, then user Deny, then managed preapproval or user Allow. See [HTTP consent](/omnishell/reference/services/#consent-and-policy).
@@ -703,22 +750,34 @@ Hosts are exact names or IP literals, not URLs, with no wildcard or subdomain gr
 
 Each row requires `name`, `source` and a `command` string array. `sha256` is optional; when present it is the approved executable digest. `denied` defaults to `false` and overrides approval for that source/command until Reset. The UI writes the observed digest for both Allow and Deny. Use the trust prompt to record the actual digest; this illustrative row denies a program without inventing an approval hash:
 
-```toml
-[[shellPermissions.programs]]
-name = "provider-review"
-source = "/Users/me/.config/omniwm/apps/provider-review"
-command = ["provider"]
-denied = true
+```lua
+return {
+    shellPermissions = {
+        programs = {
+            {
+                name = "provider-review",
+                source = "/Users/me/.config/omniwm/apps/provider-review",
+                command = { "provider" },
+                denied = true,
+            },
+        },
+    },
+}
 ```
 
 Program rows have no `role` field. Revoke stores a denial; Reset removes the row. A matching source and full command still need the current executable’s SHA-256. The digest covers executable bytes, not its interpreter, environment or dependencies. This file is not protected from native programs already running as your user. See [Providers](/omnishell/reference/providers/).
 
 ### shellPermissions.services
 
-```toml
-[shellPermissions.services]
-weather = true
-lyrics = true
+```lua
+return {
+    shellPermissions = {
+        services = {
+            weather = true,
+            lyrics = true,
+        },
+    },
+}
 ```
 
 Both Boolean keys are optional and default to `true`. Turning a service off cancels work and clears shared readings; Lyrics also clears cached tracks. Turning it on resumes current widget demand. Weather sends your configured city or coordinates to `api.open-meteo.com` and `geocoding-api.open-meteo.com`. Lyrics sends the playing track’s title, artist, album and length to `lrclib.net`. There are no built-in service prompts.
@@ -729,7 +788,7 @@ Both Boolean keys are optional and default to `true`. Turning a service off canc
 
 Five arrays hold per-monitor exceptions to the global tables. Every entry requires `monitorName`. Use the display’s `monitorDisplayUUID`; for a display without a UUID, supply both `monitorDisplayId` and `monitorName`. A name alone does not match a display. All entries except orientation also carry an `id` UUID identifying the override row, not the display. Override keys are all optional — an omitted key falls back to the corresponding global setting. All five arrays default to empty. Custom routing grids live separately in [`routing.arrangements`](#routing).
 
-Empty monitor override arrays are omitted when OmniWM saves the file. Add a `[[monitorGapOverrides]]` table to create an override; delete its whole table to remove it. An absent array means no overrides. If your file contains a line such as `monitorGapOverrides = []`, delete that line before adding tables with the same name: TOML does not allow both forms together.
+Each override is one record in a list. Add a record to `monitorGapOverrides` to override a display’s gap settings. Remove that record to restore the global values. An empty or omitted list has no overrides.
 
 When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitorBarOverrides.enabled` values take effect again when the global bar is enabled.
 
@@ -743,13 +802,18 @@ When `workspaceBar.enabled = false`, no monitor can show its bar. Saved `monitor
 
 For Niri's **Default New Container Primary Span**, choose a monitor under **Settings > Layouts > Niri > Configure**. **Use Global** is the default and follows **All Displays**. **Auto** divides by that monitor's Visible Containers count, or uses the first preset while Visible Containers is Off there, even when All Displays uses Custom. **App’s Own Size** keeps the app’s width on a horizontal strip or height on a vertical strip. **Custom** sets a separate percentage for that monitor. In `monitorNiriOverrides`, omit `defaultContainerPrimarySpan` for Use Global, set it to `"auto"` for Auto or `"app"` for App’s Own Size, or use a number from `0.05` to `1.0` for Custom (for example, `0.6` means 60%).
 
-```toml
-[[monitorGapOverrides]]
-id = "0B54A3C1-6E1B-4D5B-9A64-2F0D8A11C001"
-innerGap = 8.0
-monitorDisplayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B"
-monitorName = "DELL U2720Q"
-outerGapTop = 4.0
+```lua
+return {
+    monitorGapOverrides = {
+        {
+            id = "0B54A3C1-6E1B-4D5B-9A64-2F0D8A11C001",
+            innerGap = 8.0,
+            monitorDisplayUUID = "3EFD184C-D5D3-40EF-AF27-14C4222A467B",
+            monitorName = "DELL U2720Q",
+            outerGapTop = 4.0,
+        },
+    },
+}
 ```
 
 The example UUID is illustrative; replace it with the identity recorded for your display. These overrides are most easily managed from **Settings > Displays** and **Settings > Layouts** tabs, which record the display's UUID automatically so the override survives display reconnects.

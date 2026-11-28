@@ -2,12 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-
-public enum IPCAutomationLayoutCompatibility: String, Codable, CaseIterable, Equatable, Sendable {
-    case shared
-    case niri
-    case dwindle
-}
+import OmniWMAutomation
 
 public enum IPCQuerySelectorName: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
     case window
@@ -45,21 +40,7 @@ public enum IPCQuerySelectorName: String, Codable, CaseIterable, Equatable, Hash
     }
 }
 
-public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Sendable {
-    case appID = "app-id"
-    case direction
-    case workspaceNumber = "workspace-number"
-    case columnIndex = "column-index"
-    case windowIndex = "window-index"
-    case scratchpadIndex = "scratchpad-index"
-    case layout
-    case paletteMode = "palette-mode"
-    case switcherDirection = "switcher-direction"
-    case switcherScope = "switcher-scope"
-    case resizeAxis = "resize-axis"
-    case resizeOperation = "resize-operation"
-    case sizeChange = "size-change"
-
+extension IPCCommandArgumentKind {
     public var usagePlaceholder: String {
         switch self {
         case .appID:
@@ -69,7 +50,8 @@ public enum IPCCommandArgumentKind: String, Codable, CaseIterable, Equatable, Se
         case .workspaceNumber,
              .columnIndex,
              .windowIndex,
-             .scratchpadIndex:
+             .scratchpadIndex,
+             .visibleContainerCount:
             "<number>"
         case .layout:
             "<default|niri|dwindle>"
@@ -146,6 +128,10 @@ public struct IPCCommandArgumentDescriptor: Codable, Equatable, Sendable {
     static let scratchpadIndex = Self(
         kind: .scratchpadIndex,
         summary: "Scratchpad slot from 1 to 10."
+    )
+    static let visibleContainerCount = Self(
+        kind: .visibleContainerCount,
+        summary: "Number of columns that fit on screen, from 1 to 5, or 0 for Off."
     )
     static let layout = Self(
         kind: .layout,

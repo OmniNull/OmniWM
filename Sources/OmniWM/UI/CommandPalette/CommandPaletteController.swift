@@ -203,7 +203,7 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         isClipboardHistoryEnabled = environment.isClipboardHistoryEnabled(wmController)
         clipboardItems = isClipboardHistoryEnabled ? environment.clipboardItems(wmController) : []
         clipboardErrorText = nil
-        commandItems = CommandPaletteSearch.buildCommandItems(from: wmController)
+        CommandPaletteSearch.observeCommandItems(from: wmController) { [weak self] in self?.commandItems = $0 }
         menuSession.resetCache()
         isMenuLoading = false
         resetLauncherState(settings: wmController.settings)
@@ -239,12 +239,11 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         panel.makeKey()
         presentation.reveal(panel)
 
-        if isUnifiedSearch || selectedMode == .menu {
-            loadMenuItemsIfNeeded()
-        } else if isLauncherMode {
-            expandResults()
-            startLauncherSearch()
-        }
+        let opensExpanded = wmController.settings.commandPalette.openExpanded
+        let searchesLauncher = isLauncherMode && !isUnifiedSearch
+        if isUnifiedSearch || selectedMode == .menu { loadMenuItemsIfNeeded() }
+        if searchesLauncher || (opensExpanded && (!isUnifiedSearch || showsUnifiedWindowList)) { expandResults() }
+        if searchesLauncher { startLauncherSearch() }
     }
 
     private func preparePresentation(_ wmController: WMController) -> NSPanel? {
@@ -368,8 +367,7 @@ extension CommandPaletteController {
         isMenuLoading = false
         menuSession.invalidate()
         if let wmController {
-            environment.observeClipboardItems(wmController, nil)
-            releasePaletteInput(wmController)
+            releasePaletteSession(wmController)
         }
         if let shell = presentation.shell {
             shell.publish(shellData(size: presentation.shellLayoutSize(expanded: false)))
@@ -420,7 +418,9 @@ extension CommandPaletteController {
         wmController.hotkeys.setPaletteShortcutChords(environment.paletteShortcuts().chords.map(\.binding))
     }
 
-    private func releasePaletteInput(_ wmController: WMController) {
+    private func releasePaletteSession(_ wmController: WMController) {
+        wmController.configScript?.onCommandsChanged = nil
+        environment.observeClipboardItems(wmController, nil)
         environment.observeKeyboardLayout(nil)
         wmController.focusPolicyEngine.endLease(owner: .commandPalette)
         wmController.hotkeys.setPaletteShortcutChords([])

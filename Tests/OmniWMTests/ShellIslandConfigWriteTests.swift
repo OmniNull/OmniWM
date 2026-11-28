@@ -4,7 +4,6 @@
 import Foundation
 @testable import OmniWM
 import Synchronization
-import TOML
 import XCTest
 
 @MainActor
@@ -35,8 +34,11 @@ final class ShellIslandConfigWriteTests: XCTestCase {
         let moved = try added.layout.applying(.move(id: "toronto", index: 1), catalog: [:])
         XCTAssertEqual(moved.layout.components.map(\.id), ["toronto", "london", "tokyo"])
         XCTAssertEqual(moved.layout.components[1], source.components[0])
-        let original = "profile = 'lake'\n[profiles.lake.widgets.clock]\nformat = 'HH:mm'\n"
-        let persisted = try ShellIslandLayout.persisted(moved.change, profile: "lake", root: "lake", in: original)
+        let original = "return { profile = \"lake\", profiles = { lake = { widgets = { clock = { format = \"HH:mm\" } } } } }\n"
+        let persisted = try ShellLuauFixture.editing(
+            [ShellIslandLayout.entry(for: moved.change, profile: "lake", root: "lake")],
+            in: original
+        )
         let tree = try parsed(persisted)
         XCTAssertEqual(try instances(tree).map(\.id), ["toronto", "london", "tokyo"])
         XCTAssertEqual(try instances(tree)[1], source.components[0])
@@ -81,7 +83,10 @@ final class ShellIslandConfigWriteTests: XCTestCase {
             )
         ])
         let change = try layout.applying(.move(id: "clock", index: 1), catalog: [:])
-        let text = try ShellIslandLayout.persisted(change.change, profile: "lake", root: "lake", in: "")
+        let text = try ShellLuauFixture.editing(
+            [ShellIslandLayout.entry(for: change.change, profile: "lake", root: "lake")],
+            in: "return {}"
+        )
         let tree = try parsed(text)
         let instances = try instances(tree)
         XCTAssertEqual(instances.first?.capabilities?.network, ["api.example"])
@@ -93,8 +98,8 @@ final class ShellIslandConfigWriteTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let file = directory.appendingPathComponent("shell.toml")
-        try Data("profile = 'lake'\n".utf8).write(to: file)
+        let file = directory.appendingPathComponent("shell.luau")
+        try Data("return { profile = \"lake\" }\n".utf8).write(to: file)
         let entered = expectation(description: "first write entered")
         let reload = expectation(description: "deferred reload is released once")
         reload.assertForOverFulfill = true
@@ -115,7 +120,7 @@ final class ShellIslandConfigWriteTests: XCTestCase {
             try SettingsFileAccess.writeAtomically(data, at: url)
             if first {
                 let external = try String(contentsOf: url, encoding: .utf8)
-                let updated = try ShellTOMLText.settingNodes(
+                let updated = try ShellLuauFixture.editing(
                     [(["profiles", "lake", "widgets", "clock", "format"], .string("external"))],
                     in: external
                 )
@@ -170,7 +175,7 @@ final class ShellIslandConfigWriteTests: XCTestCase {
         XCTAssertEqual(results.count, 2)
         XCTAssertNotNil(results[0])
         XCTAssertNil(results[1])
-        let text = try String(contentsOf: directory.appendingPathComponent("shell.toml"), encoding: .utf8)
+        let text = try String(contentsOf: directory.appendingPathComponent("shell.luau"), encoding: .utf8)
         XCTAssertEqual(try instances(parsed(text)).map(\.id), ["b"])
     }
 
@@ -199,18 +204,18 @@ final class ShellIslandConfigWriteTests: XCTestCase {
         )
     }
 
-    private func parsed(_ text: String) throws -> [String: TOMLNode] {
-        try TOMLDecoder().decode([String: TOMLNode].self, from: Data(text.utf8))
+    private func parsed(_ text: String) throws -> [String: SettingsLuauValue] {
+        try ShellLuauFixture.table(text)
     }
 
-    private func instances(_ tree: [String: TOMLNode]) throws -> [ShellComponentInstance] {
-        try ShellComponentCatalog.instances(from: node(["profiles", "lake", "island", "components"], in: tree))
+    private func instances(_ tree: [String: SettingsLuauValue]) throws -> [ShellComponentInstance] {
+        try ShellComponentCatalog.instances(in: node(["profiles", "lake", "island", "components"], in: tree))
     }
 
-    private func node(_ path: [String], in tree: [String: TOMLNode]) -> TOMLNode? {
-        var node = TOMLNode.table(tree)
+    private func node(_ path: [String], in tree: [String: SettingsLuauValue]) -> SettingsLuauValue? {
+        var node = SettingsLuauValue.record(tree)
         for key in path {
-            guard case let .table(table) = node, let next = table[key] else { return nil }
+            guard case let .record(table) = node, let next = table[key] else { return nil }
             node = next
         }
         return node

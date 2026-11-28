@@ -48,6 +48,7 @@ struct WorkspaceBarExcludedAppsSection: View {
                     Toggle(isOn: exclusionBinding(for: candidate.bundleID)) {
                         WorkspaceBarExcludedAppRow(candidate: candidate)
                     }
+                    .settingsField(.workspaceBarExcludedBundleIDs, row: candidate.bundleID)
                 }
             }
 
@@ -59,6 +60,7 @@ struct WorkspaceBarExcludedAppsSection: View {
                 Button("Add", action: addBundleID)
                     .disabled(!canAddBundleID)
             }
+            .settingsField(.workspaceBarExcludedBundleIDs)
         }
     }
 

@@ -49,12 +49,12 @@ final class QuakeTerminalAppearanceSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.quakeTerminal.backgroundBlurRadius = 35
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("[quakeTerminal]"))
-        XCTAssertTrue(toml.contains("backgroundBlurRadius = 35"))
+        XCTAssertTrue(source.contains("quakeTerminal = {"))
+        XCTAssertTrue(source.contains("backgroundBlurRadius = 35"))
         XCTAssertEqual(decoded.quakeTerminal.backgroundBlurRadius, 35)
     }
 
@@ -63,24 +63,22 @@ final class QuakeTerminalAppearanceSettingsTests: XCTestCase {
             var export = SettingsExport.defaults()
             export.quakeTerminal.backgroundEffect = effect
 
-            let data = try SettingsTOMLCodec.encode(export)
-            let toml = String(decoding: data, as: UTF8.self)
-            let decoded = try SettingsTOMLCodec.decode(data)
+            let data = try SettingsLuauDocument.initialSource(export)
+            let source = String(decoding: data, as: UTF8.self)
+            let decoded = try SettingsLuauFixture.decode(data)
 
-            XCTAssertTrue(toml.contains("backgroundEffect = \"\(effect.rawValue)\""))
+            XCTAssertTrue(source.contains("backgroundEffect = \"\(effect.rawValue)\""))
             XCTAssertEqual(decoded.quakeTerminal.backgroundEffect, effect)
         }
     }
 
     @MainActor
     func testConfigWithoutBackgroundBlurRadiusDecodesToOff() throws {
-        let defaults = SettingsExport.defaults()
-        let toml = String(decoding: try SettingsTOMLCodec.encode(defaults), as: UTF8.self)
-        let stripped = removingValue(in: toml, table: "quakeTerminal", key: "backgroundBlurRadius")
-
-        let decoded = try SettingsTOMLCodec.decode(Data(stripped.utf8))
-        XCTAssertNil(decoded.quakeTerminal.backgroundBlurRadius)
-
+        let decoded = try SettingsLuauFixture.decode(Data("return { quakeTerminal = {} }".utf8))
+        XCTAssertEqual(
+            decoded.quakeTerminal.backgroundBlurRadius,
+            SettingsExport.defaults().quakeTerminal.backgroundBlurRadius
+        )
         let settings = makeSettingsStore()
         settings.applyExport(decoded)
         XCTAssertEqual(
@@ -90,18 +88,10 @@ final class QuakeTerminalAppearanceSettingsTests: XCTestCase {
     }
 
     func testMalformedBackgroundBlurRadiusRejectsDecode() throws {
-        let defaults = String(
-            decoding: try SettingsTOMLCodec.encode(SettingsExport.defaults()),
-            as: UTF8.self
-        )
-        let malformed = replacingValue(
-            in: defaults,
-            table: "quakeTerminal",
-            key: "backgroundBlurRadius",
-            with: "\"heavy\""
-        )
-
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformed.utf8)))
+        let invalid = Data("return { quakeTerminal = { backgroundBlurRadius = 'heavy' } }".utf8)
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(invalid)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("quakeTerminal.backgroundBlurRadius"))
+        }
     }
 
     @MainActor
@@ -120,14 +110,14 @@ final class QuakeTerminalAppearanceSettingsTests: XCTestCase {
     }
 
     func testUnknownBackgroundEffectRejectsDecode() throws {
-        let toml = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(.defaults()), as: UTF8.self)
             .replacingOccurrences(
                 of: "backgroundEffect = \"\(QuakeTerminalBackgroundEffect.standardBlur.rawValue)\"",
                 with: "backgroundEffect = \"futureGlass\""
             )
 
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(toml.utf8))) { error in
-            XCTAssertTrue(SettingsTOMLCodec.diagnosticDescription(for: error)
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(source.utf8))) { error in
+            XCTAssertTrue(SettingsLuauError.diagnosticDescription(for: error)
                 .contains("quakeTerminal.backgroundEffect"))
         }
     }
@@ -167,45 +157,9 @@ final class QuakeTerminalAppearanceSettingsTests: XCTestCase {
         settings.quakeTerminal.backgroundBlurRadius = 40
         settings.quakeTerminal.backgroundEffect = .glassClear
 
-        let persisted = try SettingsTOMLCodec.decode(Data(contentsOf: persistence.fileURL))
+        let persisted = try SettingsLuauDocument(Data(contentsOf: persistence.fileURL)).export
         XCTAssertEqual(persisted.quakeTerminal.backgroundBlurRadius, 40)
         XCTAssertEqual(persisted.quakeTerminal.backgroundEffect, .glassClear)
-    }
-
-    private func replacingValue(
-        in toml: String,
-        table: String,
-        key: String,
-        with replacement: String
-    ) -> String {
-        transform(toml) { currentTable, line in
-            guard currentTable == table, line.hasPrefix("\(key) = ") else { return line }
-            return "\(key) = \(replacement)"
-        }
-    }
-
-    private func removingValue(in toml: String, table: String, key: String) -> String {
-        transform(toml) { currentTable, line in
-            guard currentTable == table, line.hasPrefix("\(key) = ") else { return line }
-            return nil
-        }
-    }
-
-    private func transform(
-        _ toml: String,
-        _ operation: (_ table: String, _ line: String) -> String?
-    ) -> String {
-        var currentTable = ""
-        return toml
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .compactMap { substring -> String? in
-                let line = String(substring)
-                if line.hasPrefix("["), line.hasSuffix("]") {
-                    currentTable = String(line.dropFirst().dropLast())
-                }
-                return operation(currentTable, line)
-            }
-            .joined(separator: "\n")
     }
 
     @MainActor

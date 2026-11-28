@@ -564,7 +564,8 @@ final class MenuBarAutohideHoldTests: XCTestCase {
                 motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
             resolved: settings.resolved(for: monitor),
-            monitor: monitor
+            monitor: monitor,
+            appearance: nil
         )
         defer { island.panel.close() }
         XCTAssertGreaterThan(island.panel.level.rawValue, NSWindow.Level.statusBar.rawValue)
@@ -587,7 +588,7 @@ final class MenuBarAutohideHoldTests: XCTestCase {
         settings.windowLevel = .floating
         settings.fullWidth = false
         island.applySettings(resolved: settings.resolved(for: monitor), monitor: monitor)
-        XCTAssertEqual(island.panel.level, .floating)
+        XCTAssertEqual(island.panel.level.rawValue, NSWindow.Level.statusBar.rawValue + 1)
 
         settings.fullWidth = true
         for position in [WorkspaceBarPosition.belowMenuBar, .bottom, .left, .right] {

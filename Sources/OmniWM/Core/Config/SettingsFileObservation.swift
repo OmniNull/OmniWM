@@ -28,9 +28,10 @@ final class SettingsFileObservation {
 
     private let directoryURL: URL
     private let fileURL: URL
-    private weak var persistence: SettingsFilePersistence?
+    var onPossibleChange: (@MainActor (URL) -> Void)?
     private var directoryWatches: [URL: Watch] = [:]
-    private var settingsFileWatch: Watch?
+    private var fileWatches: [URL: Watch] = [:]
+    private var filesInDirectory: [URL: Set<URL>] = [:]
     private var started = false
 
     var onEventProcessed: (@MainActor (URL) -> Void)?
@@ -41,15 +42,10 @@ final class SettingsFileObservation {
     }
 
     isolated deinit {
-        settingsFileWatch?.source.cancel()
+        for watch in fileWatches.values { watch.source.cancel() }
         for watch in directoryWatches.values {
             watch.source.cancel()
         }
-    }
-
-    func attach(to persistence: SettingsFilePersistence) {
-        precondition(self.persistence == nil)
-        self.persistence = persistence
     }
 
     func start() {
@@ -64,17 +60,56 @@ final class SettingsFileObservation {
     }
 
     func refresh(for observedFingerprint: SettingsFileAccess.Fingerprint? = nil) {
-        refreshDirectoryWatches()
-
         let fingerprint = observedFingerprint ?? SettingsFileAccess.currentFingerprint(at: fileURL)
+        refresh(files: [fileURL: fingerprint])
+    }
+
+    func refresh(files: [URL: SettingsFileAccess.Fingerprint?]) {
+        guard started else { return }
+        var directories: [URL: Set<URL>] = [:]
+        for (url, fingerprint) in files {
+            for parent in SettingsFileObservationDirectories.paths(for: url) {
+                directories[parent, default: []].insert(url)
+            }
+            refreshWatch(at: url, fingerprint: fingerprint, watches: &fileWatches)
+        }
+        for url in fileWatches.keys where !files.keys.contains(url) {
+            fileWatches.removeValue(forKey: url)?.source.cancel()
+        }
+        for parent in directories.keys {
+            refreshWatch(
+                at: parent,
+                fingerprint: SettingsFileAccess.currentFingerprint(at: parent),
+                watches: &directoryWatches
+            )
+        }
+        for parent in directoryWatches.keys where directories[parent] == nil {
+            directoryWatches.removeValue(forKey: parent)?.source.cancel()
+        }
+        filesInDirectory = directories
+    }
+
+    func filesAffected(by url: URL) -> Set<URL> {
+        filesInDirectory[url] ?? [url]
+    }
+
+    private func refreshWatch(at url: URL, fingerprint: SettingsFileAccess.Fingerprint?, watches: inout [URL: Watch]) {
         guard let fingerprint else {
-            settingsFileWatch?.source.cancel()
-            settingsFileWatch = nil
+            watches.removeValue(forKey: url)?.source.cancel()
             return
         }
-        guard settingsFileWatch?.identity != FileIdentity(fingerprint) else { return }
-        settingsFileWatch?.source.cancel()
-        settingsFileWatch = makeWatch(at: fileURL)
+        guard watches[url]?.identity != FileIdentity(fingerprint) else { return }
+        watches.removeValue(forKey: url)?.source.cancel()
+        watches[url] = makeWatch(at: url)
+    }
+
+    func stop() {
+        started = false
+        for watch in fileWatches.values { watch.source.cancel() }
+        for watch in directoryWatches.values { watch.source.cancel() }
+        fileWatches.removeAll()
+        directoryWatches.removeAll()
+        filesInDirectory.removeAll()
     }
 
     func isWatchingDirectory(at url: URL) -> Bool {
@@ -82,20 +117,6 @@ final class SettingsFileObservation {
               let fingerprint = SettingsFileAccess.currentFingerprint(at: url)
         else { return false }
         return watch.identity == FileIdentity(fingerprint)
-    }
-
-    private func refreshDirectoryWatches() {
-        guard started else { return }
-        let directories = SettingsFileObservationDirectories.paths(for: fileURL)
-        for directory in directories {
-            let identity = SettingsFileAccess.currentFingerprint(at: directory).map(FileIdentity.init)
-            if let watch = directoryWatches[directory], watch.identity == identity { continue }
-            directoryWatches.removeValue(forKey: directory)?.source.cancel()
-            directoryWatches[directory] = makeWatch(at: directory)
-        }
-        for directory in directoryWatches.keys where !directories.contains(directory) {
-            directoryWatches.removeValue(forKey: directory)?.source.cancel()
-        }
     }
 
     private func makeWatch(at url: URL) -> Watch? {
@@ -116,7 +137,7 @@ final class SettingsFileObservation {
         )
         source.setEventHandler { [weak self] in
             guard let self else { return }
-            persistence?.handlePossibleSettingsFileChange()
+            onPossibleChange?(url)
             onEventProcessed?(url)
         }
         source.setCancelHandler {

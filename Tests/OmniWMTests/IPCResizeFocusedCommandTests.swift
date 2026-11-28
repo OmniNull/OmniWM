@@ -11,7 +11,7 @@ final class IPCResizeFocusedCommandTests: XCTestCase {
     }
 
     func testJSONRoundTrip() throws {
-        let original = IPCCommandRequest.dwindle(.resizeFocused(operation: .shrink))
+        let original = IPCCommandRequest(.dwindle(.resizeFocused(operation: .shrink)))
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(IPCCommandRequest.self, from: data)
         XCTAssertEqual(decoded, original)
@@ -23,6 +23,6 @@ final class IPCResizeFocusedCommandTests: XCTestCase {
         XCTAssertEqual(descriptor.commandWords, ["resize-focused"])
         XCTAssertEqual(descriptor.arguments.map(\.kind), [.resizeOperation])
         let request = try IPCCommandRequest(name: descriptor.name, argumentValues: [.resizeOperation(.grow)])
-        XCTAssertEqual(request, .dwindle(.resizeFocused(operation: .grow)))
+        XCTAssertEqual(request, .init(.dwindle(.resizeFocused(operation: .grow))))
     }
 }

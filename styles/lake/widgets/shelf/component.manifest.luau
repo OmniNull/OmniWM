@@ -1,0 +1,9 @@
+return {
+    title = "Shelf",
+    icon = "tray.full.fill",
+    views = { "compact", "peek", "expanded" },
+    capabilities = {
+        files = true,
+        clipboard = true,
+    },
+}

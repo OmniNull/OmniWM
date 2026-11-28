@@ -1,0 +1,65 @@
+{
+  "observation": {
+    "appName": "fifa.exe",
+    "input": {
+      "appFullscreen": false,
+      "appName": "fifa.exe",
+      "ax": {
+        "appPolicy": "regular",
+        "attributeFetchSucceeded": true,
+        "hasCloseButton": false,
+        "hasFullscreenButton": false,
+        "hasMinimizeButton": false,
+        "hasZoomButton": false,
+        "isMain": true,
+        "isModal": false,
+        "role": "AXWindow",
+        "subrole": "AXUnknown"
+      },
+      "sizeConstraints": {
+        "isFixed": true,
+        "maxHeight": 982,
+        "maxWidth": 1512,
+        "minHeight": 982,
+        "minWidth": 1512
+      },
+      "windowServer": {
+        "attributes": 2,
+        "frameHeight": 982,
+        "frameWidth": 1512,
+        "frameX": 0,
+        "frameY": 0,
+        "id": 5585,
+        "level": 27,
+        "parentId": 0,
+        "pid": 93970,
+        "tags": 4295499777
+      }
+    },
+    "observedDecision": {
+      "disposition": "floating",
+      "heuristicReasons": [],
+      "layoutDecisionKind": "explicitLayout",
+      "source": "userRule(11111111-0000-4000-8000-00000000E1E1)"
+    },
+    "rulesRevision": 2,
+    "tokenPid": 93970,
+    "tokenWindowId": 5585
+  },
+  "rules": [
+    {
+      "id": "11111111-0000-4000-8000-00000000E1E1",
+      "bundleId": "",
+      "appNameSubstring": "fifa.exe",
+      "axRole": "AXWindow",
+      "axSubrole": "AXUnknown",
+      "layout": "float"
+    }
+  ],
+  "expectedDecision": {
+    "disposition": "floating",
+    "source": "userRule(11111111-0000-4000-8000-00000000E1E1)",
+    "heuristicReasons": [],
+    "layoutDecisionKind": "explicitLayout"
+  }
+}

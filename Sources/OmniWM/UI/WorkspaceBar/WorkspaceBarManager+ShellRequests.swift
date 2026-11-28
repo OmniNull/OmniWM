@@ -15,10 +15,15 @@ extension WorkspaceBarManager {
                 return nil
             }
             return .focusWindow(WindowToken(pid: pid, windowId: windowId))
-        case let .command(.workspace(.switchTo(workspaceNumber))):
-            return .focusWorkspace(rawName: String(workspaceNumber))
-        case let .command(.scratchpad(.toggle(index))):
-            return ScratchpadIndex(index).map { .toggleScratchpad($0) }
+        case let .command(request):
+            switch request.command {
+            case let .workspace(.switchTo(workspaceNumber)):
+                return .focusWorkspace(rawName: String(workspaceNumber))
+            case let .scratchpad(.toggle(index)):
+                return ScratchpadIndex(index).map { .toggleScratchpad($0) }
+            default:
+                return nil
+            }
         default:
             return nil
         }
@@ -183,11 +188,6 @@ extension WorkspaceBarManager {
         controller.map { ShellWidgetHost.shellDirectory(in: $0.settings.settingsFileURL.deletingLastPathComponent()) }
     }
 
-    func ejectShellWidget(_ widget: String, in shellDirectory: URL) throws -> URL? {
-        let config = ShellConfig.resolve(shellDirectory: shellDirectory)
-        return try ShellProfiles.eject(widget, config: config, shellDirectory: shellDirectory)
-    }
-
     func applyShellFileRequest(_ request: IPCShellRequest) async -> ExternalCommandResult {
         guard request.isValid, shellDirectory != nil else { return .invalidArguments }
         do {
@@ -202,8 +202,7 @@ extension WorkspaceBarManager {
                     return .invalidArguments
                 }
                 changed = try await shellConfiguration.editFile { directory in
-                    let theme = try ShellProfiles.selectTheme(name, in: directory)
-                    return try ShellProfiles.selectScheme(scheme, in: directory) || theme
+                    try ShellProfiles.selectTheme(name, scheme: scheme, in: directory)
                 }
             case let .eject(widget):
                 changed = try await shellConfiguration.editFile { directory in

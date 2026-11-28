@@ -4,6 +4,7 @@
 import Carbon
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 

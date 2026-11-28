@@ -1,0 +1,5 @@
+return {
+    title = "Weather",
+    icon = "cloud.sun.fill",
+    views = { "compact", "expanded" },
+}

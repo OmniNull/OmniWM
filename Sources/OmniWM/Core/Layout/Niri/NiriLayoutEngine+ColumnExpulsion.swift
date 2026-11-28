@@ -66,7 +66,30 @@ extension NiriLayoutEngine {
         state: inout ViewportState
     ) -> Bool {
         guard direction == .left || direction == .right else { return false }
+        return expelWindow(window, into: direction == .right ? .after : .before, context: context, state: &state)
+    }
 
+    func expelWindow(
+        _ window: NiriWindow,
+        toProjectedPosition position: Int,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        expelWindow(window, into: .position(position), context: context, state: &state)
+    }
+
+    private enum ExpelSlot {
+        case before
+        case after
+        case position(Int)
+    }
+
+    private func expelWindow(
+        _ window: NiriWindow,
+        into slot: ExpelSlot,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
         guard let currentColumn = findColumn(containing: window, in: context.workspaceId),
               let root = root(for: context.workspaceId),
               let currentColIdx = columnIndex(of: currentColumn, in: context.workspaceId)
@@ -76,9 +99,7 @@ extension NiriLayoutEngine {
 
         let snapshot = prepareColumnMutation(context: context)
         let previousProjectedAnchor = projectedViewportAnchor(
-            state: state,
-            geometry: snapshot.geometry,
-            in: context.workspaceId
+            state: state, geometry: snapshot.geometry, in: context.workspaceId
         )
         let now = animationClock?.now() ?? CACurrentMediaTime()
         let cols = columns(in: context.workspaceId)
@@ -88,8 +109,17 @@ extension NiriLayoutEngine {
             sampling: ColumnRenderSampling(geometry: snapshot.geometry, time: now, context: context)
         )
 
+        let selectedColumn = state.selectedNodeId.flatMap { findNode(by: $0, in: context.workspaceId) }
+            .flatMap { $0 === window ? nil : column(of: $0) }
         let wasTabbed = currentColumn.displayMode == .tabbed
-        let newColumn = expelIntoNewColumn(window, from: currentColumn, root: root, direction: direction)
+        let newColumn = expelIntoNewColumn(
+            window, from: currentColumn, root: root, slot: slot, workspaceId: context.workspaceId
+        )
+        if let selectedColumn, let index = columnIndex(of: selectedColumn, in: context.workspaceId) {
+            state.activeColumnIndex = index
+            state.activatePrevColumnOnRemoval = nil
+            state.viewOffsetToRestore = nil
+        }
 
         animateInsertedColumn(newColumn, snapshot: snapshot, context: context, state: state)
 
@@ -108,12 +138,14 @@ extension NiriLayoutEngine {
 
         cleanupEmptyColumn(currentColumn, in: context.workspaceId, state: &state)
 
-        ensureSelectionVisible(
-            node: window,
-            context: context,
-            state: &state,
-            previousProjectedAnchor: previousProjectedAnchor
-        )
+        if selectedColumn == nil {
+            ensureSelectionVisible(
+                node: window,
+                context: context,
+                state: &state,
+                previousProjectedAnchor: previousProjectedAnchor
+            )
+        }
 
         return true
     }
@@ -122,20 +154,24 @@ extension NiriLayoutEngine {
         _ window: NiriWindow,
         from currentColumn: NiriContainer,
         root: NiriRoot,
-        direction: Direction
+        slot: ExpelSlot,
+        workspaceId: WorkspaceDescriptor.ID
     ) -> NiriContainer {
         currentColumn.adjustActiveTileIdxForRemoval(of: window)
 
         let newColumn = NiriContainer()
         copyContainerSizingState(from: currentColumn, to: newColumn)
 
-        if direction == .right {
-            root.insertAfter(newColumn, reference: currentColumn)
-        } else {
+        window.detach()
+        switch slot {
+        case .before:
             root.insertBefore(newColumn, reference: currentColumn)
+        case .after:
+            root.insertAfter(newColumn, reference: currentColumn)
+        case let .position(position):
+            insertColumn(newColumn, at: .position(position), in: workspaceId)
         }
 
-        window.detach()
         newColumn.appendChild(window)
         resetMovedWindowColumnLocalSizing(window)
         window.isHiddenInTabbedMode = false

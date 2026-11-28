@@ -28,15 +28,45 @@ require a precise inclusion rule. The rule must identify the app or window, set 
 the observed values, and choose Tile or Float rather than Automatic. Parentless roots at status-window level or
 higher use the same precise shape, but only a user-authored rule can opt them in; built-in rules cannot. For example:
 
-```toml
-[[appRules]]
-bundleId = "com.example.overlay"
-axRole = "AXWindow"
-axSubrole = "AXStandardWindow"
-layout = "float"
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "com.example.overlay",
+            axRole = "AXWindow",
+            axSubrole = "AXStandardWindow",
+            layout = "float",
+        },
+    },
+}
 ```
 
 Use the target's actual bundle ID and AX values. This escape hatch does not admit a parented surface.
+
+### Wine and CrossOver programs
+
+Windows programs running under Wine or CrossOver often report buttonless `AXWindow` / `AXUnknown` windows, which
+OmniWM leaves unmanaged by default. A fullscreen game can also sit above the status-window level. To manage such a
+program's windows, add a precise rule that matches the program's app name:
+
+```toml
+[[appRules]]
+bundleId = ""
+appNameSubstring = "Aurora15Connector.exe"
+axRole = "AXWindow"
+axSubrole = "AXUnknown"
+layout = "float"
+```
+
+Use `layout = "tile"` to tile the window instead. Wine processes usually have no bundle ID, so the rule matches the
+app name instead: the `appName` value in the inspector's debug dump, which **New Rule from Focused Window** fills in
+for you. That name is often the `.exe` file name, but it can differ from it. `appNameSubstring = ".exe"` covers every
+program whose app name contains `.exe`. A program that CrossOver launches through a helper may report a
+`com.codeweavers.CrossOverHelper.*` bundle ID instead. Check the inspector's debug dump for the actual values.
+
+The rule matches every parentless `AXWindow` / `AXUnknown` window of the program, so it can also catch the program's
+own popups. If the main window's title is known and differs from the popups' titles, add `titleSubstring` to narrow
+the match.
 
 ## Rule actions
 
@@ -64,7 +94,7 @@ A scratchpad destination works differently from a workspace destination:
 
 - It applies to every matching window when OmniWM starts managing it, including windows already open at startup.
 - Joining the slot floats the window, as assigning it by hand does. The rule never floats a window that doesn't join. Adding or editing a scratchpad rule, or a title change, leaves windows OmniWM already manages as they are. A member stays floating and stays in its slot after its title stops matching or the rule is removed.
-- Scratchpad can't be combined with Assign to Workspace or with Layout set to Tile. The App Rules window, `omniwmctl`, and IPC refuse such a rule. In `settings.toml` the rule still loads, but its scratchpad is ignored and the rule list shows a validation message. `omniwmctl` and IPC also refuse a slot outside 1–10, and `settings.toml` ignores one the same way.
+- Scratchpad can't be combined with Assign to Workspace or with Layout set to Tile. The App Rules window, `omniwmctl`, and IPC refuse such a rule. In `settings.luau` the rule still loads, but its scratchpad is ignored and the rule list shows a validation message. `omniwmctl` and IPC also refuse a slot outside 1–10, and `settings.luau` ignores one the same way.
 - Scratchpad alone doesn't admit a surface that needs a precise inclusion rule (see [Structural admission](#structural-admission)). For such a surface, also set Layout to Float and set `axRole` and `axSubrole`.
 
 `omniwmctl rule apply` is the only way to apply a scratchpad destination to a window OmniWM already manages. When the winning destination is a scratchpad:
@@ -75,25 +105,35 @@ A scratchpad destination works differently from a workspace destination:
 
 When a workspace destination now wins for a scratchpad member, the window leaves its slot, comes back on screen if it was parked, and moves to that workspace with its layout from the rules. When no rule sets a destination, scratchpad membership doesn't change.
 
-## TOML
+## Luau
 
-Rules can also be written in `settings.toml` (see [Configuration](/config/configuration/)). To send every new
+Rules can also be written in `settings.luau` (see [Configuration](/config/configuration/)). To send every new
 matching VS Code window to a configured workspace named `32`, use this rule (**Unreleased:** available when
 building from `main`).
 
-```toml
-[[appRules]]
-bundleId = "com.microsoft.VSCode"
-assignToWorkspace = "32"
-assignToWorkspaceForAllWindows = true
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "com.microsoft.VSCode",
+            assignToWorkspace = "32",
+            assignToWorkspaceForAllWindows = true,
+        },
+    },
+}
 ```
 
 The initial container primary span uses a proportion:
 
-```toml
-[[appRules]]
-bundleId = "net.kovidgoyal.kitty"
-initialContainerPrimarySpan = 0.5
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "net.kovidgoyal.kitty",
+            initialContainerPrimarySpan = 0.5,
+        },
+    },
+}
 ```
 
 ## Default rules

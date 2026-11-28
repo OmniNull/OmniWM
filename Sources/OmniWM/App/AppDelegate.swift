@@ -30,26 +30,13 @@ public final class AppBootstrapState {
         settings != nil && controller != nil
     }
 
-    public func registerRedirectWindow(_ window: NSWindow) {
-        OwnedWindowRegistry.shared.register(window)
-    }
-
-    public func unregisterRedirectWindow(_ window: NSWindow) {
-        OwnedWindowRegistry.shared.unregister(window)
-    }
-
-    public func showSettingsAndCloseRedirectWindow(_ window: NSWindow?) {
+    public func showSettings() {
         guard let settings, let controller else { return }
-        SettingsWindowController.shared.show(
+        controller.settingsWindowController.show(
             settings: settings,
             controller: controller,
             updateCoordinator: updateCoordinator
         )
-        guard let window else { return }
-        unregisterRedirectWindow(window)
-        DispatchQueue.main.async {
-            window.close()
-        }
     }
 }
 
@@ -86,6 +73,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsConfigNoticeController = nil
         statusBarController?.cleanup()
         if let controller = AppDelegate.sharedBootstrap?.controller {
+            controller.stopConfigScript()
             if !terminationPending { controller.serviceLifecycleManager.stop() }
             controller.workspaceManager.flushPersistedWindowRestoreCatalogNow()
         }
@@ -204,11 +192,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 title: String(localized: "IPC Failed to Start"),
                 message: error.localizedDescription
             )
-            settings.ipcEnabled = false
+            settings.recordFailedIPCStart()
         }
     }
 
     private func observeSettings(_ settings: SettingsStore, controller: WMController) {
+        controller
+            .startConfigScript(at: settings.settingsFileURL.deletingLastPathComponent()
+                .appendingPathComponent(ConfigScriptController.fileName))
         settings.onIPCEnabledChanged = { [weak self, weak controller] isEnabled in
             guard let self, let controller else { return }
             do {
@@ -219,7 +210,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     message: error.localizedDescription
                 )
                 if isEnabled {
-                    settings.ipcEnabled = false
+                    settings.recordFailedIPCStart()
                 }
             }
         }
@@ -228,11 +219,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             controller.applyPersistedSettings(settings)
             controller.shellAppCatalog.requestRefresh()
         }
-        settings.onConfigNoticeChanged = { [weak self, weak controller] in
-            controller?.refreshDiagnosticsIssues()
-            guard let self, launchOverlayFinished else { return }
-            settingsConfigNoticeController?.refresh()
-        }
+        controller.observeConfirmedSettingsEdits()
+        observeConfigNotices(settings, controller: controller)
     }
 
     func startIPCServer(controller: WMController) throws {
@@ -401,6 +389,19 @@ extension AppDelegate {
             launchOverlayController = nil
             launchOverlayDidFinish(runtimeState: runtimeState, controller: controller)
         }
+    }
+
+    private func observeConfigNotices(_ settings: SettingsStore, controller: WMController) {
+        settings.onConfigNoticeChanged = { [weak self, weak controller] in
+            controller?.refreshDiagnosticsIssues()
+            self?.refreshConfigNotice()
+        }
+        settings.onConfigScriptNoticeChanged = { [weak self] in self?.refreshConfigNotice() }
+    }
+
+    private func refreshConfigNotice() {
+        guard launchOverlayFinished else { return }
+        settingsConfigNoticeController?.refresh()
     }
 
     func launchOverlayDidFinish(runtimeState: RuntimeStateStore, controller: WMController) {

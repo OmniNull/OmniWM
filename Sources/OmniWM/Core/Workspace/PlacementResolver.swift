@@ -18,18 +18,10 @@ final class PlacementResolver {
     }
 
     func monitorForInteraction() -> Monitor? {
-        if let interactionMonitorId = workspaceManager.interactionMonitorId,
-           let monitor = workspaceManager.monitor(byId: interactionMonitorId)
-        {
+        if let id = workspaceManager.interactionMonitorId, let monitor = workspaceManager.monitor(byId: id) {
             return monitor
         }
-        if let focusedToken = workspaceManager.nativeManagedFocusToken,
-           let workspaceId = workspaceManager.workspace(for: focusedToken),
-           let monitor = workspaceManager.monitor(for: workspaceId)
-        {
-            return monitor
-        }
-        return workspaceManager.monitors.first
+        return workspaceManager.fallbackInteractionMonitor()
     }
 
     func resolveWorkspacePlacement(
@@ -436,5 +428,23 @@ extension PlacementResolver {
     func monitorForAppKitFrame(_ frame: CGRect?) -> Monitor? {
         guard let frame, !frame.isNull, !frame.isEmpty else { return nil }
         return frame.center.monitorApproximation(in: workspaceManager.monitors)
+    }
+}
+
+extension WorkspaceManager {
+    func interactionMonitorID() -> Monitor.ID? {
+        if let interactionMonitorId, hasMonitor(interactionMonitorId) {
+            return interactionMonitorId
+        }
+        return fallbackInteractionMonitor()?.id
+    }
+
+    func fallbackInteractionMonitor() -> Monitor? {
+        if let token = nativeManagedFocusToken, let workspace = workspace(for: token),
+           let monitor = monitor(for: workspace)
+        {
+            return monitor
+        }
+        return monitors.first
     }
 }

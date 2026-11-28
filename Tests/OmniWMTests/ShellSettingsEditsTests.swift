@@ -31,17 +31,11 @@ final class ShellSettingsEditsTests: XCTestCase {
         let profile = directory.appendingPathComponent("look", isDirectory: true)
         try FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
         try """
-        [workspaceBar]
-        position = "left"
-        height = 60
-        [hiddenBar]
-        enabled = false
-        """.write(to: profile.appendingPathComponent("shell.toml"), atomically: true, encoding: .utf8)
+        return { workspaceBar = { position = "left", height = 60 }, hiddenBar = { enabled = false } }
+        """.write(to: profile.appendingPathComponent("shell.luau"), atomically: true, encoding: .utf8)
         try """
-        profile = "look"
-        [profiles.other.workspaceBar]
-        height = 90
-        """.write(to: directory.appendingPathComponent("shell.toml"), atomically: true, encoding: .utf8)
+        return { profile = "look", profiles = { other = { workspaceBar = { height = 90 } } } }
+        """.write(to: directory.appendingPathComponent("shell.luau"), atomically: true, encoding: .utf8)
         let monitor = Monitor(
             id: .init(displayId: 77_001),
             displayId: 77_001,
@@ -52,14 +46,14 @@ final class ShellSettingsEditsTests: XCTestCase {
         )
 
         XCTAssertNil(controller.workspaceBarManager.shellHost)
-        let originalFile = try Data(contentsOf: directory.appendingPathComponent("shell.toml"))
+        let originalFile = try Data(contentsOf: directory.appendingPathComponent("shell.luau"))
         try await controller.workspaceBarManager.shellConfiguration.refresh()
         XCTAssertEqual(settings.workspaceBar.profileOverride?.profile, "look")
         XCTAssertEqual(settings.workspaceBar.resolved(for: monitor).position, .left)
         XCTAssertEqual(settings.workspaceBar.resolved(for: monitor).height, 60)
         XCTAssertFalse(settings.hiddenBar.resolvedEnabled)
         XCTAssertNil(controller.workspaceBarManager.shellHost)
-        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("shell.toml")), originalFile)
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("shell.luau")), originalFile)
         try await controller.workspaceBarManager.shellConfiguration.updateMonitor(monitor) {
             $0.enabled = true
             $0.position = .bottom
@@ -80,8 +74,8 @@ final class ShellSettingsEditsTests: XCTestCase {
         XCTAssertFalse(settings.workspaceBar.enabled)
         XCTAssertFalse(settings.workspaceBar.resolved(for: monitor).enabled)
         XCTAssertNil(controller.workspaceBarManager.shellHost)
-        let saved = try String(contentsOf: directory.appendingPathComponent("shell.toml"), encoding: .utf8)
-        XCTAssertFalse(try ShellTOMLText.contains(["profiles", "look", "monitorBarOverrides"], in: saved))
-        XCTAssertTrue(try ShellTOMLText.contains(["profiles", "other", "workspaceBar", "height"], in: saved))
+        let saved = try String(contentsOf: directory.appendingPathComponent("shell.luau"), encoding: .utf8)
+        XCTAssertNil(try ShellLuauDocument(Data(saved.utf8)).value["profiles"]?["look"]?["monitorBarOverrides"])
+        XCTAssertNotNil(try ShellLuauDocument(Data(saved.utf8)).value["profiles"]?["other"]?["workspaceBar"]?["height"])
     }
 }

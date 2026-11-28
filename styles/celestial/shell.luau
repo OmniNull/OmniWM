@@ -1,0 +1,50 @@
+-- SPDX-License-Identifier: GPL-2.0-only
+-- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+return {
+    theme = "celestial",
+    leading = { "apple-menu", "app-menu", "omniwm", "workspaces", "scratchpads" },
+    center = { "active-window" },
+    trailing = {
+        "media",
+        "notifications",
+        "volume",
+        "wifi",
+        "battery-details",
+        "control-center",
+        "system-stats",
+        "clock",
+        "power",
+    },
+    workspaceBar = {
+        position = "left",
+        height = 60,
+        fullWidth = true,
+        reserveLayoutSpace = true,
+        transparentBackground = false,
+        backgroundOpacity = 1,
+        barFill = "background",
+        showItemBackgrounds = true,
+        showAccentHighlights = true,
+        solidBlackBackground = false,
+        showLabels = false,
+        xOffset = 0,
+        yOffset = 0,
+    },
+    widgets = {
+        workspaces = { indicator = "pills" },
+        volume = { step = 5 },
+        clock = { date = false, icon = true },
+        ["active-window"] = { maxWidth = 320 },
+    },
+    drawer = {
+        dashboard = {
+            edge = "top",
+            widgets = { "dashboard" },
+            hover = true,
+            width = 900,
+            close = "leave",
+            chrome = false,
+        },
+    },
+}

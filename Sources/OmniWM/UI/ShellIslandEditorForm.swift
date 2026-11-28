@@ -60,6 +60,7 @@ struct ShellIslandEditorForm: View {
                     get: { editor.islandEnabled }, set: { editor.setIslandEnabled($0) }
                 ))
                 .disabled(editor.islandToggleDisabled)
+                .settingsField(.islandEnabled)
                 if !editor.islandEnabled, editor.island != nil {
                     SettingsCaption(
                         localized: "Configure your island before turning it on. The Workspace Bar has its own switch."

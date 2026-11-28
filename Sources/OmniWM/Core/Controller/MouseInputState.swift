@@ -118,6 +118,11 @@ struct MouseInputState {
         var hasDeferredFrameChange = false
     }
 
+    enum NativeResizeStartRejection {
+        case sizeWrite
+        case frameMismatch
+    }
+
     struct NativeResizeCorrection {
         let token: WindowToken
         var issuedUnreadableCorrection = false
@@ -176,7 +181,7 @@ struct MouseInputState {
     var leftPressWasDragged = false
     var leftReleaseLocation: CGPoint?
     var nativeResizeStart: NativeResizeStart?
-    var staleNativeResizeStartToken: WindowToken?
+    var nativeResizeStartRejections: [WindowToken: NativeResizeStartRejection] = [:]
     var nativeResizeCorrectionsByWindowId: [Int: NativeResizeCorrection] = [:]
     var nativeCrossDisplayMove: NativeCrossDisplayMove?
 

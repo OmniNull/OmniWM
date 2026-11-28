@@ -86,6 +86,57 @@ final class IslandNavigationSnapshotTests: XCTestCase {
         XCTAssertEqual(populated.focused, window.id)
     }
 
+    func testDwindleNavigationCarriesTheFocusedSplitAndThePendingPreselect() throws {
+        let fixture = try makeFixture()
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let handler = controller.dwindleLayoutHandler
+        let workspace = fixture.second
+        XCTAssertTrue(manager.setActiveWorkspace(workspace, on: fixture.main.id))
+        let first = try addWindow(41, to: workspace, fixture: fixture)
+        _ = manager.setManagedFocus(first.id, in: workspace, onMonitor: fixture.main.id)
+        let alone = try navigation(on: fixture.main, fixture: fixture)
+        XCTAssertNil(alone.dwindleSplit)
+        XCTAssertNil(alone.dwindlePreselect)
+
+        let second = try addWindow(42, to: workspace, fixture: fixture)
+        _ = manager.setManagedFocus(second.id, in: workspace, onMonitor: fixture.main.id)
+        let state = try XCTUnwrap(controller.dwindleEngine?.existingState(for: workspace))
+        func split() -> DwindleOrientation? {
+            state.leafByToken[second.id]?.parent?.splitOrientation
+        }
+        let initial = try XCTUnwrap(split())
+        XCTAssertEqual(try navigation(on: fixture.main, fixture: fixture).dwindleSplit, initial)
+        XCTAssertTrue(handler.toggleSplitInDwindle())
+        XCTAssertEqual(split(), initial.perpendicular)
+        XCTAssertEqual(try navigation(on: fixture.main, fixture: fixture).dwindleSplit, initial.perpendicular)
+
+        for direction in [Direction.right, .down] {
+            XCTAssertTrue(handler.preselectInDwindle(direction: direction))
+            XCTAssertEqual(try navigation(on: fixture.main, fixture: fixture).dwindlePreselect, direction)
+        }
+        XCTAssertTrue(handler.clearPreselectInDwindle())
+        XCTAssertNil(try navigation(on: fixture.main, fixture: fixture).dwindlePreselect)
+        XCTAssertTrue(handler.preselectInDwindle(direction: .left))
+        _ = try addWindow(43, to: workspace, fixture: fixture)
+        XCTAssertNil(state.preselection)
+        XCTAssertNil(try navigation(on: fixture.main, fixture: fixture).dwindlePreselect)
+
+        XCTAssertTrue(handler.preselectInDwindle(direction: .up))
+        let placements = fixture.host.islandPlacements(WorldView(controller: controller).islandSurfaces())
+        let surface = try XCTUnwrap(placements[ShellBarKey(monitor: fixture.main.id, placement: .island)]?.surface)
+        var writer = ShellValueWriter()
+        surface.write(to: &writer)
+        let fields = try XCTUnwrap(ShellServiceValue.decode(writer.bytes).fields)
+        let encoded = try XCTUnwrap(fields["navigation"]?.fields)
+        XCTAssertEqual(encoded["dwindlePreselect"]?.string, Direction.up.rawValue)
+        XCTAssertEqual(encoded["dwindleSplit"]?.string, split() == .horizontal ? "horizontal" : "vertical")
+        XCTAssertTrue(manager.setActiveWorkspace(fixture.first, on: fixture.main.id))
+        let niri = try navigation(on: fixture.main, fixture: fixture)
+        XCTAssertNil(niri.dwindleSplit)
+        XCTAssertNil(niri.dwindlePreselect)
+    }
+
     func testNavigationRequiresEnabledIslandAndConfiguredMonitor() throws {
         let fixture = try makeFixture()
         let world = WorldView(controller: fixture.controller)

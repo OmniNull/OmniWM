@@ -7,49 +7,30 @@ import XCTest
 
 @MainActor
 final class WorkspaceBarIconOverridesSettingsTests: XCTestCase {
-    func testDottedBundleIDRoundTripsAndUnknownKeysArePreserved() throws {
+    func testDottedBundleIDRoundTripsAndUnknownKeysAreRejected() throws {
         var export = SettingsExport.defaults()
         export.workspaceBar.iconOverrides = [
             "com.example.App": "bundle-resource:AppIconDark",
             "org.example.Other": "/tmp/other.png"
         ]
 
-        let canonical = try SettingsTOMLCodec.encode(export)
+        let canonical = try SettingsLuauDocument.initialSource(export)
         let canonicalText = try XCTUnwrap(String(bytes: canonical, encoding: .utf8))
-        XCTAssertTrue(canonicalText.contains("[workspaceBar.iconOverrides]"))
+        XCTAssertTrue(canonicalText.contains("iconOverrides = {"))
         XCTAssertTrue(
             canonicalText.contains(
-                "\"com.example.App\" = \"bundle-resource:AppIconDark\""
+                "[\"com.example.App\"] = \"bundle-resource:AppIconDark\""
             )
         )
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(canonical).workspaceBar.iconOverrides,
+            try SettingsLuauFixture.decode(canonical).workspaceBar.iconOverrides,
             export.workspaceBar.iconOverrides
         )
-        XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: canonical).isEmpty)
-
-        let previous = Data(
-            """
-            \(canonicalText)
-
-            [workspaceBar.futureAppearance]
-            glow = true
-            """.utf8
-        )
-        let preserving = try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: previous)
-        let preservingText = try XCTUnwrap(String(bytes: preserving, encoding: .utf8))
-
-        XCTAssertTrue(preservingText.contains("[workspaceBar.futureAppearance]"))
-        XCTAssertTrue(preservingText.contains("glow = true"))
-        XCTAssertEqual(
-            try SettingsTOMLCodec.decode(preserving).workspaceBar.iconOverrides,
-            export.workspaceBar.iconOverrides
-        )
-        XCTAssertTrue(
-            SettingsTOMLCodec.unknownKeyPaths(in: preserving).contains(
-                "workspaceBar.futureAppearance"
-            )
-        )
+        XCTAssertNoThrow(try SettingsLuauFixture.decode(canonical))
+        let invalid = Data("return { workspaceBar = { futureAppearance = { glow = true } } }".utf8)
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(invalid)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("workspaceBar.futureAppearance"))
+        }
     }
 
     func testApplyExportNormalizesCaseCollisionsDeterministically() {
@@ -145,7 +126,7 @@ final class WorkspaceBarIconOverridesSettingsTests: XCTestCase {
             "org.example.Blank": "\n"
         ]
 
-        try SettingsTOMLCodec.encode(external).write(to: persistence.fileURL, options: .atomic)
+        try SettingsLuauDocument.initialSource(external).write(to: persistence.fileURL, options: .atomic)
         await fulfillment(of: [reloaded], timeout: failureBound)
 
         XCTAssertEqual(externalReloadCount, 1)

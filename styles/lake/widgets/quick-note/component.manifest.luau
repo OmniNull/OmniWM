@@ -1,0 +1,8 @@
+return {
+    title = "Quick note",
+    icon = "note.text",
+    views = { "compact", "expanded" },
+    capabilities = {
+        clipboard = true,
+    },
+}

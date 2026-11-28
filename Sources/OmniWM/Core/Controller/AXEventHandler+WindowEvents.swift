@@ -80,7 +80,13 @@ extension AXEventHandler {
         AXWindowService.invalidateCachedTitle(windowId: windowId)
         controller.requestWorkspaceBarRefresh()
         if let title = windowServerTitle ?? windowTitleProvider(windowId) {
-            controller.workspaceManager.updateManagedReplacementTitle(title, for: token)
+            let changed = controller.workspaceManager.updateManagedReplacementTitle(title, for: token)
+            func publish(_ observer: ConfigScriptEventObservers) {
+                observer.titleChanged(title, for: token, metadataChanged: changed, controller: controller)
+            }
+            if let client = ConfigScriptEventObservers.borrowRegistration(&scriptWindowTitleObserver, publish) {
+                publish(client)
+            }
         }
         let appInfo = controller.appInfoCache.hasCachedInfo(for: token.pid)
             ? controller.appInfoCache.info(for: token.pid) : nil

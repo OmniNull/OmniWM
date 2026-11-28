@@ -7,7 +7,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 swiftly_bin="${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/bin"
 cd "$root"
-scratch="$root/.build/arc-audit"
+scratch="${OMNIWM_ARC_AUDIT_SCRATCH:-$root/.build/arc-audit}"
 products="$scratch/out/Products/Release"
 objects="$scratch/out/Intermediates.noindex/OmniWM.build/Release/OmniWMShellCore-t.build/Objects-normal/arm64"
 forbidden='_swift_retain|_swift_release|_swift_allocObject|_swift_allocBox|_swift_bridgeObjectRetain|_swift_bridgeObjectRelease|_swift_beginAccess|_swift_getGenericMetadata|_swift_dynamicCast|_objc_retain|_objc_release'

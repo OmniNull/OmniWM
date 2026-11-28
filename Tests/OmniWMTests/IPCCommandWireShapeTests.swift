@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -40,7 +41,8 @@ final class IPCCommandWireShapeTests: XCTestCase {
         case .workspaceNumber,
              .columnIndex,
              .windowIndex,
-             .scratchpadIndex:
+             .scratchpadIndex,
+             .visibleContainerCount:
             .integer(2)
         case .layout:
             .layout(.niri)
@@ -120,6 +122,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"arguments":{"change":{"kind":"set-proportion","value":0.5}},"name":"set-container-primary-span"}"#,
         #"{"arguments":{"change":{"kind":"set-proportion","value":0.5}},"name":"set-window-primary-span"}"#,
         #"{"arguments":{"change":{"kind":"set-proportion","value":0.5}},"name":"set-window-secondary-span"}"#,
+        #"{"arguments":{"visibleContainerCount":2},"name":"set-visible-containers"}"#,
         #"{"arguments":{"direction":"left"},"name":"swap-workspace-with-monitor"}"#,
         #"{"name":"balance-sizes"}"#,
         #"{"name":"move-to-root"}"#,
@@ -127,6 +130,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"name":"swap-split"}"#,
         #"{"arguments":{"axis":"horizontal","operation":"grow"},"name":"resize"}"#,
         #"{"arguments":{"operation":"grow"},"name":"resize-focused"}"#,
+        #"{"arguments":{"direction":"left"},"name":"resize-direction"}"#,
         #"{"arguments":{"direction":"left"},"name":"preselect"}"#,
         #"{"name":"preselect-clear"}"#,
         #"{"name":"open-command-palette"}"#,
@@ -159,6 +163,7 @@ final class IPCCommandWireShapeTests: XCTestCase {
         #"{"arguments":{"scratchpadIndex":2},"name":"scratchpad-assign"}"#,
         #"{"arguments":{"scratchpadIndex":2},"name":"scratchpad-toggle"}"#,
         #"{"name":"open-menu-anywhere"}"#,
+        #"{"name":"open-settings"}"#,
         #"{"arguments":{"appId":"example"},"name":"app-open"}"#,
         #"{"arguments":{"appId":"example"},"name":"app-new-window"}"#
     ]

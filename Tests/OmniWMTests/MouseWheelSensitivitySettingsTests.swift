@@ -7,12 +7,12 @@ import XCTest
 
 @MainActor
 final class MouseWheelSensitivitySettingsTests: XCTestCase {
-    func testMouseWheelSensitivityRoundTripsThroughTOML() throws {
+    func testMouseWheelSensitivityRoundTripsThroughLuau() throws {
         let sensitivity = 8.0
         var export = SettingsExport.defaults()
         export.gestures.mouseWheelSensitivity = sensitivity
 
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         let settings = GestureSettings()
         settings.apply(decoded.gestures)
 
@@ -25,13 +25,13 @@ final class MouseWheelSensitivitySettingsTests: XCTestCase {
         let defaultSensitivity = try XCTUnwrap(SettingsExport.Gestures.defaults().mouseWheelSensitivity)
         var export = SettingsExport.defaults()
         export.gestures.mouseWheelSensitivity = nil
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         let settings = GestureSettings()
         settings.mouseWheelSensitivity = 8
 
         settings.apply(decoded.gestures)
 
-        XCTAssertNil(decoded.gestures.mouseWheelSensitivity)
+        XCTAssertEqual(decoded.gestures.mouseWheelSensitivity, defaultSensitivity)
         XCTAssertEqual(settings.mouseWheelSensitivity, defaultSensitivity)
         XCTAssertEqual(settings.export().mouseWheelSensitivity, defaultSensitivity)
     }

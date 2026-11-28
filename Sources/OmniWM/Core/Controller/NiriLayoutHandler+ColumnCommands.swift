@@ -175,36 +175,67 @@ extension NiriLayoutHandler {
     ) -> Bool {
         var moved = false
         withNiriWindowContext(.window(handle)) { engine, windowNode, context, state in
-            let workspaceId = context.workspaceId
-            guard let column = engine.findColumn(containing: windowNode, in: workspaceId) else { return }
-            let focusedColumn = state.selectedNodeId
-                .flatMap { engine.findNode(by: $0, in: workspaceId) }
-                .flatMap(engine.column(of:))
-            let oldFrames = engine.captureWindowFrames(in: workspaceId)
-            let didMove = if let focusedColumn {
-                engine.moveColumnPreservingFocus(
-                    column,
-                    target: target,
-                    focused: focusedColumn,
-                    context: context,
-                    state: &state
-                )
-            } else {
-                engine.moveColumn(column, target: target, context: context, state: &state)
-            }
-            guard didMove else { return }
-            _ = engine.triggerMoveAnimations(
-                in: workspaceId,
-                oldFrames: oldFrames,
-                newFrames: engine.captureWindowFrames(in: workspaceId),
-                motion: context.motion
-            )
-            recordLayoutOperation(.columnMoved, in: workspaceId)
-            requestLayoutCommandRelayout(in: workspaceId)
-            startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
-            moved = true
+            guard let column = engine.findColumn(containing: windowNode, in: context.workspaceId) else { return }
+            moved = moveColumnPreservingFocus(column, target: target, engine: engine, context: context, state: &state)
         }
         return moved
+    }
+
+    func placeWindowInOwnColumn(containing handle: WindowHandle, at slot: Int) -> Bool {
+        var placed = false
+        withNiriWindowContext(.window(handle)) { engine, windowNode, context, state in
+            let workspaceId = context.workspaceId
+            guard let column = engine.findColumn(containing: windowNode, in: workspaceId) else { return }
+            guard column.windowNodes.count > 1 else {
+                placed = moveColumnPreservingFocus(
+                    column, target: .index(slot), engine: engine, context: context, state: &state
+                )
+                return
+            }
+            guard engine.expelWindow(windowNode, toProjectedPosition: slot - 1, context: context, state: &state)
+            else { return }
+            recordLayoutOperation(.windowConsumedOrExpelled(token: handle.id), in: workspaceId)
+            requestLayoutCommandRelayout(in: workspaceId)
+            startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
+            placed = true
+        }
+        return placed
+    }
+
+    private func moveColumnPreservingFocus(
+        _ column: NiriContainer,
+        target: NiriColumnMoveTarget,
+        engine: NiriLayoutEngine,
+        context: NiriInteractionContext,
+        state: inout ViewportState
+    ) -> Bool {
+        let workspaceId = context.workspaceId
+        let focusedColumn = state.selectedNodeId
+            .flatMap { engine.findNode(by: $0, in: workspaceId) }
+            .flatMap(engine.column(of:))
+        let oldFrames = engine.captureWindowFrames(in: workspaceId)
+        let didMove = if let focusedColumn {
+            engine.moveColumnPreservingFocus(
+                column,
+                target: target,
+                focused: focusedColumn,
+                context: context,
+                state: &state
+            )
+        } else {
+            engine.moveColumn(column, target: target, context: context, state: &state)
+        }
+        guard didMove else { return false }
+        _ = engine.triggerMoveAnimations(
+            in: workspaceId,
+            oldFrames: oldFrames,
+            newFrames: engine.captureWindowFrames(in: workspaceId),
+            motion: context.motion
+        )
+        recordLayoutOperation(.columnMoved, in: workspaceId)
+        requestLayoutCommandRelayout(in: workspaceId)
+        startScrollAnimationIfNeeded(for: workspaceId, state: state, engine: engine)
+        return true
     }
 
     @discardableResult

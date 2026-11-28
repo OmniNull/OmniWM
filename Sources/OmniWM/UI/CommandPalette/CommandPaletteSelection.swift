@@ -225,7 +225,8 @@ extension CommandPaletteController {
         else {
             return nil
         }
-        return .command(wmController, item.spec.command, focusSession.restoreFocusTarget)
+        let target = item.spec.command == .openSettings ? nil : focusSession.restoreFocusTarget
+        return .command(wmController, item.spec.command, target)
     }
 
     private func resolvedLauncherSelectionAction(

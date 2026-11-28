@@ -48,7 +48,11 @@ The result must report the Swift 6.5 development snapshot named in `.swift-versi
 make setup
 ```
 
-Setup needs [Lix](https://lix.systems/install/) (or another Nix with flakes). It builds the repository's `flake.nix`: the pinned, prebuilt GhosttyKit is linked at `Frameworks/GhosttyKit.xcframework` and checked against its checksum, and the pinned SwiftFormat, SwiftLint, Python, Fish and Nushell are linked at `.cache/flake-tools`. **You do not need to compile GhosttyKit**, and no Homebrew installation is required. `nix develop` opens a shell with the same tools on `PATH`. With [direnv](https://direnv.net), `direnv allow` loads that shell whenever you enter the checkout.
+Setup needs [Lix](https://lix.systems/install/) (or another Nix with flakes). It builds the repository's `flake.nix`: the pinned, prebuilt GhosttyKit is linked at `Frameworks/GhosttyKit.xcframework` and checked against its checksum, and the pinned SwiftFormat, SwiftLint, Python, Fish and Nushell are linked at `.cache/flake-tools`. **You do not need to compile GhosttyKit**, and no Homebrew installation is required.
+
+`nix develop` opens a shell with the pinned tools on `PATH`. With [direnv](https://direnv.net) configured for your shell, run `direnv allow` to load the same environment whenever you enter the checkout. The shell also supplies the pinned tools to `make format-check`, `make lint` and the Git hook. Put checkout-specific environment variables such as `OMNIWM_RELEASE_APP` in an optional `.env.local` file using `NAME=value` syntax. Git ignores this file.
+
+Run `make hooks` once to enable the pre-commit hook. If you work outside the Nix shell, `make setup-tools` installs the tools for the hook and the formatting and lint commands.
 
 Tool versions and download checksums are recorded in [Scripts/dev-tools.env](https://github.com/OmniNull/OmniWM/blob/main/Scripts/dev-tools.env), which the flake reads; other packages are pinned by `flake.lock`. Ghostty's internal archive pin remains in [Scripts/build-metadata.env](https://github.com/OmniNull/OmniWM/blob/main/Scripts/build-metadata.env). Setup preserves an existing framework that does not match the pin and explains the mismatch instead of overwriting it. Setup does not launch OmniWM or change privacy permissions, login items, or CLI links.
 
@@ -89,7 +93,7 @@ Commit your change, push your branch to your fork, and open a pull request targe
 | --- | --- |
 | `make setup` | Check prerequisites and obtain the pinned dependencies. |
 | `make doctor` | Diagnose tools, dependencies, signing, and app paths without changing them. |
-| `make hooks` | Enable the pre-commit hook: SwiftFormat and SwiftLint on staged Swift files, and a warning when a pinned download in `Scripts/dev-tools.env` is not public yet. |
+| `make hooks` | Enable staged checks for whitespace errors, conflict markers, Swift formatting and lint, and stale IPC encoders. Unpublished pinned downloads produce a warning. |
 | `make build` | Build the app without installing or launching it. |
 | `make run` | Build, sign, install, and switch to Dev; alias for `make dev-install`. |
 | `make use-dev` | Switch to the installed Dev app without rebuilding. |
@@ -109,11 +113,11 @@ The installed Dev app has the fixed identity `com.barut.OmniWM.dev`, which selec
 
 | Data | Normal app | Dev app |
 | --- | --- | --- |
-| Settings | `~/.config/omniwm/settings.toml` | `~/.config/omniwm-dev/settings.toml` |
+| Settings | `~/.config/omniwm/settings.luau` | `~/.config/omniwm-dev/settings.luau` |
 | Saved state | `~/.local/state/omniwm/` | `~/.local/state/omniwm-dev/` |
 | OmniWM diagnostics | `~/.local/state/omniwm/diagnostics/` | `~/.local/state/omniwm-dev/diagnostics/` |
 
-On first installation, the helper copies your normal `settings.toml` into an independent Dev file. Existing Dev settings are preserved, and later edits are never synchronized. If no normal settings file exists, Dev uses its defaults. Saved state and clipboard history start fresh; they are not copied.
+On first installation, the helper copies your normal `settings.luau` into an independent Dev file. If it uses local helpers, copy those files into the matching locations in the Dev config yourself. Existing Dev settings are preserved, and later edits are never synchronized. If no normal settings file exists, Dev uses its defaults. Saved state and clipboard history start fresh; they are not copied.
 
 Absolute `XDG_CONFIG_HOME` and `XDG_STATE_HOME` values replace the corresponding base directories, with `omniwm` or `omniwm-dev` appended. Relative values are ignored. These variables must be available to the app process: a variable set only in a Terminal session is not automatically available to a Finder launch.
 
@@ -164,7 +168,7 @@ CI takes Fish and Nushell from the flake to run the native CLI completion tests.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Tooling** job.
 
-CI also checks that the generated IPC wire encoders match their models. After changing IPC models or the generator, run `python3 Scripts/generate_ipc_wire.py --check`. If it reports stale files, run `python3 Scripts/generate_ipc_wire.py`, review the generated diff, and rerun the check.
+CI also checks that the generated IPC wire encoders match their models. After changing IPC models, shared wire values in `OmniWMAutomation`, or the generator, run `python3 Scripts/generate_ipc_wire.py --check`. If it reports stale files, run `python3 Scripts/generate_ipc_wire.py`, review the generated diff, and rerun the check.
 
 ### Trying a Style
 
@@ -172,7 +176,7 @@ The optional styles live in `styles/`, one folder per style. A development build
 
 ### Translating the App
 
-Translations live in the [string catalogs](https://github.com/OmniNull/OmniWM/tree/main/Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, `InfoPlist.xcstrings` contains the macOS permission descriptions, and `Shell.xcstrings` contains the Default OmniShell widget text; add or edit your language's `localizations` entries in those catalogs. Each style in `styles/` keeps its own text in flat `strings/<locale>.toml` tables: `en.toml` lists the English text, and a language file maps the same English keys to translations. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
+Translations live in the [string catalogs](https://github.com/OmniNull/OmniWM/tree/main/Sources/OmniWM/Resources). `Localizable.xcstrings` contains interface text, `Commands.xcstrings` contains command names, categories, and scopes, `InfoPlist.xcstrings` contains the macOS permission descriptions, and `Shell.xcstrings` contains the Default OmniShell widget text; add or edit your language's `localizations` entries in those catalogs. Each style in `styles/` keeps its own text in flat `strings/<locale>.luau` tables: `en.luau` lists the English text, and a language file maps the same English keys to translations. Keep the English keys and source values intact, and translate the meaning in context. English is the fallback for strings without a translation.
 
 Preserve each format argument's type when translating. You may reorder arguments with positional forms such as `%2$@` and `%1$lld`; a `%lld` count cannot become `%@`. Plural branches may omit a count when the wording does not need it. `make verify` checks format arguments, including plural forms, before a translation is accepted. To preview length and direction issues, use Xcode's localization pseudolanguages or change the app language in macOS settings.
 
@@ -237,7 +241,9 @@ The **Main branch protection** ruleset blocks branch deletion and force-pushes. 
 
 **OmniWM CI** (`ci.yml`) runs automatically on pull requests and pushes to `main` or branches ending in `-release`, except documentation-only changes. **Website** (`website.yml`) checks website changes on pull requests and pushes to `main`. Neither workflow requires a custom review approval. GitHub may still require approval for first-time fork runs.
 
-For an existing PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number to test its merge with the base branch. A manual run runs the full test groups and provides logs; it does not replace the PR's required check. Updating the PR branch triggers its normal PR checks.
+The **Main approval with BarutSRB-only bypass** and **Owner or three maintainers on other branches** rulesets require pull request approval. The **CI approval** status check has been removed from both rulesets.
+
+For an open, mergeable PR, use **Actions → OmniWM CI → Run workflow** and enter its PR number. All test groups run against the same resolved merge commit. Updating the PR branch triggers its normal PR checks.
 
 ## Trace Files
 

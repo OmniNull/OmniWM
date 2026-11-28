@@ -98,20 +98,24 @@ struct AppThemingDiffView: View {
 
 struct AppThemingCustomEditor: View {
     @State var custom: SettingsExport.AppTheming.Custom
+    let row: String?
     let policy: AppThemeOutputPolicy
     let onSave: (SettingsExport.AppTheming.Custom) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var isNew = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            (isNew ? Text("Add Custom Template") : Text("Edit Custom Template"))
+            (row == nil ? Text("Add Custom Template") : Text("Edit Custom Template"))
                 .font(.title3.weight(.semibold))
             Form {
                 TextField("Name", text: $custom.name)
+                    .settingsField(.appThemingCustom, row: row, leaf: "name")
                 fileRow("Template", path: $custom.template, save: false)
+                    .settingsField(.appThemingCustom, row: row, leaf: "template")
                 fileRow("Dark Template (optional)", path: darkTemplate, save: false)
+                    .settingsField(.appThemingCustom, row: row, leaf: "darkTemplate")
                 fileRow("Output File", path: $custom.output, save: true)
+                    .settingsField(.appThemingCustom, row: row, leaf: "output")
                 if let problem = outputProblem {
                     Label { Text(verbatim: problem).font(.caption) } icon: {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -122,8 +126,8 @@ struct AppThemingCustomEditor: View {
                     Text("Do Nothing").tag(AppThemeCustomReload.none)
                     Text("Reload Ghostty").tag(AppThemeCustomReload.ghostty)
                     Text("Reload kitty").tag(AppThemeCustomReload.kitty)
-                    Text("Reload herdr").tag(AppThemeCustomReload.herdr)
                 }
+                .settingsField(.appThemingCustom, row: row, leaf: "reload")
                 if custom.reload == .none {
                     SettingsCaption(localized: "The app has to watch this file itself, or you reload it by hand.")
                 }
@@ -139,13 +143,11 @@ struct AppThemingCustomEditor: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canSave)
+                .settingsField(.appThemingCustom, row: row)
             }
         }
         .padding(20)
         .frame(width: 560)
-        .onAppear {
-            isNew = custom.name.isEmpty
-        }
     }
 
     private var darkTemplate: Binding<String> {

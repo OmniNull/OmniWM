@@ -85,10 +85,12 @@ final class FocusNotificationDispatcher {
             }
             if let newWindowId = currentWindowId { info[OmniWMFocusNotificationKey.newWindowId] = newWindowId }
 
-            NotificationCenter.default.post(
-                name: .omniwmFocusChanged,
-                object: controller,
-                userInfo: info.isEmpty ? nil : info
+            post(
+                .omniwmFocusChanged,
+                controller: controller,
+                info: info,
+                receiver: controller.scriptFocusObservers.window?.focusReceiver,
+                value: .window(currentToken)
             )
             lastNotifiedFocusedToken = currentToken
             lastNotifiedFocusedWindowId = currentWindowId
@@ -101,61 +103,64 @@ final class FocusNotificationDispatcher {
         _ currentWorkspaceId: WorkspaceDescriptor.ID?,
         controller: WMController
     ) -> Bool {
+        guard currentWorkspaceId != lastNotifiedWorkspaceId else { return false }
         var workspaceInfo: [AnyHashable: Any] = [:]
         if let oldId = lastNotifiedWorkspaceId {
             workspaceInfo[OmniWMFocusNotificationKey.oldWorkspaceId] = oldId
             if let name = controller.workspaceManager.descriptor(for: oldId)?
                 .name { workspaceInfo[OmniWMFocusNotificationKey.oldWorkspaceName] = name }
         }
+        let newName = currentWorkspaceId.flatMap { controller.workspaceManager.descriptor(for: $0)?.name }
         if let newId = currentWorkspaceId {
             workspaceInfo[OmniWMFocusNotificationKey.newWorkspaceId] = newId
-            if let name = controller.workspaceManager.descriptor(for: newId)?
-                .name { workspaceInfo[OmniWMFocusNotificationKey.newWorkspaceName] = name }
+            if let newName { workspaceInfo[OmniWMFocusNotificationKey.newWorkspaceName] = newName }
         }
-        return postNotificationIfChanged(
-            name: .omniwmFocusedWorkspaceChanged,
-            current: currentWorkspaceId,
-            last: &lastNotifiedWorkspaceId,
+        post(
+            .omniwmFocusedWorkspaceChanged,
+            controller: controller,
             info: workspaceInfo,
-            sender: controller
+            receiver: controller.scriptFocusObservers.workspace?.focusReceiver,
+            value: .workspace(currentWorkspaceId, newName)
         )
+        lastNotifiedWorkspaceId = currentWorkspaceId
+        return true
     }
 
     private func notifyMonitorIfNeeded(_ currentMonitorId: Monitor.ID?, controller: WMController) -> Bool {
+        guard currentMonitorId != lastNotifiedMonitorId else { return false }
         var monitorInfo: [AnyHashable: Any] = [:]
         if let oldId = lastNotifiedMonitorId {
             monitorInfo[OmniWMFocusNotificationKey.oldMonitorIndex] = oldId.displayId
             if let name = controller.workspaceManager.monitor(byId: oldId)?
                 .name { monitorInfo[OmniWMFocusNotificationKey.oldMonitorName] = name }
         }
+        let newName = currentMonitorId.flatMap { controller.workspaceManager.monitor(byId: $0)?.name }
         if let newId = currentMonitorId {
             monitorInfo[OmniWMFocusNotificationKey.newMonitorIndex] = newId.displayId
-            if let name = controller.workspaceManager.monitor(byId: newId)?
-                .name { monitorInfo[OmniWMFocusNotificationKey.newMonitorName] = name }
+            if let newName { monitorInfo[OmniWMFocusNotificationKey.newMonitorName] = newName }
         }
-        return postNotificationIfChanged(
-            name: .omniwmFocusedMonitorChanged,
-            current: currentMonitorId,
-            last: &lastNotifiedMonitorId,
+        post(
+            .omniwmFocusedMonitorChanged,
+            controller: controller,
             info: monitorInfo,
-            sender: controller
+            receiver: controller.scriptFocusObservers.monitor?.focusReceiver,
+            value: .monitor(
+                currentMonitorId,
+                newName
+            )
         )
+        lastNotifiedMonitorId = currentMonitorId
+        return true
     }
 
-    private func postNotificationIfChanged<T: Equatable>(
-        name: Notification.Name,
-        current: T?,
-        last: inout T?,
-        info: [AnyHashable: Any],
-        sender: AnyObject
-    ) -> Bool {
-        guard current != last else { return false }
-        NotificationCenter.default.post(
-            name: name,
-            object: sender,
-            userInfo: info.isEmpty ? nil : info
-        )
-        last = current
-        return true
+    private func post(
+        _ name: Notification.Name, controller: WMController, info: [AnyHashable: Any],
+        receiver: ConfigScriptFocusReceiver?, value: @autoclosure () -> ConfigScriptFocusReceiver.Value
+    ) {
+        if let receiver {
+            receiver.post(value(), controller: controller, name: name, info: info)
+        } else {
+            NotificationCenter.default.post(name: name, object: controller, userInfo: info.isEmpty ? nil : info)
+        }
     }
 }

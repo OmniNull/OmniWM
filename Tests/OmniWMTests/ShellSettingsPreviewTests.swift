@@ -26,7 +26,7 @@ final class ShellSettingsPreviewTests: XCTestCase {
     func testAllInstalledStylesRenderTheirRealBarSourcesWithoutChangingConfiguration() async throws {
         let directory = try fixture()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let original = try Data(contentsOf: directory.appendingPathComponent("shell.toml"))
+        let original = try Data(contentsOf: directory.appendingPathComponent("shell.luau"))
         let settings = WorkspaceBarSettings()
         for profile in ShellProfiles.names(in: directory) where profile != "vitreus" {
             let config = try config(profile, in: directory)
@@ -39,7 +39,7 @@ final class ShellSettingsPreviewTests: XCTestCase {
             )
             let image = try await ShellSettingsPreview.render(request)
             try inspect(image, name: "settings-\(profile)-bar")
-            XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("shell.toml")), original)
+            XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent("shell.luau")), original)
         }
     }
 
@@ -284,8 +284,8 @@ final class ShellSettingsPreviewTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         _ = try ShellStyleFixture.prepare(into: directory)
-        try "profile = \"default\"\n".write(
-            to: directory.appendingPathComponent("shell.toml"),
+        try "return { profile = \"default\" }\n".write(
+            to: directory.appendingPathComponent("shell.luau"),
             atomically: true,
             encoding: .utf8
         )

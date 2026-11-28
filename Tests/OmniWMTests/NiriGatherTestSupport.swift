@@ -145,6 +145,18 @@ struct NiriGatherFixture {
         }
     }
 
+    func stack(_ id: Int, onto target: Int, in workspaceId: WorkspaceDescriptor.ID) {
+        manager.withEngineMutationScope(in: workspaceId) {
+            guard let node = node(id, in: workspaceId),
+                  let source = engine.findColumn(containing: node, in: workspaceId),
+                  let targetNode = self.node(target, in: workspaceId),
+                  let column = engine.findColumn(containing: targetNode, in: workspaceId)
+            else { return XCTFail("missing fixture columns") }
+            engine.moveWindowToColumn(node, from: source, to: column, in: workspaceId)
+            source.remove()
+        }
+    }
+
     func select(_ id: Int, in workspaceId: WorkspaceDescriptor.ID) {
         let nodeId = node(id, in: workspaceId)?.id
         manager.withNiriViewportState(for: workspaceId) { $0.selectedNodeId = nodeId }

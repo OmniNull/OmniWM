@@ -23,8 +23,6 @@ enum MonitorDescription: Equatable {
     }
 
     private func rankedMonitor(_ rank: Int, sortedMonitors: [Monitor], ranking: [OutputId]) -> Monitor? {
-        let order = MonitorRanking.roleOrder(ranking: ranking, sortedMonitors: sortedMonitors)
-        guard order.indices.contains(rank) else { return nil }
-        return order[rank]
+        MonitorRanking.monitor(atRole: rank, ranking: ranking, sortedMonitors: sortedMonitors)
     }
 }

@@ -98,6 +98,7 @@ extension WorkspaceManager {
 
         if layoutReason(for: token) != .nativeFullscreen {
             setLayoutReason(.nativeFullscreen, for: token)
+            scriptWindowFullscreenObserver?.nativeFullscreenChanged(true, for: token, confirming: existing, in: self)
             changed = true
         }
         if ownsNativeFocus {
@@ -167,6 +168,14 @@ extension WorkspaceManager {
             clearExternalFocusIdentity(matching: resolvedToken)
         }
         drainPendingRuntimeMonitorOverrideClears()
+        if restored {
+            scriptWindowFullscreenObserver?.nativeFullscreenChanged(
+                false,
+                for: resolvedToken,
+                confirming: record,
+                in: self
+            )
+        }
         return restored
     }
 

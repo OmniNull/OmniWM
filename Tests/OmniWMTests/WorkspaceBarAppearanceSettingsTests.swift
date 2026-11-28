@@ -19,15 +19,15 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
         export.workspaceBar.showItemBackgrounds = false
         export.workspaceBar.showAccentHighlights = false
         export.workspaceBar.inactiveIconOpacity = 0.25
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
 
-        XCTAssertTrue(toml.contains("transparentBackground = true"))
-        XCTAssertTrue(toml.contains("solidBlackBackground = true"))
-        XCTAssertTrue(toml.contains("showItemBackgrounds = false"))
-        XCTAssertTrue(toml.contains("showAccentHighlights = false"))
-        XCTAssertTrue(toml.contains("inactiveIconOpacity = 0.25"))
-        let decoded = try SettingsTOMLCodec.decode(data)
+        XCTAssertTrue(source.contains("transparentBackground = true"))
+        XCTAssertTrue(source.contains("solidBlackBackground = true"))
+        XCTAssertTrue(source.contains("showItemBackgrounds = false"))
+        XCTAssertTrue(source.contains("showAccentHighlights = false"))
+        XCTAssertTrue(source.contains("inactiveIconOpacity = 0.25"))
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertTrue(decoded.workspaceBar.transparentBackground)
         XCTAssertTrue(decoded.workspaceBar.solidBlackBackground)
         XCTAssertFalse(decoded.workspaceBar.showItemBackgrounds)
@@ -35,9 +35,9 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
         XCTAssertEqual(decoded.workspaceBar.inactiveIconOpacity, 0.25)
     }
 
-    func testCurrentSchemaDefaultsMissingAppearanceSettingsWithoutMigration() throws {
-        let data = try SettingsTOMLCodec.encode(.defaults())
-        let toml = String(decoding: data, as: UTF8.self)
+    func testOmittedAppearanceSettingsUseDefaults() throws {
+        let data = try SettingsLuauDocument.initialSource(.defaults())
+        let source = String(decoding: data, as: UTF8.self)
             .split(separator: "\n", omittingEmptySubsequences: false)
             .filter {
                 !$0.contains("inactiveIconOpacity") &&
@@ -48,10 +48,8 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
             }
             .joined(separator: "\n")
 
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(toml.utf8))
-        XCTAssertTrue(toml.contains("schemaVersion = 5"))
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
+        let result = try SettingsLuauDocument(Data(source.utf8))
+
         XCTAssertFalse(result.export.workspaceBar.transparentBackground)
         XCTAssertFalse(result.export.workspaceBar.solidBlackBackground)
         XCTAssertTrue(result.export.workspaceBar.showItemBackgrounds)
@@ -70,7 +68,7 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
             showItemBackgrounds: true,
             showAccentHighlights: true
         )]
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
         for keyValue in [
             "transparentBackground = false",
             "solidBlackBackground = false",
@@ -79,12 +77,12 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
             "inactiveIconOpacity = 0.5"
         ] {
             let key = keyValue.components(separatedBy: " = ")[0]
-            let matches = toml.ranges(of: keyValue)
+            let matches = source.ranges(of: keyValue)
             XCTAssertEqual(matches.count, 2, key)
             for range in matches {
-                var invalid = toml
+                var invalid = source
                 invalid.replaceSubrange(range, with: "\(key) = \"invalid\"")
-                XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(invalid.utf8)), key)
+                XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(invalid.utf8)), key)
             }
         }
     }
@@ -103,7 +101,7 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
             MonitorBarSettings(monitorName: "External")
         ]
 
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
 
         XCTAssertEqual(decoded.monitorBarSettings[0].inactiveIconOpacity, 0.2)
         XCTAssertEqual(decoded.monitorBarSettings[0].transparentBackground, true)
@@ -182,27 +180,18 @@ final class WorkspaceBarAppearanceSettingsTests: XCTestCase {
     }
 
     @MainActor
-    func testNonfiniteOpacityNormalizesWhenTOMLIsApplied() throws {
+    func testNonfiniteOpacityRejectsTheSettingsFile() throws {
         var export = SettingsExport.defaults()
         export.workspaceBar.inactiveIconOpacity = 0.5
         export.monitorBarSettings = [MonitorBarSettings(monitorName: "Built-in", inactiveIconOpacity: 0.5)]
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
 
-        for literal in ["nan", "inf", "-inf"] {
-            let data = Data(toml.replacingOccurrences(
+        for literal in ["math.huge", "-math.huge", "(0 / 0)"] {
+            let data = Data(source.replacingOccurrences(
                 of: "inactiveIconOpacity = 0.5",
                 with: "inactiveIconOpacity = \(literal)"
             ).utf8)
-            let decoded = try SettingsTOMLCodec.decode(data)
-            let settings = makeSettingsStore()
-            settings.applyExport(decoded)
-
-            XCTAssertNil(settings.workspaceBar.inactiveIconOpacity, literal)
-            XCTAssertNil(settings.workspaceBar.monitorOverrides.first?.inactiveIconOpacity, literal)
-            let normalized = settings.toExport()
-            XCTAssertNil(normalized.workspaceBar.inactiveIconOpacity, literal)
-            XCTAssertNil(normalized.monitorBarSettings.first?.inactiveIconOpacity, literal)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(normalized)), normalized)
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(data), literal)
         }
     }
 

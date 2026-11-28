@@ -43,7 +43,7 @@ struct AppThemePalettePreview: View {
             }
             HStack(spacing: 0) {
                 Text(verbatim: "modified: ").foregroundStyle(scheme.ansi[1].swiftUIColor)
-                Text(verbatim: "theme.toml").foregroundStyle(scheme.ansi[3].swiftUIColor)
+                Text(verbatim: "theme.luau").foregroundStyle(scheme.ansi[3].swiftUIColor)
             }
             HStack(spacing: 0) {
                 Text(verbatim: "added: ").foregroundStyle(scheme.ansi[2].swiftUIColor)

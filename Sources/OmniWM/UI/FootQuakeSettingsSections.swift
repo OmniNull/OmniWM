@@ -12,7 +12,7 @@ struct FootQuakeSettingsSections: View {
             Section("foot Placement") {
                 QuakePlacementOverrideControls(
                     title: "Override foot Placement",
-                    anchor: "foot",
+                    provider: .foot,
                     placement: Bindable(quake).foot.placement
                 )
 
@@ -29,7 +29,7 @@ struct FootQuakeSettingsSections: View {
 
                 QuakeAutoHideOverridePicker(
                     configTitle: "foot Config",
-                    anchor: "foot",
+                    provider: .foot,
                     autoHide: Bindable(quake).foot.autoHide
                 )
             }
@@ -38,11 +38,12 @@ struct FootQuakeSettingsSections: View {
             Section("foot Appearance") {
                 QuakeOpacityOverrideControls(
                     title: "Override foot Opacity",
-                    anchor: "foot",
+                    provider: .foot,
                     opacity: Bindable(quake).foot.opacity
                 )
 
                 SettingsSliderRow(
+                    field: .init(.quakeTerminalFootDim),
                     label: String(localized: "Dim Screen"),
                     value: Bindable(quake).foot.dim,
                     range: 0 ... 1,

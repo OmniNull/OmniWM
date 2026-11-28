@@ -6,6 +6,37 @@ import Foundation
 import QuartzCore
 
 extension WorkspaceManager {
+    func plannedPersistedHydrationMutation(for token: WindowToken) -> PersistedHydrationMutation? {
+        guard let entry = windowQueries.entry(for: token),
+              entry.hiddenState == nil,
+              let metadata = persistedRestoreMetadata(for: entry),
+              let hydrationPlan = PersistedRestorePlanner.plan(
+                  .init(
+                      token: token,
+                      metadata: metadata,
+                      catalog: persistedRestoreCatalogStore.bootCatalog,
+                      consumedEntries: persistedRestoreCatalogStore.consumedBootEntries,
+                      monitors: monitors,
+                      workspaceIdForName: { [weak self] workspaceName in
+                          self?.workspaceId(for: workspaceName, createIfMissing: false)
+                      }
+                  )
+              )
+        else {
+            return nil
+        }
+
+        return persistedHydrationMutation(from: hydrationPlan)
+    }
+
+    func flushPersistedWindowRestoreCatalogNow() {
+        persistedRestoreCatalogStore.flushNow()
+    }
+
+    func schedulePersistedWindowRestoreCatalogSave() {
+        persistedRestoreCatalogStore.scheduleSave()
+    }
+
     func persistedRestoreMetadata(for entry: WindowState) -> ManagedReplacementMetadata? {
         let bundleId = entry.managedReplacementMetadata?.bundleId
             ?? persistedRestoreBundleIdProvider?(entry.pid)

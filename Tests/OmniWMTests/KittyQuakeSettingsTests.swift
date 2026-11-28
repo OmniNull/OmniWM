@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -14,11 +13,11 @@ final class KittyQuakeSettingsTests: XCTestCase {
         XCTAssertNil(SettingsExport.QuakeTerminal.defaults().kitty)
         XCTAssertTrue(settings.quakeTerminal.kitty.isNative)
         XCTAssertNil(settings.quakeTerminal.export().kitty)
-        let quake = try quakeTable(SettingsTOMLCodec.encode(settings.toExport()))
+        let quake = try quakeTable(SettingsLuauDocument.initialSource(settings.toExport()))
         XCTAssertNil(quake["kitty"])
     }
 
-    func testKittyOverridesRoundTripThroughNestedTOMLTables() throws {
+    func testKittyOverridesRoundTripThroughNestedLuauTables() throws {
         var export = SettingsExport.defaults()
         export.quakeTerminal.kitty = KittyQuakeSettings(
             autoHide: true,
@@ -26,32 +25,32 @@ final class KittyQuakeSettingsTests: XCTestCase {
             placement: .init(position: .bottom, widthPercent: 80, heightPercent: 40)
         )
 
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
 
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        guard case let .table(kitty) = try XCTUnwrap(quakeTable(data)["kitty"]),
-              case let .table(placement) = try XCTUnwrap(kitty["placement"])
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+        guard case let .record(kitty) = try XCTUnwrap(quakeTable(data)["kitty"]),
+              case let .record(placement) = try XCTUnwrap(kitty["placement"])
         else {
             return XCTFail("Expected nested kitty and placement tables")
         }
         XCTAssertEqual(kitty["autoHide"], .boolean(true))
-        XCTAssertEqual(kitty["opacity"], .float(0.9))
+        XCTAssertEqual(kitty["opacity"], .number(0.9))
         XCTAssertEqual(placement["position"], .string("bottom"))
-        XCTAssertEqual(placement["widthPercent"], .float(80))
-        XCTAssertEqual(placement["heightPercent"], .float(40))
+        XCTAssertEqual(placement["widthPercent"], .integer(80))
+        XCTAssertEqual(placement["heightPercent"], .integer(40))
     }
 
     func testPartialOverridesKeepOtherKittyKeysNative() throws {
         var export = SettingsExport.defaults()
         export.quakeTerminal.kitty = KittyQuakeSettings(autoHide: false)
 
-        let data = try SettingsTOMLCodec.encode(export)
-        guard case let .table(kitty) = try XCTUnwrap(quakeTable(data)["kitty"]) else {
+        let data = try SettingsLuauDocument.initialSource(export)
+        guard case let .record(kitty) = try XCTUnwrap(quakeTable(data)["kitty"]) else {
             return XCTFail("Expected kitty table")
         }
 
         XCTAssertEqual(kitty.keys.sorted(), ["autoHide"])
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).quakeTerminal.kitty, KittyQuakeSettings(autoHide: false))
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).quakeTerminal.kitty, KittyQuakeSettings(autoHide: false))
     }
 
     func testKittyValuesStayIndependentOfGhosttyValues() {
@@ -123,9 +122,9 @@ final class KittyQuakeSettingsTests: XCTestCase {
         XCTAssertEqual(QuakeOpacityOverride.defaultOverride, 0.85)
     }
 
-    private func quakeTable(_ data: Data) throws -> [String: TOMLNode] {
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        guard case let .table(quake) = try XCTUnwrap(tree["quakeTerminal"]) else {
+    private func quakeTable(_ data: Data) throws -> [String: SettingsLuauValue] {
+        let tree = try SettingsLuauFixture.fields(in: data)
+        guard case let .record(quake) = try XCTUnwrap(tree["quakeTerminal"]) else {
             XCTFail("Expected quakeTerminal table")
             return [:]
         }

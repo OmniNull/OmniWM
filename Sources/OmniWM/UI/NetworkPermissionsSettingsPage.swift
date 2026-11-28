@@ -119,12 +119,14 @@ struct NetworkPermissionsSettingsPage: View {
                     "Sends the city or coordinates you set for weather to \(ShellBuiltInService.weather.hosts.sorted().formatted(.list(type: .and)))."
                 )
             }
+            .settingsField(.shellPermissionsServicesWeather)
             serviceToggle(.lyrics, enabled: services.lyrics, permissions: permissions) {
                 Text("Lyrics")
                 Text(
                     "Sends the playing track’s title, artist, album, and length to \(ShellBuiltInService.lyrics.hosts.sorted().formatted(.list(type: .and))) to find synced lyrics."
                 )
             }
+            .settingsField(.shellPermissionsServicesLyrics)
             if ShellBuiltInService.allCases.contains(where: { permissions.access($0) == .blocked }) {
                 ManagedSettingLabel()
             }
@@ -152,6 +154,7 @@ private struct NetworkPermissionsWidgetSection: View {
     let permissions: ShellPermissionSettings
 
     var body: some View {
+        let rowIndex = permissions.decisions.widgets.firstIndex { $0.principal == widget.principal }
         Section {
             Text(verbatim: widget.principal.source)
                 .font(.caption.monospaced())
@@ -182,9 +185,10 @@ private struct NetworkPermissionsWidgetSection: View {
                 } label: {
                     Text(verbatim: host.name).font(.body.monospaced())
                     if host.declaredByShellConfig {
-                        Text("Declared by your shell.toml")
+                        Text("Declared by your shell.luau")
                     }
                 }
+                .settingsField(.shellPermissionsWidgets, index: rowIndex, element: host.name, leaf: "allowed", "denied")
             }
             if widget.hosts.contains(where: { $0.state == .blockedByOrganization }) {
                 ManagedSettingLabel()
@@ -193,6 +197,7 @@ private struct NetworkPermissionsWidgetSection: View {
                 Button("Reset") {
                     permissions.setNetwork(nil, hosts: widget.hosts.map(\.name), for: widget.principal)
                 }
+                .settingsField(.shellPermissionsWidgets, index: rowIndex, leaf: "allowed", "denied")
             }
         } header: {
             Text(verbatim: widget.title)
@@ -209,6 +214,10 @@ private struct NetworkPermissionsProgramRow: View {
     let permissions: ShellPermissionSettings
 
     var body: some View {
+        let key = program.key
+        let rowIndex = permissions.decisions.programs.firstIndex {
+            $0.name == key.principal.name && $0.source == key.principal.source && $0.command == key.command
+        }
         LabeledContent {
             HStack(spacing: 8) {
                 switch program.state {
@@ -233,6 +242,7 @@ private struct NetworkPermissionsProgramRow: View {
             Text(verbatim: program.key.command.joined(separator: " ")).font(.caption.monospaced())
             Text(verbatim: program.key.principal.source).font(.caption.monospaced()).textSelection(.enabled)
         }
+        .settingsField(.shellPermissionsPrograms, index: rowIndex)
     }
 }
 

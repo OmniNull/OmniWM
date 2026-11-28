@@ -279,7 +279,10 @@ extension CrossDisplayDragTests {
             stepDwindleTransferHistoryCommand(.workspace(.moveTo(1)), fixture)
             focusDwindleTransferHistoryToken(tokens[0], index: 0, fixture)
             if mixedLayout {
-                XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "2"))
+                XCTAssertEqual(
+                    fixture.controller.commandHandler.setWorkspaceLayout(.niri, forWorkspaceNamed: "2"),
+                    .executed
+                )
             } else {
                 let frame = try XCTUnwrap(fixture.frame(tokens[0]))
                 XCTAssertTrue(fixture.dwindle.interactiveMoveBegin(
@@ -292,7 +295,10 @@ extension CrossDisplayDragTests {
             assertDwindleTransferHistoryCounts(fixture, index: 0, undo: 1, redo: 0)
             assertDwindleTransferHistoryCounts(fixture, index: 1, undo: 1, redo: 0)
             if mixedLayout {
-                XCTAssertTrue(fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "2"))
+                XCTAssertEqual(
+                    fixture.controller.commandHandler.setWorkspaceLayout(.dwindle, forWorkspaceNamed: "2"),
+                    .executed
+                )
                 completeDwindleTransferHistoryLayout(fixture)
             } else {
                 fixture.dwindle.interactiveMoveCancel()

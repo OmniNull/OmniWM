@@ -1,0 +1,13 @@
+-- SPDX-License-Identifier: GPL-2.0-only
+-- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+return {
+    options = {
+        tab = {
+            type = "choice",
+            title = "Initial tab",
+            default = "overview",
+            choices = { "overview", "audio", "displays", "media", "calendar", "weather", "system" },
+        },
+    },
+}

@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
-import TOML
 
 enum ShellProfiles {
     private static let reserved: Set<String> = ["widgets", "themes", "shaders", "lib", "fonts", ShellStrings.folder]
@@ -32,7 +31,7 @@ enum ShellProfiles {
     static func problem(selecting name: String, in shellDirectory: URL) -> String? {
         let folder = shellDirectory.appendingPathComponent(name)
         guard ShellConfig.isName(name), FileManager.default.fileExists(atPath: folder.path) else {
-            return "shell.toml: no profile folder named \(name)"
+            return "shell.luau: no profile folder named \(name)"
         }
         return ShellStyleManifest.problem(in: folder).map { "\(name)/\($0)" }
     }
@@ -40,14 +39,8 @@ enum ShellProfiles {
     static func select(_ name: String, in shellDirectory: URL) throws -> Bool {
         guard names(in: shellDirectory).contains(name) else { throw CocoaError(.fileNoSuchFile) }
         _ = try ShellStyleManifest.load(in: shellDirectory.appendingPathComponent(name))
-        let original = try contents(in: shellDirectory)
-        let present = try ShellTOMLText.contains(["profile"], in: original)
-        guard present || name != ShellDefaults.profile else { return false }
-        return try write(
-            ShellTOMLText.setting([(["profile"], ShellTOMLText.quoted(name))], in: original),
-            over: original,
-            in: shellDirectory
-        )
+        if name == ShellDefaults.profile, try personalValues(in: shellDirectory)["profile"] == nil { return false }
+        return try setNodes([(["profile"], .string(name))], in: shellDirectory)
     }
 
     static func key(_ key: String, of profile: String) -> [String] {
@@ -62,7 +55,7 @@ enum ShellProfiles {
                 includingPropertiesForKeys: nil,
                 options: [.skipsHiddenFiles]
             )) ?? [])
-                .filter { $0.pathExtension == "toml" }
+                .filter { $0.pathExtension == "luau" }
                 .map { $0.deletingPathExtension().lastPathComponent }
         }
         let builtIn = ["native", ShellWallpaperPalette.themeName]
@@ -70,14 +63,20 @@ enum ShellProfiles {
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
     }
 
-    static func selectTheme(_ name: String, profile: String? = nil, in shellDirectory: URL) throws -> Bool {
+    static func selectTheme(
+        _ name: String, scheme: ShellWallpaperScheme? = nil, profile: String? = nil, in shellDirectory: URL
+    ) throws -> Bool {
         let config = try config(profile: profile, in: shellDirectory)
         guard themes(of: config).contains(name) else { throw CocoaError(.fileNoSuchFile) }
-        guard name != config.themeName else { return false }
-        return try setTopLevel(
-            [(key("theme", of: config.profile), name == config.styleThemeName ? nil : ShellTOMLText.quoted(name))],
-            in: shellDirectory
-        )
+        var changes: [([String], SettingsLuauValue?)] = []
+        if name != config.themeName {
+            changes.append((key("theme", of: config.profile), name == config.styleThemeName ? nil : .string(name)))
+        }
+        if let scheme, scheme != config.wallpaperScheme {
+            changes.append((key("scheme", of: config.profile), .string(scheme.rawValue)))
+        }
+        guard !changes.isEmpty else { return false }
+        return try setNodes(changes, in: shellDirectory)
     }
 
     static func selectScheme(
@@ -85,8 +84,8 @@ enum ShellProfiles {
     ) throws -> Bool {
         let config = try config(profile: profile, in: shellDirectory)
         guard scheme != config.wallpaperScheme else { return false }
-        return try setTopLevel(
-            [(key("scheme", of: config.profile), ShellTOMLText.quoted(scheme.rawValue))],
+        return try setNodes(
+            [(key("scheme", of: config.profile), .string(scheme.rawValue))],
             in: shellDirectory
         )
     }
@@ -101,55 +100,21 @@ enum ShellProfiles {
     }
 
     static func sharedWeather(in shellDirectory: URL) throws -> ShellWeatherLocation? {
-        guard let table = try? TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: Data(contents(in: shellDirectory).utf8)
-        )
-        else { throw ShellTOMLText.Failure.unreadable }
+        guard let weather = try personalValues(in: shellDirectory)["weather"] else { return nil }
         var config = ShellConfig()
         var problems: [String] = []
-        ShellConfig.applyServices(table["weather"].map { ["weather": $0] } ?? [:], to: &config, &problems)
+        ShellConfig.applyServices(["weather": weather], to: &config, &problems)
         return config.weather
     }
 
-    static func hasTopLevel(_ keys: [[String]], in shellDirectory: URL) -> Bool {
-        guard let text = try? contents(in: shellDirectory) else { return false }
-        return keys.contains { (try? ShellTOMLText.contains($0, in: text)) == true }
+    private static func personalValues(in shellDirectory: URL) throws -> SettingsLuauValue {
+        let url = shellDirectory.appendingPathComponent("shell.luau")
+        guard FileManager.default.fileExists(atPath: url.path) else { return .record([:]) }
+        return try ShellLuauDocument.load(at: url).value
     }
 
-    static func setTopLevel(_ entries: [(key: [String], value: String?)], in shellDirectory: URL) throws -> Bool {
-        let original = try contents(in: shellDirectory)
-        return try write(ShellTOMLText.setting(entries, in: original), over: original, in: shellDirectory)
-    }
-
-    static func setValue<Value: Encodable>(_ value: Value?, at key: [String], in shellDirectory: URL) throws -> Bool {
-        let original = try contents(in: shellDirectory)
-        let node = try value.map { try ShellTOMLText.node($0) }
-        return try write(ShellTOMLText.settingNodes([(key, node)], in: original), over: original, in: shellDirectory)
-    }
-
-    static func setNodes(_ entries: [(key: [String], value: TOMLNode?)], in shellDirectory: URL) throws -> Bool {
-        let original = try contents(in: shellDirectory)
-        return try write(ShellTOMLText.settingNodes(entries, in: original), over: original, in: shellDirectory)
-    }
-
-    static func reset(_ key: [String], in shellDirectory: URL) throws -> Bool {
-        try setTopLevel([(key, nil)], in: shellDirectory)
-    }
-
-    private static func contents(in shellDirectory: URL) throws -> String {
-        let url = shellDirectory.appendingPathComponent("shell.toml")
-        guard FileManager.default.fileExists(atPath: url.path) else { return "" }
-        return String(decoding: try SettingsFileAccess.readContents(at: url).data, as: UTF8.self)
-    }
-
-    private static func write(_ updated: String, over original: String, in shellDirectory: URL) throws -> Bool {
-        guard updated != original else { return false }
-        let target = try SettingsFileAccess.settingsTarget(
-            for: shellDirectory.appendingPathComponent("shell.toml")
-        )
-        try SettingsFileAccess.writeAtomically(Data(updated.utf8), at: target)
-        return true
+    static func setNodes(_ entries: [([String], SettingsLuauValue?)], in shellDirectory: URL) throws -> Bool {
+        try ShellLuauDocument.write(entries, in: shellDirectory)
     }
 
     static func eject(_ item: String, config: ShellConfig, shellDirectory: URL) throws -> URL? {

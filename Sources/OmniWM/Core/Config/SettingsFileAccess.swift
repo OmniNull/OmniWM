@@ -5,7 +5,7 @@ import Darwin
 import Foundation
 
 enum SettingsFileAccess {
-    struct Fingerprint: Equatable {
+    struct Fingerprint: Equatable, Sendable {
         let deviceID: UInt64
         let inode: UInt64
         let modificationTimeNanoseconds: Int64
@@ -16,12 +16,6 @@ enum SettingsFileAccess {
     struct Contents {
         let data: Data
         let fingerprint: Fingerprint
-    }
-
-    private enum BackupSlotState {
-        case absent
-        case matching
-        case occupied
     }
 
     private static let nanosecondsPerSecond: Int64 = 1_000_000_000
@@ -49,14 +43,46 @@ enum SettingsFileAccess {
         )
     }
 
+    static func readContents(at targetURL: URL, maximumBytes: Int) throws -> Contents {
+        let descriptor = targetURL.withUnsafeFileSystemRepresentation { path in
+            path.map { Darwin.open($0, O_RDONLY | O_NONBLOCK | O_CLOEXEC) } ?? -1
+        }
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? handle.close() }
+        var status = stat()
+        guard Darwin.fstat(descriptor, &status) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        guard status.st_mode & S_IFMT == S_IFREG else { throw POSIXError(.EFTYPE) }
+        guard status.st_size <= maximumBytes else { throw POSIXError(.EFBIG) }
+        let original = fingerprint(from: status)
+        var data = Data()
+        data.reserveCapacity(Int(status.st_size))
+        while let chunk = try handle.read(upToCount: max(1, Int(status.st_size) + 1 - data.count)), !chunk.isEmpty {
+            guard chunk.count <= maximumBytes - data.count else { throw POSIXError(.EFBIG) }
+            guard chunk.count <= Int(status.st_size) - data.count else { throw POSIXError(.ESTALE) }
+            data.append(chunk)
+        }
+        guard Darwin.fstat(descriptor, &status) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        guard fingerprint(from: status) == original else { throw POSIXError(.ESTALE) }
+        return Contents(data: data, fingerprint: original)
+    }
+
     static func currentFingerprint(at fileURL: URL) -> Fingerprint? {
+        try? fileFingerprint(at: fileURL)
+    }
+
+    static func fileFingerprint(at fileURL: URL, followingLinks: Bool = true) throws -> Fingerprint {
         var statBuffer = stat()
         let result = fileURL.withUnsafeFileSystemRepresentation { path -> CInt in
             guard let path else { return -1 }
-            return Darwin.fstatat(AT_FDCWD, path, &statBuffer, 0)
+            return Darwin.fstatat(AT_FDCWD, path, &statBuffer, followingLinks ? 0 : AT_SYMLINK_NOFOLLOW)
         }
 
-        guard result == 0 else { return nil }
+        guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
         return Self.fingerprint(from: statBuffer)
     }
 
@@ -152,63 +178,7 @@ enum SettingsFileAccess {
         return try readContents(at: targetURL).data
     }
 
-    static func secureBackup(
-        _ data: Data,
-        in directoryURL: URL,
-        fileNames: [String],
-        exhaustedError: SettingsFilePersistenceError
-    ) throws -> URL {
-        var firstAbsentURL: URL?
-        for fileName in fileNames {
-            let slotURL = directoryURL.appendingPathComponent(fileName, isDirectory: false)
-            switch Self.backupSlotState(at: slotURL, matching: data) {
-            case .matching:
-                return slotURL
-            case .absent:
-                if firstAbsentURL == nil {
-                    firstAbsentURL = slotURL
-                }
-            case .occupied:
-                break
-            }
-        }
-
-        guard let firstAbsentURL else {
-            throw exhaustedError
-        }
-        try Self.writeExclusive(data, to: firstAbsentURL)
-        return firstAbsentURL
-    }
-
-    private static func backupSlotState(at url: URL, matching expectedData: Data) -> BackupSlotState {
-        let fileDescriptor = url.withUnsafeFileSystemRepresentation { path -> CInt in
-            guard let path else { return -1 }
-            return Darwin.open(path, O_RDONLY | O_NOFOLLOW)
-        }
-
-        guard fileDescriptor >= 0 else {
-            return errno == ENOENT ? .absent : .occupied
-        }
-
-        let handle = FileHandle(fileDescriptor: fileDescriptor, closeOnDealloc: true)
-        defer {
-            try? handle.close()
-        }
-
-        var fileStatus = stat()
-        guard Darwin.fstat(fileDescriptor, &fileStatus) == 0,
-              fileStatus.st_mode & S_IFMT == S_IFREG
-        else {
-            return .occupied
-        }
-        do {
-            return (try handle.readToEnd() ?? Data()) == expectedData ? .matching : .occupied
-        } catch {
-            return .occupied
-        }
-    }
-
-    private static func writeExclusive(_ data: Data, to url: URL) throws {
+    private static func writeExclusive(_ data: Data, to url: URL, synchronize: Bool = true) throws {
         let fileDescriptor = url.withUnsafeFileSystemRepresentation { path -> CInt in
             guard let path else { return -1 }
             return Darwin.open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, S_IRUSR | S_IWUSR)
@@ -220,7 +190,7 @@ enum SettingsFileAccess {
         let handle = FileHandle(fileDescriptor: fileDescriptor, closeOnDealloc: true)
         do {
             try handle.write(contentsOf: data)
-            try handle.synchronize()
+            if synchronize { try handle.synchronize() }
             try handle.close()
         } catch {
             try? handle.close()
@@ -228,7 +198,81 @@ enum SettingsFileAccess {
         }
     }
 
+    static func createAtomically(_ data: Data, at targetURL: URL) throws {
+        let temporary = targetURL.deletingLastPathComponent()
+            .appendingPathComponent(".settings-\(UUID().uuidString).tmp")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try writeExclusive(data, to: temporary)
+        try FileManager.default.linkItem(at: temporary, to: targetURL)
+    }
+
     static func writeAtomically(_ data: Data, at targetURL: URL) throws {
         try data.write(to: targetURL, options: .atomic)
+    }
+
+    private static func restrictToOwner(_ url: URL) throws {
+        let result = url.withUnsafeFileSystemRepresentation { path -> CInt in
+            var status = stat()
+            guard let path, fstatat(AT_FDCWD, path, &status, 0) == 0 else { return -1 }
+            guard status.st_mode & (S_IRWXG | S_IRWXO) != 0 else { return 0 }
+            return Darwin.chmod(path, status.st_mode & S_IRWXU)
+        }
+        guard result == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+    }
+
+    static func replacePrivately(_ data: Data, at targetURL: URL) throws {
+        let directory = targetURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: S_IRWXU]
+        )
+        try restrictToOwner(directory)
+        let temporary = directory.appendingPathComponent(".\(targetURL.lastPathComponent).\(UUID().uuidString).tmp")
+        do {
+            try writeExclusive(data, to: temporary, synchronize: false)
+            let renamed = temporary.withUnsafeFileSystemRepresentation { source in
+                targetURL.withUnsafeFileSystemRepresentation { target in
+                    guard let source, let target else { return CInt(-1) }
+                    return Darwin.rename(source, target)
+                }
+            }
+            guard renamed == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
+    }
+}
+
+struct SettingsFileEdit {
+    let target: URL
+    let previous: SettingsFileAccess.Fingerprint?
+    let patch: SettingsLuauEdit
+    var modules: SettingsFileVersions = [:]
+
+    static let formulaRequiresConfirmation = SettingsLuauError(
+        message: "Changing a formula requires confirmation in Settings. Edit the file directly or choose the value in the Settings window."
+    )
+
+    func verify(at fileURL: URL, originalSource: Data?, approved: Bool) throws {
+        if patch.question != nil, !approved {
+            throw Self.formulaRequiresConfirmation
+        }
+        guard modules.isCurrent else { throw SettingsLuauError.changedHelper }
+        if let revision = previous {
+            let current = try SettingsFileAccess.readContents(
+                at: target,
+                maximumBytes: ConfigScriptLoader.sourceLimit
+            )
+            guard current.fingerprint == revision, current.data == originalSource else {
+                throw SettingsLuauError(
+                    message: "settings.luau was edited externally. Read the latest file before saving."
+                )
+            }
+        }
+        guard SettingsFileAccess.currentFingerprint(at: fileURL) == previous,
+              try SettingsFileAccess.settingsTarget(for: fileURL) == target
+        else {
+            throw SettingsLuauError(message: "settings.luau changed during this edit. Try again with the latest file.")
+        }
     }
 }

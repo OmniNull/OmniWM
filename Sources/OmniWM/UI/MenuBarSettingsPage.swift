@@ -31,29 +31,34 @@ struct MenuBarSettingsPage: View {
                     Section("Status Bar") {
                         Toggle("Show Layout", isOn: Bindable(settings.statusBar).showLayout)
                             .id("Show Layout")
+                            .settingsField(.statusBarShowLayout)
                             .onChange(of: settings.statusBar.showLayout) { _, _ in
                                 controller.refreshStatusBar()
                                 controller.requestWorkspaceBarRefresh()
                             }
                         Toggle("Show Workspace", isOn: Bindable(settings.statusBar).showWorkspaceName)
                             .id("Show Workspace")
+                            .settingsField(.statusBarShowWorkspaceName)
                             .onChange(of: settings.statusBar.showWorkspaceName) { _, _ in
                                 controller.refreshStatusBar()
                             }
                         Toggle("Use Workspace Number", isOn: Bindable(settings.statusBar).useWorkspaceId)
                             .id("Use Workspace Number")
+                            .settingsField(.statusBarUseWorkspaceId)
                             .onChange(of: settings.statusBar.useWorkspaceId) { _, _ in
                                 controller.refreshStatusBar()
                             }
                             .disabled(!settings.statusBar.showWorkspaceName)
                         Toggle("Show Focused App", isOn: Bindable(settings.statusBar).showAppNames)
                             .id("Show Focused App")
+                            .settingsField(.statusBarShowAppNames)
                             .onChange(of: settings.statusBar.showAppNames) { _, _ in
                                 controller.refreshStatusBar()
                             }
                             .disabled(!settings.statusBar.showWorkspaceName)
                         Toggle("Show Menu Bar Icon", isOn: Bindable(settings.statusBar).showIcon)
                             .id("Show Menu Bar Icon")
+                            .settingsField(.statusBarShowIcon)
                             .onChange(of: settings.statusBar.showIcon) { _, _ in
                                 controller.refreshStatusBar()
                             }

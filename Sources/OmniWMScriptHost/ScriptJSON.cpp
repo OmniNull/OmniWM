@@ -2,12 +2,14 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 #include "ScriptHostInternal.h"
+#include "ScriptUTF8.h"
 
 #include <array>
 #include <charconv>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <utility>
 
 namespace {
 
@@ -15,6 +17,7 @@ constexpr size_t jsonLimit = 4 * 1024 * 1024;
 constexpr int valueDepth = 64;
 char nullIdentity;
 char arrayIdentity;
+thread_local bool expireNextCheck = false;
 
 bool markedArray(lua_State *L, int index) {
     index = lua_absindex(L, index);
@@ -32,36 +35,27 @@ bool markedArray(lua_State *L, int index) {
 
 struct NativeBudget {
     lua_State *L;
+    omni_detail::BudgetTrip trip = omni_detail::BudgetTrip::raiseLuaError;
     size_t work = 0;
 
     void check(size_t amount = 1) {
         work += amount;
-        if (work < 4096) { return; }
+        if (work >= OMNI_NATIVE_BUDGET_INTERVAL) { checkClock(); }
+    }
+
+    [[gnu::noinline, gnu::cold]] void checkClock() {
         work = 0;
-        auto *vm = static_cast<omni_vm *>(lua_callbacks(L)->userdata);
-        if (vm != nullptr && vm->inCall && (vm->latched || omni_detail::threadCPU() - vm->callStartCPU > vm->budget)) {
-            vm->latched = true;
-            luaL_error(L, "script exceeded CPU budget");
-        }
+        void *context = nullptr;
+        lua_getallocf(L, &context);
+        auto *vm = static_cast<omni_detail::ScriptRuntime *>(context);
+        if (vm == nullptr || !vm->inCall) { return; }
+        bool expired = std::exchange(expireNextCheck, false);
+        if (!expired && !vm->latched && omni_detail::threadCPU() - vm->callStartCPU <= vm->budget) { return; }
+        vm->latched = true;
+        if (trip == omni_detail::BudgetTrip::throwNative) { throw omni_detail::NativeBudgetExceeded{}; }
+        luaL_error(L, "script exceeded CPU budget");
     }
 };
-
-size_t utf8Width(const char *bytes, size_t remaining) {
-    unsigned char first = static_cast<unsigned char>(bytes[0]);
-    if (first < 0x80) { return 1; }
-    size_t width = first >= 0xC2 && first <= 0xDF ? 2
-        : first >= 0xE0 && first <= 0xEF ? 3
-        : first >= 0xF0 && first <= 0xF4 ? 4 : 0;
-    if (width == 0 || remaining < width) { return 0; }
-    for (size_t index = 1; index < width; index++) {
-        unsigned char next = static_cast<unsigned char>(bytes[index]);
-        if (next < 0x80 || next > 0xBF) { return 0; }
-    }
-    unsigned char second = static_cast<unsigned char>(bytes[1]);
-    if ((first == 0xE0 && second < 0xA0) || (first == 0xED && second >= 0xA0)
-        || (first == 0xF0 && second < 0x90) || (first == 0xF4 && second >= 0x90)) { return 0; }
-    return width;
-}
 
 }
 
@@ -105,6 +99,7 @@ struct Encoder {
     std::string &error;
     bool wire;
     NativeBudget budget;
+    bool shellNumbers = false;
     std::array<const void *, valueDepth + 1> parents{};
 
     bool fail(const char *message) {
@@ -137,7 +132,7 @@ struct Encoder {
                 if (!byte('\\') || !byte(character)) { return false; }
                 index++;
             } else {
-                size_t width = utf8Width(value + index, length - index);
+                size_t width = omni_detail::utf8Width(value + index, length - index);
                 if (width == 0) { return fail("JSON strings must contain valid UTF-8"); }
                 if (!append(value + index, width)) { return false; }
                 index += width;
@@ -162,7 +157,11 @@ struct Encoder {
         }
         if (type == LUA_TNUMBER) {
             double number = lua_tonumber(L, index);
-            if (!std::isfinite(number)) { return fail("values require finite numbers"); }
+            if (!std::isfinite(number)) {
+                if (!shellNumbers) { return fail("values require finite numbers"); }
+                const char *tag = std::isnan(number) ? R"([null,"nan"])" : number < 0 ? R"([null,"-inf"])" : R"([null,"inf"])";
+                return append(tag, std::strlen(tag));
+            }
             if (wire) { return byte(OMNI_VALUE_NUMBER) && append(&number, sizeof number); }
             char buffer[64];
             auto converted = std::to_chars(buffer, buffer + sizeof buffer, number);
@@ -275,7 +274,7 @@ struct Parser {
             if (character < 0x20) { return fail("unescaped control character in JSON string"); }
             if (character != '\\') {
                 const char *start = cursor - 1;
-                size_t width = utf8Width(start, static_cast<size_t>(end - start));
+                size_t width = omni_detail::utf8Width(start, static_cast<size_t>(end - start));
                 if (width == 0) { return fail("JSON strings must contain valid UTF-8"); }
                 decoded.append(start, width);
                 cursor = start + width;
@@ -460,11 +459,12 @@ bool encodeValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t b
     return result;
 }
 
-bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t byteLimit, std::string &error) {
+bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t byteLimit, std::string &error, bool shellNumbers,
+    BudgetTrip trip) {
     int top = lua_gettop(L);
     output.clear();
     error.clear();
-    Encoder encoder{L, output, byteLimit, error, false, {L}};
+    Encoder encoder{L, output, byteLimit, error, false, {L, trip}, shellNumbers};
     bool result = encoder.value(index, 0);
     lua_settop(L, top);
     if (!result) { output.clear(); }
@@ -497,4 +497,12 @@ void installJSON(lua_State *L) {
     lua_setglobal(L, "json");
 }
 
+}
+
+void omni_native_budget_expire_next_check(void) noexcept {
+    expireNextCheck = true;
+}
+
+bool omni_native_budget_cancel_expiry(void) noexcept {
+    return std::exchange(expireNextCheck, false);
 }

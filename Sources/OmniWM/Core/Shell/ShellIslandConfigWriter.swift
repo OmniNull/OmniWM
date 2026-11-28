@@ -5,6 +5,8 @@ import Foundation
 import Synchronization
 
 final class ShellIslandConfigWriter: Sendable {
+    typealias Confirmation = @MainActor @Sendable (ShellLuauConfirmation) async throws -> Bool
+
     struct Write: Sendable {
         let id: ShellServiceID
         let profile: String
@@ -28,19 +30,18 @@ final class ShellIslandConfigWriter: Sendable {
     let shellDirectory: URL
     private let queue = DispatchSerialQueue(label: "com.barut.OmniWM.shell.configuration", qos: .utility)
     private let state = Mutex(State())
-    private let readFile: @Sendable (URL) throws -> Data
-    private let writeFile: @Sendable (Data, URL) throws -> Void
+    private let writeFile: (@Sendable (Data, URL) throws -> Void)?
+    private let confirm: Confirmation?
     private let reloadReady: @Sendable () async -> Void
 
     init(
         shellDirectory: URL,
-        readFile: @escaping @Sendable (URL) throws -> Data = { try SettingsFileAccess.readContents(at: $0).data },
-        writeFile: @escaping @Sendable (Data, URL) throws
-            -> Void = { try SettingsFileAccess.writeAtomically($0, at: $1) },
+        writeFile: (@Sendable (Data, URL) throws -> Void)? = nil,
+        confirm: Confirmation? = nil,
         reloadReady: @escaping @Sendable () async -> Void
     ) {
         self.shellDirectory = shellDirectory
-        self.readFile = readFile
+        self.confirm = confirm
         self.writeFile = writeFile
         self.reloadReady = reloadReady
     }
@@ -60,39 +61,49 @@ final class ShellIslandConfigWriter: Sendable {
     }
 
     func persist(_ change: ShellIslandLayout.Change, profile: String, root: String) async throws -> UInt64 {
-        try await withCheckedThrowingContinuation { continuation in
-            enqueue(islandOperation(change, profile: profile, root: root)) { revision, result in
-                continuation.resume(with: result.map { _ in revision })
-            }
-        }
+        try await performConfirmed(islandOperation(change, profile: profile, root: root), confirm: confirm).revision
     }
 
     private func islandOperation(
         _ change: ShellIslandLayout.Change, profile: String, root: String
     ) -> @Sendable (URL) throws -> Bool {
-        { [self] directory in
-            let url = try SettingsFileAccess.settingsTarget(for: directory.appendingPathComponent("shell.toml"))
-            let original: String
-            do {
-                original = String(decoding: try readFile(url), as: UTF8.self)
-            } catch let error as CocoaError
-                where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile
-            {
-                original = ""
-            }
-            let updated = try ShellIslandLayout.persisted(
-                change, profile: profile, root: root, in: original
+        { [writeFile] directory in
+            try ShellLuauDocument.write(
+                [ShellIslandLayout.entry(for: change, profile: profile, root: root)],
+                in: directory, writeFile: writeFile
             )
-            guard updated != original else { return false }
-            try SettingsFileAccess.ensureDirectoryExists(at: directory)
-            try writeFile(Data(updated.utf8), url)
-            return true
         }
     }
 
-    func perform<Value: Sendable>(_ operation: @escaping @Sendable (URL) throws -> Value) async throws -> Value {
+    func perform<Value: Sendable>(
+        confirm confirmation: Confirmation? = nil,
+        _ operation: @escaping @Sendable (URL) throws -> Value
+    ) async throws -> Value {
+        try await performConfirmed(operation, confirm: confirmation ?? confirm).value
+    }
+
+    private func performConfirmed<Value: Sendable>(
+        _ operation: @escaping @Sendable (URL) throws -> Value, confirm: Confirmation?
+    ) async throws -> (revision: UInt64, value: Value) {
+        do {
+            return try await queued(operation)
+        } catch let question as ShellLuauConfirmation {
+            guard let confirm else { throw question }
+            guard try await confirm(question) else { throw CancellationError() }
+            return try await queued { directory in
+                try question.checkCurrent()
+                return try ShellLuauDocument.$approved.withValue(question) { try operation(directory) }
+            }
+        }
+    }
+
+    private func queued<Value: Sendable>(
+        _ operation: @escaping @Sendable (URL) throws -> Value
+    ) async throws -> (revision: UInt64, value: Value) {
         try await withCheckedThrowingContinuation { continuation in
-            enqueue(operation) { _, result in continuation.resume(with: result) }
+            enqueue(operation) { revision, result in
+                continuation.resume(with: result.map { (revision, $0) })
+            }
         }
     }
 

@@ -10,6 +10,7 @@ enum KeyboardModeKind: String, Equatable, Sendable {
     case paused
     case prefix
     case window
+    case named
 }
 
 enum KeyboardModeKeyFailure: Equatable {
@@ -22,6 +23,14 @@ struct KeyboardModeTable: Equatable {
     struct Entry: Equatable {
         let binding: KeyBinding
         let command: HotkeyCommand
+
+        var isSupported: Bool {
+            KeyboardModeTable.isEligible(command) && KeyboardModeTable.isSupported(binding)
+        }
+
+        func conflicts(with other: Self) -> Bool {
+            command != other.command && binding == other.binding
+        }
     }
 
     private(set) var entries: [Entry] = []
@@ -39,15 +48,11 @@ struct KeyboardModeTable: Equatable {
         guard !candidates.isEmpty else { return }
         shortcuts = bindings.compactMap(\.binding.chordBinding)
         for candidate in candidates {
-            if case .keyboardMode = candidate.command {
-                failures[candidate.command] = .unsupportedKey
-            } else if !Self.isSupported(candidate.binding) {
+            if !candidate.isSupported {
                 failures[candidate.command] = .unsupportedKey
             } else if shortcuts.contains(where: { $0.conflicts(with: candidate.binding) }) {
                 failures[candidate.command] = .overlapsShortcut
-            } else if candidates.contains(where: {
-                $0.command != candidate.command && $0.binding == candidate.binding
-            }) {
+            } else if candidates.contains(where: candidate.conflicts(with:)) {
                 failures[candidate.command] = .duplicateKey
             } else {
                 entries.append(candidate)
@@ -60,6 +65,11 @@ struct KeyboardModeTable: Equatable {
             && key.sidedModifiers.isEmpty
             && key.modifiers & ~UInt32(shiftKey) == 0
             && key.keyCode != UInt32(kVK_Escape)
+    }
+
+    static func isEligible(_ command: HotkeyCommand) -> Bool {
+        if case .keyboardMode = command { return false }
+        return true
     }
 
     func command(keyCode: UInt32, rawFlags: UInt64) -> HotkeyCommand? {
@@ -79,6 +89,7 @@ struct KeyboardModeInput: Equatable {
         case paused
         case prefix(repeatDeadline: TimeInterval?)
         case window
+        case named(Int)
     }
 
     struct Decision: Equatable {
@@ -107,18 +118,35 @@ struct KeyboardModeInput: Equatable {
         case .paused: .paused
         case .prefix: .prefix
         case .window: .window
+        case .named: .named
         }
     }
 
     static func capturesKeys(in state: State) -> Bool {
         switch state {
         case .prefix,
-             .window:
+             .window,
+             .named:
             true
         case .normal,
              .paused:
             false
         }
+    }
+
+    mutating func handleNamedKeyDown(
+        keyCode: UInt32,
+        rawFlags: UInt64,
+        mode index: Int,
+        in modes: borrowing NamedKeyModes
+    ) -> Decision {
+        if rawFlags & Self.commandModifierMask != 0 { return Decision() }
+        if keyCode == UInt32(kVK_Escape) {
+            state = .normal
+            return Decision(consumed: true)
+        }
+        guard let command = modes.command(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return Decision() }
+        return Decision(consumed: true, command: command)
     }
 
     mutating func handleKeyDown(
@@ -164,7 +192,8 @@ struct KeyboardModeInput: Equatable {
         case .window:
             return Decision(consumed: true, command: command)
         case .normal,
-             .paused:
+             .paused,
+             .named:
             return Decision()
         }
     }

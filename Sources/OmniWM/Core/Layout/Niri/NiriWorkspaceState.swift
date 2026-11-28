@@ -110,11 +110,14 @@ struct NiriShrinkToFitGeometry: Equatable {
 final class NiriWorkspaceState {
     let root: NiriRoot
     var nodesByToken: [WindowToken: NiriWindow] = [:]
+    var onFullscreenChange: ((WindowToken, Bool) -> Void)?
     var attachedMonitorId: Monitor.ID?
     var manualWidthColumnCount: Int?
     var manualHeightColumnCount: Int?
     var shrinkToFitColumnIds: Set<NodeId> = []
     var shrinkToFitGeometry: NiriShrinkToFitGeometry?
+    var autoFitRequested = false
+    var autoFitBasis: NiriAutoFitBasis?
     var layoutHistory = NiriLayoutHistory()
 
     init(workspaceId: WorkspaceDescriptor.ID) {
@@ -127,11 +130,13 @@ final class NiriWorkspaceState {
             return
         }
         nodesByToken[window.token] = window
+        if let onFullscreenChange, window.isFullscreen { onFullscreenChange(window.token, false) }
     }
 
     func unindex(_ window: NiriWindow) {
         if nodesByToken[window.token] === window {
             nodesByToken.removeValue(forKey: window.token)
+            if let onFullscreenChange, window.isFullscreen { onFullscreenChange(window.token, true) }
         }
     }
 }

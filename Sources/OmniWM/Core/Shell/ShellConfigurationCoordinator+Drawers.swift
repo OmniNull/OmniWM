@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 extension ShellConfigurationCoordinator {
     private struct NewDrawer: Encodable {
@@ -13,7 +12,7 @@ extension ShellConfigurationCoordinator {
     func addDrawer(_ name: String, edge: ShellDrawerConfig.Edge, widget: String, profile: String) async throws {
         let id = ShellDrawerName.normalized(name)
         let directory = shellDirectory
-        let node = try ShellTOMLText.node(NewDrawer(edge: edge.rawValue, widgets: [widget]))
+        let node = try SettingsLuauValue.encoding(NewDrawer(edge: edge.rawValue, widgets: [widget]))
         try await editDrawers(profile: profile) { config in
             let drawers = config.drawers.map(\.id) + config.styleDrawers
             let widgets = ShellDrawerName.widgets(
@@ -38,7 +37,7 @@ extension ShellConfigurationCoordinator {
             guard !widgets.isEmpty else {
                 throw ShellComponentCatalog.Failure(String(localized: "A drawer needs at least one widget."))
             }
-            return try [(["drawer", id, "widgets"], ShellTOMLText.node(widgets))]
+            return try [(["drawer", id, "widgets"], SettingsLuauValue.encoding(widgets))]
         }
     }
 
@@ -56,7 +55,7 @@ extension ShellConfigurationCoordinator {
     }
 
     private func editDrawers(
-        profile: String, _ edit: @escaping @Sendable (ShellConfig) throws -> [([String], TOMLNode?)]
+        profile: String, _ edit: @escaping @Sendable (ShellConfig) throws -> [([String], SettingsLuauValue?)]
     ) async throws {
         try await ensureLoaded()
         _ = try await editFile(refreshMetadata: false, scansSources: false) { directory in

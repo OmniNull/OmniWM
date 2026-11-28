@@ -4,8 +4,8 @@
 import Foundation
 import OmniWMIPC
 
-@MainActor
 enum IPCRuleProjection {
+    @MainActor
     static func result(
         settings: SettingsStore,
         windowRuleEngine: WindowRuleEngine
@@ -25,127 +25,33 @@ enum IPCRuleProjection {
         position: Int,
         invalidRegexMessagesByRuleId: [UUID: String]
     ) -> IPCRuleSnapshot {
-        let definition = definition(from: rule)
-        let validation = IPCRuleValidator.validate(definition)
-        let invalidRegexMessage = invalidRegexMessagesByRuleId[rule.id] ?? validation.invalidRegexMessage
-        let validationMessages = [
-            validation.bundleIdError,
-            invalidRegexMessage,
-            validation.identifierError,
-            validation.titleMatcherError,
-            validation.initialContainerPrimarySpanError,
-            validation.workspaceAssignmentError,
-            validation.scratchpadError,
-            validation.effectError,
-            validation.minSizeError
-        ].compactMap { $0 }
-        let isValid = validationMessages.isEmpty
+        let report = rule.savedReport(runtimeRegexError: invalidRegexMessagesByRuleId[rule.id])
+        let values = report.rule
 
         return IPCRuleSnapshot(
-            id: rule.id.uuidString,
+            id: values.id.uuidString,
             position: position,
-            bundleId: definition.bundleId,
-            appNameSubstring: definition.appNameSubstring,
-            titleSubstring: definition.titleSubstring,
-            titleRegex: definition.titleRegex,
-            axRole: definition.axRole,
-            axSubrole: definition.axSubrole,
-            layout: definition.layout,
-            assignToWorkspace: definition.assignToWorkspace,
-            assignToWorkspaceForAllWindows: definition.assignToWorkspaceForAllWindows,
-            initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
-            minWidth: definition.minWidth,
-            minHeight: definition.minHeight,
-            scratchpad: definition.scratchpad,
-            specificity: rule.specificity,
-            isValid: isValid,
-            invalidRegexMessage: invalidRegexMessage,
-            validationMessages: validationMessages
+            bundleId: values.bundleId,
+            appNameSubstring: values.appNameSubstring,
+            titleSubstring: values.titleSubstring,
+            titleRegex: values.titleRegex,
+            axRole: values.axRole,
+            axSubrole: values.axSubrole,
+            layout: values.ipcRuleLayout,
+            assignToWorkspace: values.assignToWorkspace,
+            assignToWorkspaceForAllWindows: values.assignToWorkspaceForAllWindows,
+            initialContainerPrimarySpan: values.initialContainerPrimarySpan,
+            minWidth: values.minWidth,
+            minHeight: values.minHeight,
+            scratchpad: values.scratchpad,
+            specificity: report.specificity,
+            isValid: report.isValid,
+            invalidRegexMessage: report.invalidRegexMessage,
+            validationMessages: report.validationMessages
         )
     }
 
     static func definition(from rule: AppRule) -> IPCRuleDefinition {
-        normalized(
-            IPCRuleDefinition(
-                bundleId: rule.bundleId,
-                appNameSubstring: rule.appNameSubstring,
-                titleSubstring: rule.titleSubstring,
-                titleRegex: rule.titleRegex,
-                axRole: rule.axRole,
-                axSubrole: rule.axSubrole,
-                layout: ipcRuleLayout(from: rule.effectiveLayoutAction),
-                assignToWorkspace: rule.assignToWorkspace,
-                assignToWorkspaceForAllWindows: rule.assignToWorkspaceForAllWindows,
-                initialContainerPrimarySpan: rule.initialContainerPrimarySpan,
-                minWidth: rule.minWidth,
-                minHeight: rule.minHeight,
-                scratchpad: rule.scratchpad
-            )
-        )
-    }
-
-    static func appRule(from definition: IPCRuleDefinition, id: UUID = UUID()) -> AppRule {
-        let normalized = normalized(definition)
-        return AppRule(
-            id: id,
-            bundleId: normalized.bundleId,
-            appNameSubstring: normalized.appNameSubstring,
-            titleSubstring: normalized.titleSubstring,
-            titleRegex: normalized.titleRegex,
-            axRole: normalized.axRole,
-            axSubrole: normalized.axSubrole,
-            layout: windowRuleLayout(from: normalized.layout),
-            assignToWorkspace: normalized.assignToWorkspace,
-            assignToWorkspaceForAllWindows: normalized.assignToWorkspaceForAllWindows,
-            initialContainerPrimarySpan: normalized.initialContainerPrimarySpan,
-            minWidth: normalized.minWidth,
-            minHeight: normalized.minHeight,
-            scratchpad: normalized.scratchpad
-        )
-    }
-
-    private static func normalized(_ definition: IPCRuleDefinition) -> IPCRuleDefinition {
-        IPCRuleDefinition(
-            bundleId: definition.bundleId.trimmingCharacters(in: .whitespacesAndNewlines),
-            appNameSubstring: trimmedNonEmpty(definition.appNameSubstring),
-            titleSubstring: trimmedNonEmpty(definition.titleSubstring),
-            titleRegex: trimmedNonEmpty(definition.titleRegex),
-            axRole: trimmedNonEmpty(definition.axRole),
-            axSubrole: trimmedNonEmpty(definition.axSubrole),
-            layout: definition.layout,
-            assignToWorkspace: trimmedNonEmpty(definition.assignToWorkspace),
-            assignToWorkspaceForAllWindows: definition.assignToWorkspaceForAllWindows,
-            initialContainerPrimarySpan: definition.initialContainerPrimarySpan,
-            minWidth: definition.minWidth,
-            minHeight: definition.minHeight,
-            scratchpad: definition.scratchpad
-        )
-    }
-
-    private static func ipcRuleLayout(from action: WindowRuleLayoutAction) -> IPCRuleLayout {
-        switch action {
-        case .auto:
-            .auto
-        case .tile:
-            .tile
-        case .float:
-            .float
-        }
-    }
-
-    private static func windowRuleLayout(from layout: IPCRuleLayout) -> WindowRuleLayoutAction? {
-        switch layout {
-        case .auto:
-            nil
-        case .tile:
-            .tile
-        case .float:
-            .float
-        }
-    }
-
-    private static func trimmedNonEmpty(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-        return trimmed.isEmpty ? nil : trimmed
+        rule.normalizedForReporting.ipcDefinition
     }
 }

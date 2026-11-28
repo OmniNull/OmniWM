@@ -176,7 +176,7 @@ final class MonitorRoutingWorkspaceTests: XCTestCase {
         XCTAssertNil(manager.adjacentMonitor(from: laptop.id, direction: .right))
 
         let reloaded = makeSettings()
-        reloaded.applyExport(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(settings.toExport())))
+        reloaded.applyExport(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(settings.toExport())))
         let restarted = WorkspaceManager(settings: reloaded)
         restarted.applyMonitorConfigurationChange([home, laptop])
         XCTAssertEqual(reloaded.monitors.arrangements, settings.monitors.arrangements)

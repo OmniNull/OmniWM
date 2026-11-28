@@ -132,7 +132,7 @@ export interface ExtraFeature {
 }
 
 export const extraFeatures: ExtraFeature[] = [
-  { name: 'Live TOML reload', detail: 'settings.toml re-applies the moment you save it', href: '/config/configuration/' },
+  { name: 'Live settings reload', detail: 'settings.luau re-applies the moment you save it', href: '/config/configuration/' },
   { name: 'Hyper key', detail: 'One held key or mouse button becomes ⌃⌥⇧⌘', href: '/guides/keyboard-shortcuts/' },
   { name: 'Clipboard history', detail: 'Local, deduplicated history inside the palette', href: '/features/command-palette/' },
   { name: 'App rules', detail: 'Route apps to workspaces, float them, size them', href: '/features/app-rules/' },

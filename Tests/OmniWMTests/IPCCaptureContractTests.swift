@@ -94,6 +94,7 @@ final class IPCCaptureContractTests: XCTestCase {
             windowActions: [],
             windowMarkActions: [],
             windowGatherActions: [],
+            dwindleActions: [],
             shellActions: [],
             subscriptions: []
         )
@@ -103,6 +104,7 @@ final class IPCCaptureContractTests: XCTestCase {
             windowActions: [],
             windowMarkActions: [],
             windowGatherActions: [],
+            dwindleActions: [],
             shellActions: []
         )
         let encoder = IPCWire.makeEncoder()

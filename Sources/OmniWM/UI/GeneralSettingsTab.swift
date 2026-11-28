@@ -21,6 +21,7 @@ struct GeneralSettingsTab: View {
                     }
                 }
                 .id("App Language")
+                .settingsField(.generalLanguage)
                 SettingsCaption(localized: "Language changes take effect after you restart OmniWM.")
             }
             .id("Language")
@@ -53,6 +54,7 @@ struct GeneralSettingsTab: View {
             Section("Updates") {
                 Toggle("Check for Updates Automatically", isOn: $settings.updateChecksEnabled)
                     .id("Check for Updates Automatically")
+                    .settingsField(.generalUpdateChecksEnabled)
 
                 Button("Check for Updates...") {
                     updateCoordinator?.checkForUpdatesManually()

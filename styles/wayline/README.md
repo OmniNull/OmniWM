@@ -16,4 +16,4 @@ Use the bar buttons for media, audio, calendar and system controls. Change place
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). Colours adapt [Wayle](https://github.com/wayle-rs/wayle) (MIT); retain [its notice](Wayle-LICENSE.txt).
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). Colours adapt [Wayle](https://github.com/wayle-rs/wayle) (MIT); retain [its notice](Wayle-LICENSE.txt).

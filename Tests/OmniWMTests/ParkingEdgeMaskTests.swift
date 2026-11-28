@@ -199,7 +199,7 @@ final class ParkingEdgeMaskTests: XCTestCase {
             monitorId: Monitor.ID(displayId: 95_001),
             side: .left
         )
-        let surfaceId = "parking-edge-mask-95001-left"
+        let surfaceId = "parking-edge-mask-\(key.monitorId.displayId)-\(key.side.rawValue)"
         let firstFrame = CGRect(x: 91_000, y: 92_000, width: 1, height: 700)
         let secondFrame = CGRect(x: 91_100, y: 92_100, width: 1, height: 800)
 
@@ -214,7 +214,8 @@ final class ParkingEdgeMaskTests: XCTestCase {
         XCTAssertEqual(firstInfo.capturePolicy, .excluded)
         XCTAssertFalse(firstInfo.suppressesManagedFocusRecovery)
         XCTAssertEqual(firstInfo.frame, firstFrame)
-        XCTAssertEqual(firstWindow.level, .statusBar)
+        XCTAssertGreaterThan(firstWindow.level.rawValue, NSWindow.Level.floating.rawValue)
+        XCTAssertLessThan(firstWindow.level.rawValue, Int(CGWindowLevelForKey(.dockWindow)))
         XCTAssertFalse(firstWindow.ignoresMouseEvents)
 
         manager.apply([DesiredParkingEdgeMask(key: key, frame: secondFrame)])

@@ -39,20 +39,24 @@ final class EdgeNavigationSettingsTests: XCTestCase {
         )
         let focus = settings.focus
         var imported = settings.toExport()
+        imported.focus.edgeNavigationEnabled = false
         imported.focus.edgeNavigationInterval = 0.375
 
         settings.applyExport(imported)
 
         XCTAssertTrue(settings.focus === focus)
+        XCTAssertFalse(focus.edgeNavigationEnabled)
         XCTAssertEqual(focus.edgeNavigationInterval, 0.5)
         focus.edgeNavigationInterval = 1.25
         XCTAssertEqual(settings.toExport().focus.edgeNavigationInterval, 1.25)
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
+        XCTAssertFalse(saved.focus.edgeNavigationEnabled)
         XCTAssertEqual(saved.focus.edgeNavigationInterval, 1.25)
         let reloaded = SettingsStore(
             persistence: SettingsFilePersistence(directory: directory, startWatching: false, deferSaves: false),
             runtimeState: RuntimeStateStore(directory: directory, deferSaves: false)
         )
+        XCTAssertFalse(reloaded.focus.edgeNavigationEnabled)
         XCTAssertEqual(reloaded.focus.edgeNavigationInterval, 1.25)
     }
 }

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -158,7 +159,8 @@ final class IPCCommandBoundaryTests: XCTestCase {
         case .workspaceNumber,
              .columnIndex,
              .windowIndex,
-             .scratchpadIndex:
+             .scratchpadIndex,
+             .visibleContainerCount:
             .integer(1)
         case .layout:
             .layout(.niri)

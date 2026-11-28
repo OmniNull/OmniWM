@@ -57,7 +57,7 @@ OmniWM is a menu-bar-only app: click its menu bar icon to open **Settings** or *
 
 ## The config file
 
-OmniWM configuration is stored at `${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.toml` (`~/.config/omniwm/settings.toml` by default). `XDG_CONFIG_HOME` is honored only when it is an absolute path beginning with `/`; otherwise the default applies. The file is live-reloaded when saved from an editor, so you can manage OmniWM from your dotfiles too. Start at Login and System-wide Window Corners are managed separately by macOS. See [Configuration](/config/configuration/).
+OmniWM configuration is stored at `${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.luau` (`~/.config/omniwm/settings.luau` by default). `XDG_CONFIG_HOME` is honored only when it is an absolute path beginning with `/`; otherwise the default applies. The file is live-reloaded when saved from an editor, so you can manage OmniWM from your dotfiles too. Start at Login and System-wide Window Corners are managed separately by macOS. See [Configuration](/config/configuration/).
 
 ## Next steps
 

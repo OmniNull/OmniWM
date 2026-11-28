@@ -78,7 +78,7 @@ final class ShellIslandSettingsReadinessTests: XCTestCase {
         func recordReadiness() -> Bool {
             let available = state.package != nil && state.declaration.hasTrigger
             readiness.append(available)
-            reportedStates.append(host.widgetReport.widgets.first?.state ?? "missing")
+            reportedStates.append(host.widgetReport.widgets.first?.state.rawValue ?? "missing")
             return available
         }
         host.onWidgetsChange = {

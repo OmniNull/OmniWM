@@ -290,7 +290,7 @@ final class MouseButtonHotkeyTests: XCTestCase {
         let index = try XCTUnwrap(candidate.hotkeyBindings.firstIndex { $0.id == "switchWorkspace.previous" })
         candidate.hotkeyBindings[index].binding = try mouseTrigger(3)
         candidate.overview.mouseButton = 3
-        try SettingsTOMLCodec.encode(candidate).write(to: persistence.fileURL, options: .atomic)
+        try SettingsLuauDocument.initialSource(candidate).write(to: persistence.fileURL, options: .atomic)
 
         persistence.handlePossibleSettingsFileChange()
 
@@ -298,7 +298,7 @@ final class MouseButtonHotkeyTests: XCTestCase {
         XCTAssertNotNil(settings.configNotice)
 
         candidate.overview.mouseButton = nil
-        try SettingsTOMLCodec.encode(candidate).write(to: persistence.fileURL, options: .atomic)
+        try SettingsLuauDocument.initialSource(candidate).write(to: persistence.fileURL, options: .atomic)
         persistence.handlePossibleSettingsFileChange()
 
         XCTAssertNil(settings.configNotice)

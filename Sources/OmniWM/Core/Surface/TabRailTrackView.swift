@@ -19,9 +19,8 @@ final class TabRailTrackView: NSVisualEffectView {
         refreshAppearance()
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
     override func hitTest(_: NSPoint) -> NSView? {

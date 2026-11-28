@@ -5,6 +5,7 @@ local look = require("../lib/look")
 
 local SEARCH = 56
 local FIELD = 24
+local SPOTLIGHT_FIELD = 40
 local ICON = 28
 local OUTER = 8
 local INNER = 8
@@ -86,15 +87,20 @@ local function field(ctx, m, width)
     if custom then
         return custom
     end
-    local symbol = "magnifyingglass"
-    for _, mode in m.modes do
-        if m.expanded and mode.selected then
-            symbol = mode.symbol
+    input.h = SPOTLIGHT_FIELD
+    input.size = 30
+    input.weight = "light"
+    local row = { w = width, h = SEARCH, gap = 10, pad = 24 }
+    if not m.unified then
+        local symbol = "magnifyingglass"
+        for _, mode in m.modes do
+            if m.expanded and mode.selected then
+                symbol = mode.symbol
+            end
         end
+        row[#row + 1] = look.glyph{ name = symbol, size = 20, weight = "medium", color = "secondaryForeground" }
     end
-    local row = { w = width, h = SEARCH, gap = 10, pad = 20,
-        look.glyph{ name = symbol, size = 18, weight = "medium", color = "secondaryForeground" },
-        ui.input(input) }
+    row[#row + 1] = ui.input(input)
     if m.browseModes then
         row[#row + 1] = ui.stack{ w = CONTROL, h = CONTROL, radius = look.radius(8), hover = look.hover,
             onClick = "palette menu modes", help = omniwm.l10n("Browse modes"),

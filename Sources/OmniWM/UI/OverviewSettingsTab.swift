@@ -18,11 +18,13 @@ struct OverviewSettingsTab: View {
                     set: { controller.setOverviewEnabled($0) }
                 ))
                 .id("Enable Overview")
+                .settingsField(.overviewEnabled)
             }
             .id("Overview")
 
             Section("Layout") {
                 SettingsSliderRow(
+                    field: .init(.overviewZoom),
                     label: String(localized: "Zoom"),
                     value: Bindable(settings.overview).zoom,
                     range: 0.5 ... 1.5,
@@ -41,7 +43,9 @@ struct OverviewSettingsTab: View {
             Section("Input") {
                 Toggle("Invert Scrolling Direction", isOn: Bindable(settings.overview).invertScrollDirection)
                     .id("Invert Scrolling Direction")
+                    .settingsField(.overviewInvertScrollDirection)
                 SettingsSliderRow(
+                    field: .init(.overviewMouseScrollSpeed),
                     label: String(localized: "Mouse Wheel Speed"),
                     value: Bindable(settings.overview).mouseScrollSpeed,
                     range: 0.05 ... 2,
@@ -71,6 +75,7 @@ struct OverviewSettingsTab: View {
                     }
                 }
                 .id("Toggle Overview Mouse Button")
+                .settingsField(.overviewMouseButton)
                 SettingsCaption(
                     localized: "Press to open or close Overview. Buttons assigned to System Hyper or a hotkey are unavailable."
                 )
@@ -87,18 +92,22 @@ struct OverviewSettingsTab: View {
                     selection: colorBinding(\.backdropColor),
                     supportsOpacity: true
                 )
+                .settingsField(.overviewBackdrop)
                 ColorPicker(
                     "Normal Window Border",
                     selection: colorBinding(\.normalBorderColor),
                     supportsOpacity: true
                 )
+                .settingsField(.overviewWindowBordersNormal)
                 ColorPicker(
                     "Hovered Window Border",
                     selection: colorBinding(\.hoveredBorderColor),
                     supportsOpacity: true
                 )
+                .settingsField(.overviewWindowBordersHovered)
                 Toggle("Selected Border Matches Focus Border", isOn: Bindable(settings.overview).matchFocusBorder)
                     .id("Selected Border Matches Focus Border")
+                    .settingsField(.overviewMatchFocusBorder)
                     .onChange(of: settings.overview.matchFocusBorder) { _, _ in
                         scheduleUpdate()
                     }
@@ -107,6 +116,7 @@ struct OverviewSettingsTab: View {
                     selection: colorBinding(\.selectedBorderColor),
                     supportsOpacity: true
                 )
+                .settingsField(.overviewWindowBordersSelected)
                 .disabled(settings.overview.matchFocusBorder)
             }
             .id("Appearance")

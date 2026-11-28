@@ -4,6 +4,8 @@
 import AppKit
 import Combine
 @testable import OmniWM
+import OmniWMAutomation
+import OmniWMIPC
 import XCTest
 
 @MainActor
@@ -106,6 +108,57 @@ final class CommandPaletteFocusTests: XCTestCase {
         fixture.palette.selectCurrent()
         XCTAssertTrue(fixture.palette.isExpanded)
         XCTAssertEqual(fixture.palette.selectedItemID, .window(first))
+    }
+
+    func testShowResultsOnOpenOpensEveryModeExpanded() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        fixture.controller.settings.commandPalette.openExpanded = true
+
+        for mode in [CommandPaletteMode.windows, .commands, .clipboard] {
+            fixture.controller.settings.commandPaletteLastMode = mode
+            _ = try fixture.show()
+            XCTAssertEqual(fixture.palette.selectedMode, mode)
+            XCTAssertTrue(fixture.palette.isExpanded, "\(mode) opened collapsed")
+            fixture.palette.toggle(wmController: fixture.controller)
+        }
+
+        fixture.controller.settings.commandPalette.unifiedSearch = true
+        _ = try fixture.show()
+        XCTAssertTrue(fixture.palette.isExpanded, "unified search opened collapsed")
+    }
+
+    func testShowResultsOnOpenKeepsAnEmptyUnifiedSearchCompact() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let settings = fixture.controller.settings.commandPalette
+        settings.openExpanded = true
+        settings.unifiedSearch = true
+        XCTAssertTrue(settings.searchedModes.contains(.windows))
+        settings.searchedModes.removeAll { $0 == .windows }
+
+        _ = try fixture.show()
+
+        XCTAssertTrue(fixture.palette.isUnifiedSearch)
+        XCTAssertFalse(fixture.palette.isExpanded, "an empty unified search without windows opened blank")
+    }
+
+    func testDefaultOpenExpandsOnlyLauncherModes() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        XCTAssertFalse(fixture.controller.settings.commandPalette.openExpanded)
+
+        for mode in CommandPaletteMode.allCases where mode != .menu {
+            fixture.controller.settings.commandPaletteLastMode = mode
+            _ = try fixture.show()
+            XCTAssertEqual(fixture.palette.selectedMode, mode)
+            XCTAssertEqual(fixture.palette.isExpanded, mode == .applications || mode == .files, "\(mode)")
+            fixture.palette.toggle(wmController: fixture.controller)
+        }
+
+        fixture.controller.settings.commandPalette.unifiedSearch = true
+        _ = try fixture.show()
+        XCTAssertFalse(fixture.palette.isExpanded, "unified search opened expanded")
     }
 
     func testTypingExpandsCompactPaletteAndKeepsSearchEditable() async throws {
@@ -489,6 +542,33 @@ final class CommandPaletteFocusTests: XCTestCase {
         XCTAssertFalse(fixture.palette.isVisible)
     }
 
+    func testOpenSettingsRunsWithoutRestoringTheCapturedApp() throws {
+        let app = NSRunningApplication.current
+        var dispatched: [HotkeyCommand] = []
+        var failures: [String] = []
+        let fixture = CommandPaletteFocusFixture { environment in
+            environment.ownProcessIdentifier = { -1 }
+            environment.frontmostApplication = { app }
+            environment.restoreCommandFocus = { _ in false }
+            environment.presentCommandFailure = { failures.append($0) }
+            environment.performCommand = { _, command in
+                dispatched.append(command)
+                return .executed
+            }
+        }
+        defer { fixture.cleanup() }
+        for (id, expected) in [("openMenuAnywhere", [HotkeyCommand]()), ("openSettings", [.openSettings])] {
+            dispatched.removeAll()
+            failures.removeAll()
+            _ = try fixture.show()
+            fixture.palette.selectMode(.commands)
+            fixture.palette.selectedItemID = .command(id)
+            fixture.palette.selectCurrent()
+            XCTAssertEqual(dispatched, expected, id)
+            XCTAssertEqual(failures.isEmpty, id == "openSettings", id)
+        }
+    }
+
     func testCommandForInactiveLayoutCannotBeSelected() throws {
         var dispatched: [HotkeyCommand] = []
         let fixture = CommandPaletteFocusFixture { environment in
@@ -713,6 +793,69 @@ final class CommandPaletteFocusTests: XCTestCase {
         executor.perform(.command(fixture.controller, .windowState(.close), nil))
 
         XCTAssertEqual(presentedMessages, ["The command could not be completed."])
+    }
+
+    func testUnreachableWorkspaceCommandsOnOneMonitorStaySilent() throws {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        let controller = fixture.controller
+        let manager = controller.workspaceManager
+        let monitor = try XCTUnwrap(manager.monitors.first)
+        manager.applyMonitorConfigurationChange([monitor])
+        manager.applySettings()
+        let workspace = try XCTUnwrap(manager.activeWorkspaceOrFirst(on: monitor.id))
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let windowID = Int(pid)
+        let window = manager.addWindow(
+            AXWindowRef(element: AXUIElementCreateApplication(pid), windowId: windowID),
+            pid: pid, windowId: windowID, to: workspace.id
+        )
+        XCTAssertTrue(manager.setManagedFocus(window, in: workspace.id))
+        let names = controller.settings.workspaces.configurations.map(\.name)
+        let unused = try XCTUnwrap(Int(WorkspaceIDPolicy.lowestUnusedRawID(in: names)))
+        let missingSlot = names.count + 1
+        var failures: [String] = []
+        var results: [ExternalCommandResult] = []
+        var environment = CommandPaletteEnvironment()
+        environment.presentCommandFailure = { failures.append($0) }
+        environment.performCommand = { controller, command in
+            let result = controller.commandHandler.performCommand(command)
+            results.append(result)
+            return result
+        }
+        let executor = CommandPaletteActionExecutor(
+            environment: environment, focusSession: CommandPaletteFocusSession(environment: environment)
+        )
+        let commands: [HotkeyCommand] = [
+            .workspace(.moveToMonitor(.right)), .workspace(.switchTo(unused - 1)), .workspace(.switchSlot(missingSlot))
+        ]
+        for command in commands { executor.perform(.command(controller, command, nil)) }
+        XCTAssertEqual(results, commands.map { _ in .notFound })
+        XCTAssertTrue(failures.isEmpty)
+        controller.isEnabled = false
+        executor.perform(.command(controller, commands[0], nil))
+        XCTAssertEqual(results.last, .ignoredDisabled)
+        XCTAssertEqual(failures, ["This feature is disabled."])
+    }
+
+    func testFailedWorkspaceSlotMoveIsSilentButAttachedWindowIsReported() {
+        let fixture = CommandPaletteFocusFixture()
+        defer { fixture.cleanup() }
+        var result = ExternalCommandResult.workspaceStateConflict
+        var failures: [String] = []
+        var environment = CommandPaletteEnvironment()
+        environment.presentCommandFailure = { failures.append($0) }
+        environment.performCommand = { _, _ in result }
+        let executor = CommandPaletteActionExecutor(
+            environment: environment, focusSession: CommandPaletteFocusSession(environment: environment)
+        )
+        let firstSlot = 1
+        let command = HotkeyCommand.workspace(.moveToSlot(firstSlot))
+        executor.perform(.command(fixture.controller, command, nil))
+        XCTAssertTrue(failures.isEmpty)
+        result = .attachedWindow
+        executor.perform(.command(fixture.controller, command, nil))
+        XCTAssertEqual(failures, ["Attached windows stay floating and follow their parent."])
     }
 
     func testCommandNoChangeDoesNotPresentFailure() {

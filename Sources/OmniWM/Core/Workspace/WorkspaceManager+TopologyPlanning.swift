@@ -21,6 +21,7 @@ extension WorkspaceManager {
             source: .workspaceManager
         )
 
+        let previousPlacements = scriptWorkspaceMoveObserver?.catalogPlacements(in: self)
         let txn = commitWorldEvent(
             event,
             monitors: normalizedMonitors,
@@ -44,6 +45,12 @@ extension WorkspaceManager {
         )
         if txn.plan.mutatesRuntimeState || eventRequiresRuntimeInvalidation(event) {
             noteInvalidation(for: event)
+        }
+        withCatalogObserver(.topology) {
+            $0.topologyCommitted(previous: topologyPlan.previousMonitors, current: topologyPlan.newMonitors, in: self)
+        }
+        if let previousPlacements {
+            withCatalogObserver(.move) { $0.catalogCommitted(previous: previousPlacements, in: self) }
         }
         return txn
     }

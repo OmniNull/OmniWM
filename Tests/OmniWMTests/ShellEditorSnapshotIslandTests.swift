@@ -12,7 +12,7 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
         let original = try await fixture.snapshot()
         XCTAssertEqual(original.island?.root, "first-root")
         XCTAssertEqual(original.descriptors["clock"]?.title, "Original Clock")
-        try write(component("Changed Clock"), to: "widgets/clock/component.toml", in: fixture.directory)
+        try write(component("Changed Clock"), to: "widgets/clock/component.manifest.luau", in: fixture.directory)
         var config = fixture.config
         config.island?.components[0].enabled = false
         let reused = try await fixture.snapshot(config: config, generation: 2)
@@ -24,8 +24,8 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
     func testChangedMetadataRebuildsTheSelectedCatalog() async throws {
         let fixture = try fixture()
         let original = try await fixture.snapshot()
-        let file = fixture.directory.appendingPathComponent("widgets/clock/component.toml")
-        try write(component("Updated Clock"), to: "widgets/clock/component.toml", in: fixture.directory)
+        let file = fixture.directory.appendingPathComponent("widgets/clock/component.manifest.luau")
+        try write(component("Updated Clock"), to: "widgets/clock/component.manifest.luau", in: fixture.directory)
         let metadata = [file.path: try XCTUnwrap(SettingsFileAccess.currentFingerprint(at: file))]
         let updated = try await fixture.snapshot(metadata: metadata)
         XCTAssertNotEqual(updated.island, original.island)
@@ -49,9 +49,9 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
         let fixture = try fixture()
         _ = try await fixture.snapshot()
         let other = fixture.directory.appendingPathComponent("other")
-        try write(component("Other Clock"), to: "widgets/clock/component.toml", in: other)
+        try write(component("Other Clock"), to: "widgets/clock/component.manifest.luau", in: other)
         try write("return {}", to: "widgets/clock/component.luau", in: other)
-        try write(root(800), to: "widgets/first-root/settings.toml", in: other)
+        try write(root(800), to: "widgets/first-root/settings.luau", in: other)
         var config = fixture.config
         config.directories = [other]
         let updated = try await fixture.snapshot(config: config)
@@ -62,11 +62,11 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
 
     func testFailedCatalogLoadIsRetriedOnTheNextUnchangedSnapshot() async throws {
         let fixture = try fixture()
-        try write("[options.width\n", to: "widgets/first-root/settings.toml", in: fixture.directory)
+        try write("return { options =\n", to: "widgets/first-root/settings.luau", in: fixture.directory)
         let failed = try await fixture.snapshot()
         XCTAssertNotNil(failed.islandProblem)
         XCTAssertNil(failed.island)
-        try write(root(400), to: "widgets/first-root/settings.toml", in: fixture.directory)
+        try write(root(400), to: "widgets/first-root/settings.luau", in: fixture.directory)
         let recovered = try await fixture.snapshot()
         XCTAssertNil(recovered.islandProblem)
         XCTAssertEqual(recovered.island?.root, "first-root")
@@ -83,7 +83,7 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
         configuration.stopObserving()
         let published = try XCTUnwrap(configuration.catalog)
         let descriptor = try XCTUnwrap(published.descriptors["world-clock"])
-        let file = descriptor.folder.appendingPathComponent("component.toml")
+        let file = descriptor.folder.appendingPathComponent("component.manifest.luau")
         let source = try String(contentsOf: file, encoding: .utf8)
         let changed = source.replacingOccurrences(of: "title = \"Clock\"", with: "title = \"Changed on disk\"")
         XCTAssertNotEqual(changed, source)
@@ -121,10 +121,10 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
     private func fixture() throws -> Fixture {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         addTeardownBlock { try FileManager.default.removeItem(at: directory) }
-        try write(component("Original Clock"), to: "widgets/clock/component.toml", in: directory)
+        try write(component("Original Clock"), to: "widgets/clock/component.manifest.luau", in: directory)
         try write("return {}", to: "widgets/clock/component.luau", in: directory)
-        try write(root(400), to: "widgets/first-root/settings.toml", in: directory)
-        try write(root(600), to: "widgets/second-root/settings.toml", in: directory)
+        try write(root(400), to: "widgets/first-root/settings.luau", in: directory)
+        try write(root(600), to: "widgets/second-root/settings.luau", in: directory)
         var config = ShellConfig()
         config.profile = "preview"
         config.directories = [directory]
@@ -137,11 +137,11 @@ final class ShellEditorSnapshotIslandTests: XCTestCase {
     }
 
     private func component(_ title: String) -> String {
-        "title = '\(title)'\nicon = 'clock'\nviews = ['compact']\n"
+        "return { title = \"\(title)\", icon = \"clock\", views = { \"compact\" } }"
     }
 
     private func root(_ width: Int) -> String {
-        "[options.width]\ntype = 'number'\ndefault = \(width)\nmin = 1\nmax = 8192\n"
+        "return { options = { width = { type = \"number\", default = \(width), min = 1, max = 8192 } } }"
     }
 
     private func write(_ text: String, to path: String, in directory: URL) throws {

@@ -11,6 +11,7 @@ struct WindowSwitcherSettingsTab: View {
         Form {
             Section("Window Switcher") {
                 Toggle("Enable Window Switcher", isOn: Bindable(settings.windowSwitcher).enabled)
+                    .settingsField(.windowSwitcherEnabled)
                     .onChange(of: settings.windowSwitcher.enabled) { _, _ in
                         controller.updateWindowSwitcherSettings()
                     }
@@ -26,7 +27,9 @@ struct WindowSwitcherSettingsTab: View {
                         Text("Omni Layout").tag(WindowSwitcherOrder.omniLayout)
                         Text("Last Used").tag(WindowSwitcherOrder.lastUsed)
                     }
+                    .settingsField(.windowSwitcherOrder)
                     Toggle("Show Switcher Footer", isOn: Bindable(settings.windowSwitcher).showFooter)
+                        .settingsField(.windowSwitcherShowFooter)
                     SettingsCaption(
                         localized: "The footer shows the scope button and window count. S changes scope; W closes the selected window."
                     )
@@ -50,10 +53,12 @@ struct WindowSwitcherSettingsTab: View {
     @ViewBuilder
     private var shortcutControls: some View {
         shortcutPicker("Command-Tab", selection: Bindable(settings.windowSwitcher).commandTab)
+            .settingsField(.windowSwitcherCommandTab)
             .onChange(of: settings.windowSwitcher.commandTab) { _, _ in
                 controller.updateWindowSwitcherSettings()
             }
         shortcutPicker("Option-Tab", selection: Bindable(settings.windowSwitcher).optionTab)
+            .settingsField(.windowSwitcherOptionTab)
             .onChange(of: settings.windowSwitcher.optionTab) { _, _ in
                 controller.updateWindowSwitcherSettings()
             }
@@ -63,6 +68,7 @@ struct WindowSwitcherSettingsTab: View {
                 Text("Visible Workspaces").tag(WindowSwitcherScope.visibleWorkspaces)
                 Text("Active Workspace").tag(WindowSwitcherScope.activeWorkspace)
             }
+            .settingsField(.windowSwitcherScope)
         }
     }
 

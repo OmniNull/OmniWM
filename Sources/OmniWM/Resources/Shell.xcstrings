@@ -17397,6 +17397,12 @@
         }
       }
     },
+    "Key Mode" : {
+
+    },
+    "Key mode: its keys run their commands until you press Escape." : {
+
+    },
     "Window Mode" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -141,9 +140,9 @@ extension ShellDesktopEditorTests {
         XCTAssertEqual(titles, titles.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
         await islandEdit(fixture) { editor.setIslandRoot("visualiser", value: .bool(true)) }
         XCTAssertEqual(editor.islandRootValues["visualiser"], .bool(true))
-        guard case let .table(profiles)? = try document(fixture)["profiles"],
-              case let .table(style)? = profiles["vitreus"], case let .table(widgets)? = style["widgets"],
-              case let .table(root)? = widgets["vitreus"]
+        guard case let .record(profiles)? = try document(fixture)["profiles"],
+              case let .record(style)? = profiles["vitreus"], case let .record(widgets)? = style["widgets"],
+              case let .record(root)? = widgets["vitreus"]
         else { return XCTFail("no [profiles.vitreus.widgets.vitreus]") }
         XCTAssertEqual(root["visualiser"], .boolean(true))
 
@@ -156,9 +155,9 @@ extension ShellDesktopEditorTests {
 
     func testControlledAbsentStyleDefinedAndUnavailableStatesKeepTheirMeaning() async throws {
         let fixture = try await fixture(style: "default")
-        let base = fixture.shell.appendingPathComponent("default/shell.toml")
+        let base = fixture.shell.appendingPathComponent("default/shell.luau")
         let text = try String(contentsOf: base, encoding: .utf8)
-        try Data(ShellTOMLText.settingNodes([(["island"], nil)], in: text).utf8).write(to: base)
+        try Data(ShellLuauFixture.editing([(["island"], nil)], in: text).utf8).write(to: base)
         try await fixture.configuration.refresh()
         await fixture.editor.reload()
         XCTAssertEqual(fixture.editor.islandKind, .absent)
@@ -193,8 +192,8 @@ extension ShellDesktopEditorTests {
         XCTAssertNotNil(fixture.editor.island)
         XCTAssertTrue(fixture.editor.islandRootOptions.isEmpty)
         XCTAssertFalse(fixture.editor.islandToggleDisabled)
-        try Data("[options.caption]\ntype = \"invalid\"".utf8).write(
-            to: fixture.shell.appendingPathComponent("lake/widgets/editor-root/settings.toml")
+        try Data("return { options = { caption = { type = \"invalid\" } } }".utf8).write(
+            to: fixture.shell.appendingPathComponent("lake/widgets/editor-root/settings.luau")
         )
         try await fixture.configuration.refresh()
         await fixture.editor.reload()
@@ -218,7 +217,7 @@ extension ShellDesktopEditorTests {
         await fixture.editor.reload()
     }
 
-    func assertIslandScope(_ fixture: Fixture, before: [String: TOMLNode], active: ShellConfig) throws {
+    func assertIslandScope(_ fixture: Fixture, before: [String: SettingsLuauValue], active: ShellConfig) throws {
         XCTAssertEqual(outsideLake(try document(fixture)), outsideLake(before))
         XCTAssertEqual(fixture.configuration.config, active)
         XCTAssertEqual(fixture.editor.selectedStyle, "lake")
@@ -232,17 +231,13 @@ extension ShellDesktopEditorTests {
             .write(to: folder.appendingPathComponent("init.luau"))
         if schema {
             try Data("""
-            [options.caption]
-            type = "string"
-            title = "Caption"
-            default = "Before"
-            maxLength = 6
-            [options.lines]
-            type = "strings"
-            title = "Lines"
-            default = ["One"]
-            maxLength = 6
-            """.utf8).write(to: folder.appendingPathComponent("settings.toml"))
+            return {
+                options = {
+                    caption = { type = "string", title = "Caption", default = "Before", maxLength = 6 },
+                    lines = { type = "strings", title = "Lines", default = { "One" }, maxLength = 6 },
+                },
+            }
+            """.utf8).write(to: folder.appendingPathComponent("settings.luau"))
         }
     }
 }

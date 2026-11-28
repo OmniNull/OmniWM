@@ -4,9 +4,8 @@ import PackageDescription
 
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 let ghosttyMacOSLibraryDirectory = "\(packageDirectory)/Frameworks/GhosttyKit.xcframework/macos-arm64"
-let liveCheckSettings: [SwiftSetting] = ProcessInfo.processInfo.environment["OMNIWM_LIVE_CHECKS"] == nil
-    ? []
-    : [.define("OMNIWM_LIVE_CHECKS")]
+let scriptARCDirectory = ProcessInfo.processInfo.environment["OMNIWM_SCRIPT_ARC_DIRECTORY"]
+let liveChecks = ProcessInfo.processInfo.environment["OMNIWM_LIVE_CHECKS"] != nil
 
 let package = Package(
     name: "OmniWM",
@@ -23,14 +22,12 @@ let package = Package(
             name: "omniwmctl",
             targets: ["OmniWMCtl"]
         ),
+        .executable(name: "omniwm-metadata", targets: ["OmniWMMetadataTool"]),
         .library(
             name: "OmniWMNowPlaying",
             type: .dynamic,
             targets: ["OmniWMNowPlaying"]
         )
-    ],
-    dependencies: [
-        .package(url: "https://github.com/mattt/swift-toml.git", from: "2.0.0")
     ],
     targets: [
         .binaryTarget(
@@ -38,7 +35,15 @@ let package = Package(
             path: "Frameworks/GhosttyKit.xcframework"
         ),
         .target(
+            name: "OmniWMAutomation",
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+                .treatAllWarnings(as: .error)
+            ]
+        ),
+        .target(
             name: "OmniWMIPC",
+            dependencies: ["OmniWMAutomation"],
             path: "Sources/OmniWMIPC",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
@@ -107,10 +112,21 @@ let package = Package(
             dependencies: ["OmniWMLuau"],
             path: "Sources/OmniWMScriptHost",
             cxxSettings: [
+                .headerSearchPath("../OmniWMLuau/Ast/include"),
+                .headerSearchPath("../OmniWMLuau/Common/include"),
                 .unsafeFlags(["-O2"], .when(configuration: .debug)),
                 .treatAllWarnings(as: .error),
                 .treatWarning("unused-command-line-argument", as: .warning)
-            ]
+            ] + (liveChecks ? [.define("OMNIWM_LIVE_CHECKS")] : [])
+        ),
+        .target(
+            name: "OmniWMMetadata",
+            dependencies: ["OmniWMScriptHost"]
+        ),
+        .executableTarget(
+            name: "OmniWMMetadataTool",
+            dependencies: ["OmniWMMetadata"],
+            path: "Scripts/OmniWMMetadataTool"
         ),
         .target(
             name: "OmniWMMaterialColor",
@@ -133,17 +149,26 @@ let package = Package(
             name: "OmniWM",
             dependencies: [
                 "GhosttyKit",
+                "OmniWMAutomation",
                 "OmniWMIPC",
                 "OmniWMAudioTap",
                 "OmniWMLayerCorners",
                 "OmniWMLauncherSPI",
                 "OmniWMWiFiSPI",
                 "OmniWMMaterialColor",
+                "OmniWMMetadata",
                 "OmniWMScriptHost",
-                "OmniWMShellCore",
-                .product(name: "TOML", package: "swift-toml")
+                "OmniWMShellCore"
             ],
             path: "Sources/OmniWM",
+            exclude: scriptARCDirectory == nil ? [
+                "ScriptARCWorkload.swift", "ScriptARCWorkerLifetime.swift", "ScriptARCFocusWorkload.swift",
+                "ScriptARCTopologyWorkload.swift", "ScriptARCWindowEvents.swift", "ScriptARCTimerWorkload.swift",
+                "ScriptARCWindowTransactions.swift", "ScriptARCEventOwnership.swift", "ScriptARCSnapshotWorkload.swift",
+                "ScriptARCWorkspaceKeys.swift", "ScriptARCDwindleWorkload.swift", "ScriptARCGatherWorkload.swift",
+                "ScriptARCNamedModeWorkload.swift", "ScriptARCStoreWorkload.swift", "ScriptARCMarkWorkload.swift",
+                "ScriptARCDetailsPlatform.swift"
+            ] : [],
             resources: [
                 .process("Resources"),
                 .copy("ShellDefault"),
@@ -181,7 +206,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "OmniWMCtl",
-            dependencies: ["OmniWMIPC"],
+            dependencies: ["OmniWMAutomation", "OmniWMIPC"],
             path: "Sources/OmniWMCtl",
             swiftSettings: [
                 .swiftLanguageMode(.v6),
@@ -191,7 +216,8 @@ let package = Package(
         .testTarget(
             name: "OmniWMTests",
             dependencies: [
-                "OmniWM", "OmniWMAudioTap", "OmniWMCtl", "OmniWMLayerCorners", "OmniWMMaterialColor",
+                "OmniWM", "OmniWMAudioTap", "OmniWMAutomation", "OmniWMCtl", "OmniWMLayerCorners",
+                "OmniWMMaterialColor",
                 "OmniWMScriptHost",
                 "OmniWMShellCore"
             ],
@@ -202,8 +228,23 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .treatAllWarnings(as: .error)
-            ] + liveCheckSettings
+            ] + (liveChecks ? [.define("OMNIWM_LIVE_CHECKS")] : [])
         )
     ],
     cxxLanguageStandard: .cxx17
 )
+
+if let auditDirectory = scriptARCDirectory {
+    let counters = "ScriptARCCounters"
+    package.targets.append(.target(name: counters, path: "Scripts/script-arc-audit/Counters"))
+    package.targets.append(.executableTarget(
+        name: "ScriptARCRunner", dependencies: ["OmniWM"], path: "Scripts/script-arc-audit/Runner"
+    ))
+    package.products.append(.executable(name: "script-arc-audit", targets: ["ScriptARCRunner"]))
+    let host = package.targets.first { $0.name == "OmniWMScriptHost" }!
+    host.cxxSettings = (host.cxxSettings ?? []) + [.define("lua_resume", to: "script_arc_lua_resume")]
+    let app = package.targets.first { $0.name == "OmniWM" }!
+    app.dependencies.append(.byName(name: counters))
+    app.swiftSettings = (app.swiftSettings ?? []) + [.define("OMNIWM_SCRIPT_ARC_AUDIT")]
+    app.linkerSettings = (app.linkerSettings ?? []) + [.unsafeFlags(["-L" + auditDirectory, "-lScriptARC"])]
+}

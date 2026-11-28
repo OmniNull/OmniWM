@@ -6,10 +6,14 @@ import AppKit
 extension ActionCatalog {
     static let openAppPrefix = "openApp."
 
+    static func isValidOpenAppBundleID(_ bundleID: String) -> Bool {
+        !bundleID.isEmpty && !bundleID.contains(where: \.isWhitespace)
+    }
+
     static func openAppBundleID(for id: String) -> String? {
         guard id.hasPrefix(openAppPrefix) else { return nil }
         let bundleID = String(id.dropFirst(openAppPrefix.count))
-        guard !bundleID.isEmpty, !bundleID.contains(where: \.isWhitespace) else { return nil }
+        guard isValidOpenAppBundleID(bundleID) else { return nil }
         return bundleID
     }
 
@@ -31,5 +35,12 @@ extension ActionCatalog {
     static func appDisplayName(bundleID: String) -> String {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
             .map { FileManager.default.displayName(atPath: $0.path) } ?? bundleID
+    }
+
+    static func openAppTitle(bundleID: String) -> LocalizedStringResource {
+        LocalizedStringResource(
+            "command.app.open", defaultValue: "Open \(appDisplayName(bundleID: bundleID))", table: "Commands",
+            bundle: .omniWM
+        )
     }
 }

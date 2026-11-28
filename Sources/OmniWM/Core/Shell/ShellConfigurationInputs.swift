@@ -28,7 +28,13 @@ struct ShellConfigurationInputs: Sendable {
     let metadata: [String: SettingsFileAccess.Fingerprint]
 
     var sources: [String: SettingsFileAccess.Fingerprint] {
-        files.filter { $0.key != directory.appendingPathComponent("shell.toml").path }
+        files.filter { $0.key != directory.appendingPathComponent("shell.luau").path }
+    }
+
+    static func helperPaths(_ files: Set<URL>) -> Set<URL> {
+        var paths = files
+        for file in files { paths.formUnion(SettingsFileObservationDirectories.linkParents(for: file)) }
+        return paths
     }
 
     init(directory: URL, config: ShellConfig) throws {
@@ -46,12 +52,23 @@ struct ShellConfigurationInputs: Sendable {
         let roots = Set([directory] + directories.filter { !$0.path.hasPrefix(prefix) })
         var scan = DirectoryScan(paths: paths, recursivePaths: recursivePaths)
         for root in roots { scan.include(root) }
+        let helpers = Self.helperPaths(config.helperFiles)
+        scan.paths.formUnion(helpers)
+        scan.recursivePaths.formUnion(helpers)
+        for file in config.helperFiles {
+            scan.files[file.path] = SettingsFileAccess.currentFingerprint(at: file)
+        }
         self.directory = directory
         files = scan.files
         metadata = scan.files.filter {
-            let name = URL(fileURLWithPath: $0.key).lastPathComponent
-            return name == "settings.toml" || name == "component.toml" || name == "init.luau"
-                || name == "component.luau"
+            let url = URL(fileURLWithPath: $0.key)
+            switch url.lastPathComponent {
+            case ShellRootSettings.fileName,
+                 ShellComponentCatalog.manifestName:
+                return url.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "widgets"
+            default:
+                return url.lastPathComponent == "init.luau" || url.lastPathComponent == "component.luau"
+            }
         }
         self.paths = scan.paths.sorted { $0.path < $1.path }
         self.recursivePaths = scan.recursivePaths.sorted { $0.path < $1.path }
@@ -101,12 +118,15 @@ struct ShellConfigurationInputs: Sendable {
 
     func updatingConfiguration() -> Self {
         var files = files
-        for path in files.keys where URL(fileURLWithPath: path).pathExtension == "toml"
-            && !path.contains("/widgets/")
-        {
-            files[path] = SettingsFileAccess.currentFingerprint(at: URL(fileURLWithPath: path))
+        for path in files.keys where !path.contains("/widgets/") {
+            let url = URL(fileURLWithPath: path)
+            if url.lastPathComponent == ShellStyleManifest.fileName || url.lastPathComponent == "shell.luau" ||
+                ["themes", ShellStrings.folder].contains(url.deletingLastPathComponent().lastPathComponent)
+            {
+                files[path] = SettingsFileAccess.currentFingerprint(at: url)
+            }
         }
-        let rootFile = directory.appendingPathComponent("shell.toml")
+        let rootFile = directory.appendingPathComponent("shell.luau")
         files[rootFile.path] = SettingsFileAccess.currentFingerprint(at: rootFile)
         let paths = files[rootFile.path] == nil || paths.contains(rootFile) ? paths : (paths + [rootFile]).sorted {
             $0.path < $1.path
@@ -131,25 +151,35 @@ struct ShellConfigurationInputs: Sendable {
     }
 
     static func recoveryPaths(
-        _ directory: URL, config: ShellConfig, previous: Self?
+        _ directory: URL, config: ShellConfig, previous: Self?, attempted: Set<URL> = []
     ) -> (paths: [URL], recursivePaths: [URL]) {
         let profiles = ShellProfiles.names(in: directory).map { directory.appendingPathComponent($0) }
+        let helpers = helperPaths(config.helperFiles.union(attempted))
         let recursivePaths = Set((previous?.recursivePaths ?? []) + [directory] + config.directories + profiles)
         var paths = Set(previous?.paths ?? [])
         for directory in recursivePaths {
-            let file = directory.appendingPathComponent("shell.toml")
+            let file = directory.appendingPathComponent("shell.luau")
             paths.formUnion(SettingsFileObservationDirectories.paths(for: file))
             paths.formUnion([directory, file])
         }
-        return (paths.sorted { $0.path < $1.path }, recursivePaths.sorted { $0.path < $1.path })
+        return (
+            paths.union(helpers).sorted { $0.path < $1.path },
+            recursivePaths.union(helpers).sorted { $0.path < $1.path }
+        )
     }
 
     static func load(in directory: URL, profile: String? = nil) throws -> Prepared {
         var problems: [String] = []
-        let value = if let profile {
-            ShellConfig.load(profile: profile, shellDirectory: directory, problems: &problems)
-        } else { ShellConfig.load(shellDirectory: directory, problems: &problems) }
-        guard let value else { throw ShellBarLayout.Unreadable(problem: problems.last ?? "shell.toml") }
+        var attempted = Set<URL>()
+        guard let value = ShellConfig.load(
+            directory,
+            profile: profile,
+            skippingBrokenLayers: false,
+            problems: &problems,
+            onFailure: { attempted = $0 }
+        ) else {
+            throw ShellBarLayout.Unreadable(problem: problems.last ?? "shell.luau", helperFiles: attempted)
+        }
         return Prepared(config: value, problems: problems)
     }
 }

@@ -5,7 +5,6 @@ import AppKit
 @testable import OmniWM
 import OmniWMScriptHost
 import OmniWMShellCore
-import TOML
 import XCTest
 
 @MainActor
@@ -116,14 +115,15 @@ final class ShellThemeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let themes = root.appendingPathComponent("themes", isDirectory: true)
         try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
-        try Data("profiles.default.theme = \"ocean\"\nprofiles.default.leading = [\"clock\"]\n".utf8)
-            .write(to: root.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { theme = \"ocean\", leading = { \"clock\" } } } }\n".utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         let fallback = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(fallback.themeName, "native")
         XCTAssertEqual(fallback.theme, ShellTheme.native)
         XCTAssertEqual(fallback.leading, ["clock"])
 
-        try Data("[light]\naccent = \"#112233\"\n".utf8).write(to: themes.appendingPathComponent("ocean.toml"))
+        try Data("return { light = { accent = \"#112233\" } }\n".utf8)
+            .write(to: themes.appendingPathComponent("ocean.luau"))
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(config.themeName, "ocean")
         XCTAssertEqual(config.theme.light[ShellRole.accent.rawValue], NSColor(shellHex: "#112233"))
@@ -139,19 +139,25 @@ final class ShellThemeTests: XCTestCase {
         var themes = [("native", ShellTheme.native)]
         for (profile, source) in sources {
             let name = source.deletingPathExtension().lastPathComponent
-            try Data("profile = \"\(profile)\"\nprofiles.\(profile).theme = \"\(name)\"\n".utf8)
-                .write(to: root.appendingPathComponent("shell.toml"))
+            try Data("""
+            return {
+                profile = "\(profile)",
+                profiles = { \(profile) = { theme = "\(name)" } },
+            }
+
+            """.utf8)
+                .write(to: root.appendingPathComponent("shell.luau"))
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root), name)
             XCTAssertEqual(config.themeName, name)
             themes.append((name, config.theme))
         }
-        let wallpaper = root.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).toml")
+        let wallpaper = root.appendingPathComponent("themes/\(ShellWallpaperPalette.themeName).luau")
         for image in ShellWallpaperPaletteTests.wallpapers {
             for scheme in ShellWallpaperScheme.allCases {
                 let text = ShellWallpaperPalette.theme(pixels: image.pixels, scheme: scheme)
                 _ = try ShellWallpaperPalette.write(text, to: wallpaper)
-                try Data("profile = \"default\"\nprofiles.default.theme = \"wallpaper\"\n".utf8)
-                    .write(to: root.appendingPathComponent("shell.toml"))
+                try Data("return { profile = \"default\", profiles = { default = { theme = \"wallpaper\" } } }\n".utf8)
+                    .write(to: root.appendingPathComponent("shell.luau"))
                 let label = "wallpaper \(image.name) \(scheme)"
                 themes.append((label, try XCTUnwrap(ShellConfig.load(shellDirectory: root), label).theme))
             }
@@ -199,11 +205,10 @@ final class ShellThemeTests: XCTestCase {
 
     func testThemesKeepTheContainerRolesTheySet() throws {
         var problems: [String] = []
-        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: Data("""
-        [dark]
-        tertiaryAccent = "#123456"
-        """.utf8))
-        let theme = ShellTheme(toml: toml, name: "test", problems: &problems)
+        let themeValues = try ShellLuauFixture.table("""
+        return { dark = { tertiaryAccent = "#123456" } }
+        """)
+        let theme = ShellTheme(values: themeValues, name: "test", problems: &problems)
         XCTAssertEqual(problems, [])
         XCTAssertFalse(theme.derivedDark.contains(.tertiaryAccent))
         XCTAssertTrue(theme.derivedDark.contains(.secondaryAccent))
@@ -236,8 +241,14 @@ final class ShellThemeTests: XCTestCase {
         XCTAssertEqual(try ShellStyleFixture.prepare(into: root), [])
         for (profile, source) in try ShellStyleFixture.themes() {
             let name = source.deletingPathExtension().lastPathComponent
-            try Data("profile = \"\(profile)\"\nprofiles.\(profile).theme = \"\(name)\"\n".utf8)
-                .write(to: root.appendingPathComponent("shell.toml"))
+            try Data("""
+            return {
+                profile = "\(profile)",
+                profiles = { \(profile) = { theme = "\(name)" } },
+            }
+
+            """.utf8)
+                .write(to: root.appendingPathComponent("shell.luau"))
             let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root), name)
             XCTAssertEqual(config.themeName, name)
             XCTAssertNotEqual(
@@ -251,11 +262,11 @@ final class ShellThemeTests: XCTestCase {
         }
         let source = try XCTUnwrap(ShellStyleFixture.themeFiles(in: ShellStyleFixture.defaults).first)
         let name = source.deletingPathExtension().lastPathComponent
-        try Data("profile = \"default\"\nprofiles.default.theme = \"\(name)\"\n".utf8)
-            .write(to: root.appendingPathComponent("shell.toml"))
+        try Data("return { profile = \"default\", profiles = { default = { theme = \"\(name)\" } } }\n".utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         var problems: [String] = []
         let original = try ShellTheme(
-            toml: TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: source)),
+            values: ShellLuauFixture.table(at: source),
             name: name, problems: &problems
         )
         XCTAssertEqual(problems, [])
@@ -263,7 +274,8 @@ final class ShellThemeTests: XCTestCase {
         let accent = "#112233"
         let themes = root.appendingPathComponent("themes", isDirectory: true)
         try FileManager.default.createDirectory(at: themes, withIntermediateDirectories: true)
-        try Data("[dark]\naccent = \"\(accent)\"\n".utf8).write(to: themes.appendingPathComponent("\(name).toml"))
+        try Data("return { dark = { accent = \"\(accent)\" } }\n".utf8)
+            .write(to: themes.appendingPathComponent("\(name).luau"))
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(override.theme.dark[ShellRole.accent.rawValue], NSColor(shellHex: accent))
         XCTAssertEqual(override.theme.light, ShellTheme.native.light)
@@ -273,8 +285,9 @@ final class ShellThemeTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data("profiles.default.leading = [\"menu\"]\nprofiles.default.trailing = [\"clock\", \"wm\"]\n".utf8)
-            .write(to: root.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { leading = { \"menu\" }, trailing = { \"clock\", \"wm\" } } } }\n"
+            .utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         let config = try XCTUnwrap(ShellConfig.load(shellDirectory: root))
         XCTAssertEqual(config.lane(of: "menu").lane, .leading)
         XCTAssertEqual(config.lane(of: "wm").rank, 1)

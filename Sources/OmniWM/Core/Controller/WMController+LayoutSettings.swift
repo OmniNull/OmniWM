@@ -63,12 +63,9 @@ extension WMController {
         layoutRefreshController.requestRelayout(reason: .workspaceConfigChanged)
     }
 
-    func rebuildAppRulesCache() {
-        windowRuleEngine.rebuild(rules: settings.appRules)
-    }
-
     func updateAppRules() {
-        rebuildAppRulesCache()
+        configScript?.refreshRuleConflicts()
+        windowRuleEngine.rebuild(rules: settings.effectiveAppRules)
         layoutRefreshController.requestFullRescan(reason: .appRulesChanged)
     }
 
@@ -110,6 +107,20 @@ extension WMController {
             shrinkToFit: shrinkToFit,
             edgePeekShare: edgePeekShare
         )
+    }
+
+    func setVisibleContainerCount(_ count: Int) -> Bool {
+        let niri = settings.niri
+        if count == 0 {
+            guard niri.fitToVisibleContainerCount else { return false }
+            niri.fitToVisibleContainerCount = false
+        } else {
+            guard !niri.fitToVisibleContainerCount || niri.visibleContainerCount != count else { return false }
+            niri.visibleContainerCount = count
+            niri.fitToVisibleContainerCount = true
+        }
+        applyNiriVisibleContainerSettings()
+        return true
     }
 
     func rebalanceNiriSizesForVisibleContainerCountChange(on monitorId: Monitor.ID? = nil) {

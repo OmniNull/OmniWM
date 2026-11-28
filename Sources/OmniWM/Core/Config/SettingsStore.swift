@@ -25,37 +25,30 @@ final class SettingsStore {
     private let runtimeState: RuntimeStateStore
     private let autosaveEnabled: Bool
     private(set) var isApplyingExport = false
+    @ObservationIgnored private var restoringFormulaDraft = false
     private var isApplyingRuntimeState = false
     @ObservationIgnored private var lastEffectiveTrackpadAvailability: Bool?
     @ObservationIgnored private(set) var layoutConfigurationRevision: UInt64 = 0
 
     var onIPCEnabledChanged: (@MainActor (Bool) -> Void)?
     var onSlideWorkspaceSwitchesChanged: (@MainActor () -> Void)?
+    var onShowSecureInputExplanationChanged: (@MainActor (Bool) -> Void)?
     var onExternalSettingsReloaded: (@MainActor () -> Void)?
+    var onConfirmedSettingsEdit: (@MainActor () -> Void)?
     var onConfigNoticeChanged: (@MainActor () -> Void)?
+    var onConfigScriptNoticeChanged: (@MainActor () -> Void)?
     var onTrackpadGestureAvailabilityChanged: (@MainActor (Bool) -> Void)?
     var onPointerSettingsChanged: (@MainActor () -> Void)?
     var onDynamicHotkeysChanged: (@MainActor () -> Void)?
     var liveWorkspaceNamesForHotkeys: (@MainActor () -> [String])?
     var liveShellNamesForHotkeys: (@MainActor () -> [String])?
     private(set) var configNotice: SettingsConfigNotice?
+    @ObservationIgnored var configScriptCallbackError: String?
+    var configScriptLoadError: String?
+    var configScriptShortcutConflicts: ConfigScriptShortcutConflicts?
 
     var hotkeysEnabled = SettingsStore.defaultExport.hotkeysEnabled {
         didSet { scheduleSave() }
-    }
-
-    func applyMonitorSetup(
-        routingSettings: [MonitorRoutingSettings],
-        monitors: [Monitor],
-        mouseWarpEnabled: Bool,
-        workspaceConfigurations: [WorkspaceConfiguration]
-    ) {
-        self.monitors.storeRoutingLayout(routingSettings, for: monitors)
-        self.monitors.routingMode = .custom
-        self.pointer.enabled = mouseWarpEnabled
-        if workspaces.configurations != workspaceConfigurations {
-            workspaces.configurations = workspaceConfigurations
-        }
     }
 
     let borders = BorderSettings()
@@ -95,23 +88,18 @@ final class SettingsStore {
         didSet { scheduleSave() }
     }
 
-    private(set) var appRulesRevision: UInt64 = 0
-    private(set) var appRulesDiagnosticSnapshot = WindowClassificationRulesSnapshot(
-        revision: 0,
-        rules: SettingsStore.defaultExport.appRules
-    )
+    @ObservationIgnored private(set) var ruleSet = EffectiveAppRules(configured: SettingsStore.defaultExport.appRules)
 
     var appRules = SettingsStore.defaultExport.appRules {
         didSet {
-            if appRules != oldValue {
-                appRulesRevision &+= 1
-                appRulesDiagnosticSnapshot = WindowClassificationRulesSnapshot(
-                    revision: appRulesRevision,
-                    rules: appRules
-                )
-            }
+            if appRules != oldValue { ruleSet.setConfiguredRules(appRules) }
             scheduleSave()
         }
+    }
+
+    @discardableResult
+    func setScriptAppRules(_ rules: [AppRule]) -> Bool {
+        ruleSet.setScriptRules(rules, configured: appRules)
     }
 
     var preventSleepEnabled = SettingsStore.defaultExport.preventSleepEnabled {
@@ -123,11 +111,7 @@ final class SettingsStore {
     }
 
     var ipcEnabled = SettingsStore.defaultExport.ipcEnabled {
-        didSet {
-            guard oldValue != ipcEnabled else { return }
-            onIPCEnabledChanged?(ipcEnabled)
-            scheduleSave()
-        }
+        didSet { saveChange(\.ipcEnabled, from: oldValue) { onIPCEnabledChanged?($0) } }
     }
 
     let statusBar = StatusBarSettings()
@@ -155,11 +139,7 @@ final class SettingsStore {
     }
 
     var slideWorkspaceSwitches = SettingsStore.defaultExport.slideWorkspaceSwitches {
-        didSet {
-            guard oldValue != slideWorkspaceSwitches else { return }
-            onSlideWorkspaceSwitchesChanged?()
-            scheduleSave()
-        }
+        didSet { saveChange(\.slideWorkspaceSwitches, from: oldValue) { _ in onSlideWorkspaceSwitchesChanged?() } }
     }
 
     var slideWorkspaceSwitchesUntracked: Bool {
@@ -168,6 +148,12 @@ final class SettingsStore {
 
     var pausePalettePasteDuringSecureInput = SettingsStore.defaultExport.pausePalettePasteDuringSecureInput {
         didSet { scheduleSave() }
+    }
+
+    var showSecureInputExplanation = SettingsStore.defaultExport.showSecureInputExplanation {
+        didSet {
+            saveChange(\.showSecureInputExplanation, from: oldValue) { onShowSecureInputExplanationChanged?($0) }
+        }
     }
 
     var language = SettingsStore.defaultExport.language {
@@ -249,8 +235,8 @@ final class SettingsStore {
         niri.onChange = { [weak self] in self?.scheduleSave() }
         dwindle.onChange = { [weak self] in self?.scheduleSave() }
         gestures.onChange = { [weak self] in
-            self?.notifyTrackpadAvailabilityIfChanged()
             self?.pointerSettingsDidChange()
+            self?.notifyTrackpadAvailabilityIfChanged()
         }
         workspaceBar.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         workspaceBar.onNotificationBadgesChange = { [weak self] in self?.scheduleSave() }
@@ -260,8 +246,8 @@ final class SettingsStore {
         workspaces.onChange = { [weak self] in self?.workspacesDidChange() }
         borders.onChange = { [weak self] in self?.layoutConfigurationDidChange() }
         overview.onChange = { [weak self] in
-            self?.notifyTrackpadAvailabilityIfChanged()
             self?.scheduleSave()
+            self?.notifyTrackpadAvailabilityIfChanged()
         }
         scheduleSaveOnPlainTableChanges()
         lastEffectiveTrackpadAvailability = effectiveTrackpadGesturesEnabled
@@ -269,6 +255,8 @@ final class SettingsStore {
         let outcome = persistence.loadOutcome()
         transitionConfigNotice(to: outcome.notice)
         applyExport(outcome.export ?? SettingsExport.defaults())
+        persistence.recordAppliedExport(toExport())
+        connectFormulaEdits(to: persistence)
         persistence.setExternalChangeHandler { [weak self] outcome in
             self?.handleExternalReload(outcome)
         }
@@ -277,18 +265,34 @@ final class SettingsStore {
         }
     }
 
+    var fieldSources: SettingsFieldSources {
+        persistence.fieldSources
+    }
+
     var settingsFileURL: URL {
         persistence.fileURL
+    }
+
+    var formulaConfirmation: SettingsFormulaConfirmation {
+        persistence.confirmation
     }
 
     var settingsWritesBlocked: Bool {
         persistence.settingsWritesBlocked
     }
 
+    func permitsWorkspaceLayoutEdit(for id: UUID) -> Bool {
+        persistence.permitsWorkspaceLayoutEdit(for: id)
+    }
+
+    func recordFailedIPCStart() {
+        persistence.retainFailedIPCState()
+        ipcEnabled = false
+    }
+
     func ensureSettingsFileAvailable() throws {
-        guard !FileManager.default.fileExists(atPath: settingsFileURL.path) else { return }
-        if let notice = try persistence.saveImmediately(toExport()) {
-            transitionConfigNotice(to: notice)
+        if let outcome = try persistence.createSettingsFileIfMissing() {
+            handleExternalReload(outcome)
         }
     }
 
@@ -316,6 +320,7 @@ final class SettingsStore {
         transitionConfigNotice(to: outcome.notice)
         guard let export = outcome.export else { return }
         applyExport(export)
+        persistence.recordAppliedExport(toExport())
         onExternalSettingsReloaded?()
     }
 
@@ -323,6 +328,17 @@ final class SettingsStore {
         guard notice != configNotice else { return }
         configNotice = notice
         onConfigNoticeChanged?()
+    }
+
+    func editList(at path: [String], keeping indices: [Int?], _ change: () -> Void) {
+        persistence.editList(at: path, keeping: indices, change)
+    }
+
+    private func saveChange(_ setting: KeyPath<SettingsStore, Bool>, from oldValue: Bool, _ onChange: (Bool) -> Void) {
+        let enabled = self[keyPath: setting]
+        guard oldValue != enabled else { return }
+        scheduleSave()
+        if self[keyPath: setting] == enabled, !restoringFormulaDraft { onChange(enabled) }
     }
 
     func scheduleSave() {
@@ -399,14 +415,16 @@ extension SettingsStore {
         scheduleSave()
     }
 
-    func applyExport(_ export: SettingsExport) {
+    func applyExport(_ export: SettingsExport, restoringDraft: Bool = false) {
         let trackpadGesturesWereAvailable = effectiveTrackpadGesturesEnabled
         isApplyingExport = true
+        restoringFormulaDraft = restoringDraft
         defer {
+            restoringFormulaDraft = false
             isApplyingExport = false
             let trackpadGesturesAreAvailable = effectiveTrackpadGesturesEnabled
             lastEffectiveTrackpadAvailability = trackpadGesturesAreAvailable
-            if trackpadGesturesWereAvailable != trackpadGesturesAreAvailable {
+            if !restoringDraft, trackpadGesturesWereAvailable != trackpadGesturesAreAvailable {
                 onTrackpadGestureAvailabilityChanged?(trackpadGesturesAreAvailable)
             }
         }
@@ -427,6 +445,7 @@ extension SettingsStore {
         workspaces.defaultLayoutType = export.defaultLayoutType
         workspaces.autoBackAndForth = export.workspaceAutoBackAndForth
         workspaces.focusNativeFullscreenOnSwitch = export.focusNativeFullscreenOnWorkspaceSwitch
+        workspaces.switchWrapAround = export.workspaceSwitchWrapAround
 
         borders.apply(export.borders)
 
@@ -455,33 +474,9 @@ extension SettingsStore {
         applyServiceSettings(export)
     }
 
-    private func applyServiceSettings(_ export: SettingsExport) {
-        preventSleepEnabled = export.preventSleepEnabled
-        updateChecksEnabled = export.updateChecksEnabled
-        ipcEnabled = export.ipcEnabled
-        gestures.apply(export.gestures)
-        statusBar.apply(export.statusBar)
-        statusMenu.apply(export.statusMenu)
-        hiddenBar.apply(export.hiddenBar)
-        animationsEnabled = export.animationsEnabled
-        animationSpeed = export.animationSpeed
-        slideWorkspaceSwitches = export.slideWorkspaceSwitches
-        pausePalettePasteDuringSecureInput = export.pausePalettePasteDuringSecureInput
-        language = export.language
-        clipboard.apply(export.clipboard)
-        launcher = export.launcher
-        commandPalette.apply(export.commandPalette)
-
-        quakeTerminal.apply(export.quakeTerminal, baseline: SettingsStore.defaultExport.quakeTerminal)
-
-        tabRailAppIcons = export.tabRailAppIcons
-        shellPermissions.apply(export.shellPermissions)
-        appTheming.apply(export.appTheming)
-    }
-
     private func pointerSettingsDidChange() {
-        onPointerSettingsChanged?()
         scheduleSave()
+        if !restoringFormulaDraft { onPointerSettingsChanged?() }
     }
 
     private func notifyTrackpadAvailabilityIfChanged() {

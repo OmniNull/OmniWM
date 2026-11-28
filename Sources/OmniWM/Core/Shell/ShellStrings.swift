@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 final class ShellStrings: Equatable, Sendable {
     static let empty = ShellStrings([:])
@@ -39,7 +38,7 @@ final class ShellStrings: Equatable, Sendable {
 
     static func files(_ directories: [URL], localization: String = appLocalization) -> [URL] {
         localizations(localization).flatMap { code in
-            directories.map { $0.appendingPathComponent("\(folder)/\(code).toml") }
+            directories.map { $0.appendingPathComponent("\(folder)/\(code).luau") }
         }
     }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
 import OmniWMIPC
 
 extension WMController {
@@ -13,10 +14,19 @@ extension WMController {
     }
 
     func keyboardModeDidChange(_ kind: KeyboardModeKind) {
-        keyboardModeKind = kind
-        surfaceReconciler.noteBordersAndBarsChanged()
+        if keyboardModeKind != kind {
+            keyboardModeKind = kind
+            surfaceReconciler.noteBordersAndBarsChanged()
+        }
         refreshStatusBar()
         refreshKeyboardModeIndicator()
+        if scriptModeObserver != nil {
+            ConfigScriptEventObservers.modeChanged(kind, controller: self)
+        }
+    }
+
+    var keyboardModeName: String? {
+        hotkeys.activeNamedKeyMode?.name
     }
 
     func refreshKeyboardModeIndicator() {
@@ -24,11 +34,14 @@ extension WMController {
             keyboardModeIndicator.hide()
             return
         }
-        let guide = keyboardModeKind == .paused ? [] : hotkeys.keyboardModeTable.entries.map {
+        let named = hotkeys.activeNamedKeyMode
+        let entries = keyboardModeKind == .paused ? [] : named?.entries ?? hotkeys.keyboardModeTable.entries
+        let guide = entries.map {
             KeyboardModeGuideEntry(key: $0.binding.displayString, title: $0.command.localizedDisplayName)
         }
         keyboardModeIndicator.show(
             kind: keyboardModeKind,
+            name: named?.name,
             guide: guide,
             monitors: workspaceManager.monitors,
             interactionMonitorId: monitorForInteraction()?.id

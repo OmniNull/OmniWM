@@ -35,12 +35,11 @@ final class AppThemingPageState {
         invalidateReview()
         let current = reviewGeneration
         let engine = preview.engine
-        let values = preview.values
         let dark = preview.dark
         let palette = preview.palette()
         let deliver = deliver
         perform { [weak self] in
-            let preview = AppThemePreview(engine: engine, values: values, dark: dark) { palette }
+            let preview = AppThemePreview(engine: engine, dark: dark) { palette }
             let result = Result {
                 if let target { return try preview.changes(for: target, onlyExisting: true) }
                 return try preview.ghosttySelectionChanges()
@@ -64,7 +63,7 @@ final class AppThemingPageState {
                     (try? policy.destination(for: output.path, roots: roots)).map(policy.display) ?? output.path
                 })
             }) { first, _ in first }
-            let status = AppThemePreview(engine: engine, values: SettingsExport.AppTheming(), dark: false) { nil }
+            let status = AppThemePreview(engine: engine, dark: false) { nil }
                 .ghosttySelectionStatus()
             let folder = policy.display(engine.store.backupsDirectory)
             deliver { [weak self] in

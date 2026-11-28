@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 enum LayoutType: String, Codable, CaseIterable, Identifiable {
@@ -52,7 +53,7 @@ extension MonitorAssignment: Codable {
         case type, output
     }
 
-    private enum AssignmentType: String, Codable {
+    private enum AssignmentType: String, Codable, CaseIterable {
         case main, secondary, tertiary, specificDisplay
     }
 
@@ -118,5 +119,11 @@ struct WorkspaceConfiguration: Codable, Identifiable, Equatable {
 
     var sortOrder: Int {
         WorkspaceIDPolicy.workspaceNumber(from: name) ?? .max
+    }
+}
+
+extension MonitorAssignment: SettingsWireVariants {
+    static var settingsWireVariants: [SettingsWireVariant] {
+        AssignmentType.allCases.map { .sample(.record([CodingKeys.type.stringValue: .string($0.rawValue)])) }
     }
 }

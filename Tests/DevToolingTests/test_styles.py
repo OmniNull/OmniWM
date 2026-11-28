@@ -49,7 +49,7 @@ class StyleInstallTests(unittest.TestCase):
         name = self.names[0]
         target = self.shell / name
         target.mkdir(parents=True)
-        marker = target / "shell.toml"
+        marker = target / "shell.luau"
         marker.write_text("local edits")
         before = files(target)
         result = self.install(name)

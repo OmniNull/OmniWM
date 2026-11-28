@@ -12,9 +12,11 @@ final class WindowMarkRegistryTests: XCTestCase {
         let first = WindowToken(pid: 10, windowId: 100)
         let second = WindowToken(pid: 20, windowId: 200)
 
-        XCTAssertEqual(registry.set(" \tWork\n", for: first), .inserted)
-        XCTAssertEqual(registry.names(for: first), ["Work"])
-        XCTAssertEqual(registry.lookup("Work "), .found(first))
+        let name = "Work"
+        XCTAssertEqual(registry.set(" \t\(name)\n", for: first), .inserted)
+        XCTAssertEqual(registry.names(for: first), [name])
+        XCTAssertEqual(registry.lookup("\(name) "), .found(first))
+        XCTAssertEqual(registry.lookup("\u{2003}\(name)\u{2028}"), .found(first))
         XCTAssertEqual(registry.set("work", for: second), .inserted)
         XCTAssertEqual(registry.set("Work", for: second), .duplicate)
         XCTAssertEqual(registry.set("Work", for: first), .unchanged)
@@ -72,5 +74,24 @@ final class WindowMarkRegistryTests: XCTestCase {
         XCTAssertEqual(registry.lookup("primary"), .unknown)
         XCTAssertEqual(registry.lookup("alias"), .unknown)
         XCTAssertEqual(registry.lookup("other"), .unknown)
+    }
+
+    func testOrderedViewRefreshesAcrossMutations() {
+        let registry = WindowMarkRegistry()
+        let first = WindowMark(name: "work", token: WindowToken(pid: 10, windowId: 100))
+        let second = WindowMark(name: "editor", token: WindowToken(pid: 11, windowId: 101))
+        XCTAssertEqual(registry.set(first.name, for: first.token), .inserted)
+        let before = registry.marks
+        XCTAssertEqual(before, [first])
+
+        XCTAssertEqual(registry.set(second.name, for: second.token), .inserted)
+        XCTAssertEqual(registry.marks, [second, first])
+        XCTAssertEqual(registry.rekey(from: second.token, to: first.token), .rekeyed)
+        XCTAssertEqual(registry.marks, [WindowMark(name: second.name, token: first.token), first])
+        XCTAssertEqual(registry.remove(second.name), .removed)
+        XCTAssertEqual(registry.marks, [first])
+        registry.retire(first.token)
+        XCTAssertTrue(registry.marks.isEmpty)
+        XCTAssertEqual(before, [first])
     }
 }

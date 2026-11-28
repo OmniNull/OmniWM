@@ -20,16 +20,32 @@ struct HotkeySettingsView: View {
 
     var body: some View {
         let groups = HotkeySettingsDisplayModel.search(searchText, bindings: settings.hotkeyBindings)
+        let scriptBindings = HotkeySettingsDisplayModel.search(
+            searchText,
+            scriptBindings: controller.configScript?.acceptedBindings ?? []
+        )
+        let scriptCommands = HotkeySettingsDisplayModel.search(
+            searchText,
+            scriptCommands: controller.configScript?.acceptedCommands ?? []
+        )
         let shiftedCharacters = SecureInputShortcutRisk.currentLayoutShiftedCharacters()
         let hotkeyMouseButtons = OverviewInputSettingsValidation.hotkeyMouseButtons(settings.hotkeyBindings)
         let modeKeyFailures = KeyboardModeTable(bindings: settings.hotkeyBindings).failures
-        let modeLeaderAssigned = settings.hotkeyBindings.contains(where: Self.isAssignedModeLeader)
+        let modeLeaderAssigned = Self.hasAssignedModeLeader(
+            settings.hotkeyBindings,
+            scriptBindings: controller.configScript?.effectiveBindings ?? []
+        )
         let paletteShortcuts = PaletteShortcuts.current()
         HotkeySettingsPage(
             subtitle: String(
                 localized: "Search commands, edit shortcuts, and review registration problems without leaving the settings window."
             )
         ) {
+            if let diagnostic = controller.configScriptDiagnostic {
+                Section {
+                    Text(verbatim: diagnostic).textSelection(.enabled)
+                }
+            }
             Section("Controls") {
                 LabeledContent("System Hyper Trigger") {
                     Picker("System Hyper Trigger", selection: systemHyperTriggerBinding) {
@@ -53,6 +69,7 @@ struct HotkeySettingsView: View {
                     .accessibilityLabel("System Hyper trigger")
                     .accessibilityValue(settings.systemHyperTrigger.humanReadableString)
                 }
+                .settingsField(.generalSystemHyperTrigger)
                 if let hyperTriggerError {
                     SettingsCaption(hyperTriggerError)
                 }
@@ -75,6 +92,7 @@ struct HotkeySettingsView: View {
                         controller.updateHotkeyBindings(settings.hotkeyBindings, force: true)
                     }
                 }
+                .settingsField(.generalHyperKeyModifiers)
                 SettingsCaption(localized:
                     "Modifiers that make up the Hyper chord. Unchecked modifiers stay free to combine with Hyper in shortcuts, such as Hyper+Shift when Shift is excluded."
                 )
@@ -92,15 +110,21 @@ struct HotkeySettingsView: View {
 
                 Toggle("Pause Palette Paste During Secure Input", isOn: $settings.pausePalettePasteDuringSecureInput)
                     .id("Pause Palette Paste During Secure Input")
+                    .settingsField(.generalPausePalettePasteDuringSecureInput)
                 SettingsCaption(localized:
                     "While macOS Secure Input is on, the command palette doesn’t paste clipboard entries. Turn off if an app holds Secure Input in the background. Keyboard modes and shortcuts marked “Paused during Secure Input” stay paused either way."
                 )
+
+                Toggle("Automatically Show Secure Input Explanation", isOn: $settings.showSecureInputExplanation)
+                    .id("Automatically Show Secure Input Explanation")
+                    .settingsField(.generalShowSecureInputExplanation)
 
                 LabeledContent("Defaults") {
                     Button("Reset to Defaults", role: .destructive) {
                         confirmsResetToDefaults = true
                     }
                     .id("Reset to Defaults")
+                    .settingsField(.hotkeys)
                 }
             }
             .id("Controls")
@@ -134,12 +158,23 @@ struct HotkeySettingsView: View {
                 )
                 SettingsCaption(HotkeyBindingRow.secureInputTip)
 
-                if groups.isEmpty {
+                if groups.isEmpty, scriptBindings.isEmpty, scriptCommands.isEmpty {
                     Text("No matching hotkeys.")
                         .foregroundStyle(.secondary)
                 }
             }
             .id("Shortcuts")
+
+            if !scriptBindings.isEmpty {
+                ScriptShortcutSection(
+                    bindings: scriptBindings,
+                    masked: controller.configScript?.maskedBindingChords ?? []
+                )
+            }
+
+            if !scriptCommands.isEmpty {
+                ScriptCommandSection(commands: scriptCommands)
+            }
 
             ForEach(groups) { group in
                 Section(group.category.localizedDisplayName) {
@@ -149,8 +184,8 @@ struct HotkeySettingsView: View {
                             recordingTarget: $recordingTarget,
                             failureReason: controller.hotkeyRegistrationFailures[binding.command],
                             modeKeyFailure: modeKeyFailures[binding.command],
-                            showsModeKey: Self
-                                .acceptsModeKey(binding) && (modeLeaderAssigned || binding.modeKey != nil),
+                            showsModeKey: KeyboardModeTable
+                                .isEligible(binding.command) && (modeLeaderAssigned || binding.modeKey != nil),
                             pausedDuringSecureInput: SecureInputShortcutRisk.isPaused(
                                 binding.binding,
                                 hyperTriggerConfigured: settings.systemHyperTrigger != .none,
@@ -158,6 +193,9 @@ struct HotkeySettingsView: View {
                                 shiftedCharacters: shiftedCharacters
                             ),
                             paletteShortcutNotes: paletteShortcuts.collisions(with: binding.binding).map(\.note),
+                            scriptOverrides: settings.configScriptShortcutConflicts?.overrides.compactMap {
+                                $0.bindingID == binding.id ? $0.field : nil
+                            } ?? [],
                             isHyperActive: {
                                 controller.isHyperTriggerActive
                             },
@@ -222,7 +260,9 @@ struct HotkeySettingsView: View {
     private var isRecordingOrDrafting: Bool {
         recordingTarget != nil
     }
+}
 
+extension HotkeySettingsView {
     private func startChordRecording(for actionId: String) {
         recordingTarget = .chord(actionId)
     }
@@ -301,9 +341,7 @@ struct HotkeySettingsView: View {
     private func syncHotkeyRecordingState() {
         controller.setHotkeyRecordingActive(isRecordingOrDrafting)
     }
-}
 
-extension HotkeySettingsView {
     private var systemHyperTriggerBinding: Binding<SystemHyperTrigger> {
         Binding(
             get: { settings.systemHyperTrigger },
@@ -333,14 +371,12 @@ extension HotkeySettingsView {
         return (defaultPauseTimeoutChoices + [current]).sorted()
     }
 
-    private static func isAssignedModeLeader(_ binding: HotkeyBinding) -> Bool {
-        (binding.command == .keyboardMode(.beginPrefix) || binding.command == .keyboardMode(.toggleWindowMode))
-            && !binding.binding.isUnassigned
-    }
-
-    private static func acceptsModeKey(_ binding: HotkeyBinding) -> Bool {
-        if case .keyboardMode = binding.command { return false }
-        return true
+    static func hasAssignedModeLeader(_ configured: [HotkeyBinding], scriptBindings: [HotkeyBinding]) -> Bool {
+        func isAssigned(_ binding: HotkeyBinding) -> Bool {
+            (binding.command == .keyboardMode(.beginPrefix) || binding.command == .keyboardMode(.toggleWindowMode))
+                && !binding.binding.isUnassigned
+        }
+        return configured.contains(where: isAssigned) || scriptBindings.contains(where: isAssigned)
     }
 
     private var keyboardModesSection: some View {
@@ -362,6 +398,7 @@ extension HotkeySettingsView {
                 .labelsHidden()
                 .frame(minWidth: 160)
             }
+            .settingsField(.keyboardModesPauseTimeoutSeconds)
             SettingsCaption(
                 localized: "While paused, only Pause or Resume Shortcuts and Leave Keyboard Mode keep working."
             )
@@ -412,5 +449,22 @@ extension HotkeySettingsView {
                 controller.updateKeyboardModeSettings()
             }
         )
+    }
+}
+
+private struct ScriptCommandSection: View {
+    let commands: [ConfigScriptNamedCommand]
+
+    var body: some View {
+        Section(HotkeyCategory.script.localizedDisplayName) {
+            ForEach(commands, id: \.name) { command in
+                LabeledContent {
+                    Text(verbatim: command.sourceLocation)
+                } label: {
+                    Text(verbatim: command.name)
+                }
+                .textSelection(.enabled)
+            }
+        }
     }
 }

@@ -30,7 +30,10 @@ final class WorkspaceBarPanelPolicyTests: XCTestCase {
         XCTAssertEqual(island.panel.level.rawValue, NSWindow.Level.statusBar.rawValue + 1)
         XCTAssertEqual(island.panel.collectionBehavior, [.canJoinAllSpaces, .stationary])
 
-        island.applySettings(resolved: makeResolved(notchMode: .off, windowLevel: .floating), monitor: monitor)
+        island.applySettings(
+            resolved: makeResolved(notchMode: .off, windowLevel: .floating, position: .belowMenuBar),
+            monitor: monitor
+        )
         XCTAssertEqual(island.panel.level, .floating)
         XCTAssertEqual(island.panel.collectionBehavior, [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary])
     }
@@ -48,13 +51,15 @@ final class WorkspaceBarPanelPolicyTests: XCTestCase {
                 motionPolicy: MotionPolicy(animationsEnabled: false)
             ),
             resolved: resolved,
-            monitor: monitor
+            monitor: monitor,
+            appearance: nil
         )
     }
 
     private func makeResolved(
         notchMode: WorkspaceBarNotchMode,
-        windowLevel: WorkspaceBarWindowLevel
+        windowLevel: WorkspaceBarWindowLevel,
+        position: WorkspaceBarPosition = .overlappingMenuBar
     ) -> ResolvedBarSettings {
         ResolvedBarSettings(
             enabled: true,
@@ -67,7 +72,7 @@ final class WorkspaceBarPanelPolicyTests: XCTestCase {
             notchMode: notchMode,
             notchActiveZoneWidth: 180,
             systemStatsButton: false,
-            position: .overlappingMenuBar,
+            position: position,
             windowLevel: windowLevel,
             height: 24,
             backgroundOpacity: 0.6,

@@ -26,10 +26,15 @@ Revealed windows are ordinary floating windows: whether clicking something under
 
 **Unreleased — available when building from `main`.** An [App Rule](/features/app-rules/#rule-destination) with a **Scratchpad** destination adds each matching window to that slot when OmniWM starts managing it. The rule names the slot by number, not by label:
 
-```toml
-[[appRules]]
-bundleId = "com.apple.TextEdit"
-scratchpad = 1
+```lua
+return {
+    appRules = {
+        {
+            bundleId = "com.apple.TextEdit",
+            scratchpad = 1,
+        },
+    },
+}
 ```
 
 - **Hidden slot:** the new window is parked and the slot stays hidden. Focus stays on, or returns to, the window you were using when it's still on screen; otherwise OmniWM focuses another window, if there is one. The new window can show on screen for a moment before it's parked. If the new window is focused when it arrives, OmniWM reveals the slot instead, as if you clicked the window's icon in the slot's pill, and the window is never parked.
@@ -45,12 +50,17 @@ Remove any script that calls `omniwmctl command scratchpad assign` or `omniwmctl
 
 ## Workspace-bar pills and labels
 
-Each non-empty slot gets a pill in the [workspace bar](/features/workspace-bar/) showing its name and its windows' icons; clicking the pill toggles that scratchpad. Slots are identified by number everywhere, and an optional label replaces the number in the workspace bar and in `omniwmctl` output. Labels live in `settings.toml` (see [Configuration](/config/configuration/)):
+Each non-empty slot gets a pill in the [workspace bar](/features/workspace-bar/) showing its name and its windows' icons; clicking the pill toggles that scratchpad. Slots are identified by number everywhere, and an optional label replaces the number in the workspace bar and in `omniwmctl` output. Labels live in `settings.luau` (see [Configuration](/config/configuration/)):
 
-```toml
-[scratchpads.labels]
-1 = "term"
-3 = "COMMS"
+```lua
+return {
+    scratchpads = {
+        labels = {
+            ["1"] = "term",
+            ["3"] = "COMMS",
+        },
+    },
+}
 ```
 
 ## CLI

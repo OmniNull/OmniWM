@@ -5,7 +5,6 @@ import Foundation
 import Observation
 @testable import OmniWM
 import Synchronization
-import TOML
 import XCTest
 
 @MainActor
@@ -26,18 +25,16 @@ extension ShellDesktopEditorTests {
         let configuration = ShellConfigurationCoordinator(shellDirectory: shell)
         try await configuration.ensureLoaded()
         try Data("""
-        profile = "default"
-        [weather]
-        city = "Toronto"
-        [profiles.default.workspaceBar]
-        height = 34
-        [profiles.lake.workspaceBar]
-        height = 40
-        [profiles.lake.weather]
-        city = "Paris"
-        [profiles.nocturne.workspaceBar]
-        height = 46
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profile = "default",
+            weather = { city = "Toronto" },
+            profiles = {
+                default = { workspaceBar = { height = 34 } },
+                lake = { workspaceBar = { height = 40 }, weather = { city = "Paris" } },
+                nocturne = { workspaceBar = { height = 46 } },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         try await configuration.refresh()
         let settings = SettingsStore(
             persistence: SettingsFilePersistence(
@@ -57,18 +54,15 @@ extension ShellDesktopEditorTests {
         return Fixture(shell: shell, configuration: configuration, editor: editor, saves: saves)
     }
 
-    func document(_ fixture: Fixture) throws -> [String: TOMLNode] {
-        try TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
-        )
+    func document(_ fixture: Fixture) throws -> [String: SettingsLuauValue] {
+        try ShellLuauFixture.table(at: fixture.shell.appendingPathComponent("shell.luau"))
     }
 
-    func outsideLake(_ document: [String: TOMLNode]) -> [String: TOMLNode] {
+    func outsideLake(_ document: [String: SettingsLuauValue]) -> [String: SettingsLuauValue] {
         var document = document
-        if case var .table(profiles)? = document["profiles"] {
+        if case var .record(profiles)? = document["profiles"] {
             profiles["lake"] = nil
-            document["profiles"] = .table(profiles)
+            document["profiles"] = .record(profiles)
         }
         return document
     }

@@ -68,22 +68,27 @@ struct ShellPackage {
     std::vector<uint16_t> generations;
 };
 
-}
-
-struct omni_vm {
+struct ScriptRuntime {
     lua_State *main = nullptr;
     lua_State *thread = nullptr;
     size_t limit = 0;
     size_t used = 0;
-    uint32_t loads = 0;
+    size_t peak = 0;
+    uint64_t allocations = 0;
     uint64_t budget = 0;
     uint64_t callStartCPU = 0;
     uint64_t lastCallCPU = 0;
-    uint32_t encodeSteps = 0;
     bool inCall = false;
     bool latched = false;
     std::atomic<bool> pending{false};
     dispatch_source_t timer = nullptr;
+};
+
+}
+
+struct omni_vm : omni_detail::ScriptRuntime {
+    uint32_t loads = 0;
+    uint32_t encodeSteps = 0;
     omni_localizer localizer = nullptr;
     void *localizerContext = nullptr;
     omni_release localizerRelease = nullptr;
@@ -114,14 +119,20 @@ inline void captureCount(lua_State *L, uint64_t omni_capture_stats::*field, uint
 }
 
 struct CallScope {
-    omni_vm *vm;
+    ScriptRuntime *vm;
 
-    CallScope(omni_vm *vm, uint64_t budget);
+    CallScope(ScriptRuntime *vm, uint64_t budget);
+    CallScope(omni_vm *vm, uint64_t budget) : CallScope(static_cast<ScriptRuntime *>(vm), budget) {
+        vm->encodeSteps = 0;
+    }
     ~CallScope();
 };
 
-omni_status finish(omni_vm *vm, lua_State *L, int status, char *error, size_t capacity);
-omni_status enforceBudget(omni_vm *vm, omni_status status, char *error, size_t capacity);
+lua_State *openRuntime(ScriptRuntime &vm, size_t limit, void *userdata, bool trackPeak);
+void sandboxRuntime(ScriptRuntime &vm);
+void closeRuntime(ScriptRuntime &vm) noexcept;
+omni_status finish(ScriptRuntime *vm, lua_State *L, int status, char *error, size_t capacity);
+omni_status enforceBudget(ScriptRuntime *vm, omni_status status, char *error, size_t capacity);
 void copyMessage(const char *message, char *error, size_t capacity);
 void copyValueMessage(lua_State *L, int index, char *error, size_t capacity);
 uint64_t threadCPU() noexcept;
@@ -139,7 +150,10 @@ void markTimeReads(lua_State *L);
 void installComponentHost(lua_State *L, ShellPackage &package);
 int assetReference(lua_State *L);
 bool encodeValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t limit, std::string &error);
-bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t limit, std::string &error);
+struct NativeBudgetExceeded {};
+enum class BudgetTrip : bool { raiseLuaError, throwNative };
+bool encodeJSONValue(lua_State *L, int index, std::vector<uint8_t> &output, size_t limit, std::string &error, bool shellNumbers = false,
+    BudgetTrip trip = BudgetTrip::raiseLuaError);
 bool decodeJSONValue(lua_State *L, const char *bytes, size_t length, bool readonly, std::string &error);
 bool isJSONNull(lua_State *L, int index);
 void pushJSONNull(lua_State *L);

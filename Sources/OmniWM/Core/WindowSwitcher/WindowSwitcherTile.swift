@@ -66,7 +66,6 @@ final class WindowSwitcherTile: NSView {
         toolTip = item.title
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
     }

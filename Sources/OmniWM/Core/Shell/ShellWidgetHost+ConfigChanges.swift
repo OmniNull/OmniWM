@@ -10,10 +10,14 @@ extension ShellWidgetHost {
     func reloadConfig() {
         guard configurationWriter?.deferReloadIfWriting() != true else { return }
         var problems: [String] = []
-        let loaded = ShellConfig.load(shellDirectory: shellDirectory, problems: &problems)
-        configProblems = problems
-        guard let next = loaded else { return }
-        applyConfig(next, problems: problems)
+        var attempted = Set<URL>()
+        let loaded = ShellConfig
+            .load(shellDirectory, skippingBrokenLayers: false, problems: &problems) { attempted = $0 }
+        if failedConfigHelpers != attempted {
+            failedConfigHelpers = attempted
+            watchFiles()
+        }
+        applyConfig(loaded ?? config, problems: problems)
     }
 
     func applyConfig(_ next: ShellConfig, problems: [String] = []) {
@@ -26,6 +30,7 @@ extension ShellWidgetHost {
         let previous = config
         if next.profile != previous.profile { closeHiddenBarMenu() }
         config = next
+        if next.helperFiles != previous.helperFiles { watchFiles() }
         refreshBarShaders()
         updateConfiguredComponents(next, from: previous)
         onConfigChange?(next)

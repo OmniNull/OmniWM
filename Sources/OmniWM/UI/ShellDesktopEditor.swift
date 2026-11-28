@@ -287,7 +287,8 @@ final class ShellDesktopEditor {
             snapshot = nil
             await reload()
         case .useStyle:
-            do { _ = try await configuration.selectProfile(selectedStyle) } catch {
+            do { _ = try await configuration.selectProfile(selectedStyle) } catch is CancellationError { return false
+            } catch {
                 problem = error.localizedDescription
                 return false
             }

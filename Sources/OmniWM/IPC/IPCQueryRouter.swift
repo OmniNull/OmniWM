@@ -3,6 +3,7 @@
 
 import AppKit
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 @MainActor
@@ -40,8 +41,17 @@ final class IPCQueryRouter {
     }
 
     func shellWidgetsResult() -> IPCShellWidgetsQueryResult {
-        controller.workspaceBarManager.shellHost?.widgetReport
-            ?? IPCShellWidgetsQueryResult(profile: ShellDefaults.profile, widgets: [])
+        let report = controller.workspaceBarManager.shellHost?.widgetReport ?? .empty
+        return IPCShellWidgetsQueryResult(
+            profile: report.profile,
+            widgets: report.widgets.map {
+                IPCShellWidget(
+                    name: $0.name, source: $0.source, state: $0.state.rawValue,
+                    error: $0.error, placements: $0.placements
+                )
+            },
+            problems: report.problems
+        )
     }
 
     func workspaceBarResult() -> IPCWorkspaceBarQueryResult {
@@ -221,6 +231,7 @@ final class IPCQueryRouter {
             windowActions: IPCAutomationManifest.windowActionDescriptors,
             windowMarkActions: IPCAutomationManifest.windowMarkActionDescriptors,
             windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
+            dwindleActions: IPCAutomationManifest.dwindleActionDescriptors,
             shellActions: IPCAutomationManifest.shellActionDescriptors
         )
     }
@@ -243,9 +254,57 @@ final class IPCQueryRouter {
             windowActions: IPCAutomationManifest.windowActionDescriptors,
             windowMarkActions: IPCAutomationManifest.windowMarkActionDescriptors,
             windowGatherActions: IPCAutomationManifest.windowGatherActionDescriptors,
+            dwindleActions: IPCAutomationManifest.dwindleActionDescriptors,
             shellActions: IPCAutomationManifest.shellActionDescriptors,
             subscriptions: IPCAutomationManifest.subscriptionDescriptors
         )
+    }
+}
+
+extension IPCQueryRouter {
+    func dwindleTreeResult() -> IPCDwindleTreeQueryResult {
+        guard let workspace = controller.interactionWorkspaceProjection().workspace else {
+            return IPCDwindleTreeQueryResult(workspace: nil, tree: nil, tooLarge: false)
+        }
+        let reference = IPCWorkspaceRef(descriptor: workspace, settings: controller.settings)
+        let manager = controller.workspaceManager
+        let engine: DwindleLayoutEngine
+        switch manager.dwindleTreeAccess(for: workspace.id) {
+        case .unavailable:
+            return IPCDwindleTreeQueryResult(workspace: reference, tree: nil, tooLarge: false)
+        case .tooLarge:
+            return IPCDwindleTreeQueryResult(workspace: reference, tree: nil, tooLarge: true)
+        case let .ready(ready):
+            engine = ready
+        }
+        let windows = manager.windowQueries
+        var nodes: [IPCDwindleNode] = []
+        var hasher = Hasher()
+        hasher.combine(sessionToken)
+        let read = engine.readTree(
+            in: workspace.id, hasher: hasher,
+            admission: { windows.tiledAdmission(of: $0, in: workspace.id) },
+            split: { orientation, ratio in
+                let axis: IPCResizeAxis = orientation == .vertical ? .vertical : .horizontal
+                nodes.append(IPCDwindleNode(orientation: axis, ratio: ratio))
+                return true
+            },
+            leaf: { tile, active in
+                let ids = tile.map { IPCWindowOpaqueID.encode(token: $0.token, sessionToken: sessionToken) }
+                nodes.append(IPCDwindleNode(members: ids, active: active + 1))
+                return true
+            }
+        )
+        guard case let .read(preselection, revision) = read else {
+            return IPCDwindleTreeQueryResult(workspace: reference, tree: nil, tooLarge: false)
+        }
+        let tree = IPCDwindleTree(
+            workspaceId: workspace.id.uuidString,
+            revision: String(format: "%016llX", revision),
+            preselect: preselection.map(IPCDirection.init(direction:)),
+            nodes: nodes
+        )
+        return IPCDwindleTreeQueryResult(workspace: reference, tree: tree, tooLarge: false)
     }
 }
 

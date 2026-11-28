@@ -200,6 +200,15 @@ enum AXWindowService {
     }
 
     @MainActor
+    static func withCachedTitle<R>(windowId: UInt32, _ read: (borrowing String?) -> R) -> R {
+        guard let index = titleCache.index(forKey: windowId) else { return read(nil) }
+        func project(_ title: inout String?) -> R {
+            read(title)
+        }
+        return project(&titleCache.values[index])
+    }
+
+    @MainActor
     static func titlePreferFast(windowId: UInt32) -> String? {
         if let cached = titleCache[windowId] {
             return cached
@@ -225,7 +234,7 @@ enum AXWindowService {
     }
 
     @MainActor
-    private static func storeTitleCacheEntry(windowId: UInt32, title: String?) {
+    static func storeTitleCacheEntry(windowId: UInt32, title: String?) {
         if titleCache.index(forKey: windowId) == nil {
             titleInsertionOrder.append(windowId)
         }

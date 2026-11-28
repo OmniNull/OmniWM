@@ -22,6 +22,7 @@ public enum IPCRequestKind: String, Codable, Equatable, Sendable {
     case window
     case windowMark = "window-mark"
     case windowGather = "window-gather"
+    case dwindle
     case shell
     case subscribe
 }
@@ -37,6 +38,7 @@ public enum IPCResponseKind: String, Codable, Equatable, Sendable {
     case window
     case windowMark = "window-mark"
     case windowGather = "window-gather"
+    case dwindle
     case shell
     case subscribe
     case error
@@ -63,6 +65,8 @@ public enum IPCResponseKind: String, Codable, Equatable, Sendable {
             self = .windowMark
         case .windowGather:
             self = .windowGather
+        case .dwindle:
+            self = .dwindle
         case .shell:
             self = .shell
         case .subscribe:
@@ -105,50 +109,17 @@ public enum IPCErrorCode: String, Codable, Equatable, Sendable, Error {
     case invalidMark = "invalid_mark"
     case ineligibleWindow = "ineligible_window"
     case doesNotFit = "does_not_fit"
+    case staleRevision = "stale_revision"
+    case wrongWorkspace = "wrong_workspace"
+    case membershipMismatch = "membership_mismatch"
+    case focusConflict = "focus_conflict"
+    case busy
     case internalError = "internal_error"
-}
-
-public enum IPCDirection: String, Codable, Equatable, Sendable {
-    case left
-    case right
-    case up
-    case down
-}
-
-public enum IPCResizeAxis: String, Codable, Equatable, Sendable {
-    case horizontal
-    case vertical
 }
 
 public enum IPCWindowMode: String, Codable, Equatable, Sendable {
     case tiling
     case floating
-}
-
-public enum IPCWorkspaceLayout: String, Codable, Equatable, Sendable {
-    case defaultLayout = "default"
-    case niri
-    case dwindle
-}
-
-public enum IPCWindowSwitcherDirection: String, Codable, CaseIterable, Equatable, Sendable {
-    case next
-    case previous
-}
-
-public enum IPCWindowSwitcherScope: String, Codable, CaseIterable, Equatable, Sendable {
-    case activeWorkspace = "active-workspace"
-    case visibleWorkspaces = "visible-workspaces"
-    case allWorkspaces = "all-workspaces"
-}
-
-public enum IPCCommandPaletteMode: String, Codable, CaseIterable, Equatable, Sendable {
-    case windows
-    case menu
-    case clipboard
-    case commands
-    case applications
-    case files
 }
 
 public enum IPCHiddenReason: String, Codable, Equatable, Sendable {
@@ -184,15 +155,10 @@ public enum IPCDisplayOrientation: String, Codable, Equatable, Sendable {
     case vertical
 }
 
-public enum IPCRuleLayout: String, Codable, Equatable, Sendable {
+public enum IPCRuleLayout: String, Codable, CaseIterable, Equatable, Sendable {
     case auto
     case tile
     case float
-}
-
-public enum IPCResizeOperation: String, Codable, Equatable, Sendable {
-    case grow
-    case shrink
 }
 
 public struct IPCWorkspaceRef: Codable, Equatable, Sendable {

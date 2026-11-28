@@ -3,6 +3,7 @@
 
 import CoreGraphics
 import Foundation
+import OmniWMLayerCorners
 
 extension SkyLight {
     private struct WindowBoundsQuery: Sendable {
@@ -112,6 +113,19 @@ extension SkyLight {
         return MainThreadAXSpanTrace.measure(.windowServerBatchQuery, count: windowIds.count) {
             windowInfoQuery(windowIds).read(connectionId: getMainConnectionID())
         } succeeded: { $0 != nil }
+    }
+
+    func onScreenWindowRanksFrontToBack() -> [UInt32: Int] {
+        guard let windows = omniwm_copy_on_screen_window_ids() else { return [:] }
+        let count = CFArrayGetCount(windows)
+        var ranks: [UInt32: Int] = [:]
+        ranks.reserveCapacity(count)
+        for rank in 0 ..< count {
+            let value = CFArrayGetValueAtIndex(windows, rank)
+            guard let id = UInt32(exactly: UInt(bitPattern: value)), ranks[id] == nil else { continue }
+            ranks[id] = rank
+        }
+        return ranks
     }
 
     func hasOverlappingWindowsAbove(_ windowId: UInt32, among candidates: Set<UInt32>) -> Bool? {

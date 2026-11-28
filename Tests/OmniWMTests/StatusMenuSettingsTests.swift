@@ -126,8 +126,8 @@ final class StatusMenuSettingsTests: XCTestCase {
     }
 
     func testDisabledControlSwitchKeepsItsStoredChoice() {
-        withStatusMenuSettings { settings, _ in
-            let hidden = StatusMenuControl.bordersEnabled
+        let hidden = StatusMenuControl.bordersEnabled
+        withStatusMenuSettings(source: "return {statusMenu = {hiddenControls = {'\(hidden.rawValue)'}}}") { settings, _ in
             let shown = StatusMenuControl.workspaceBarEnabled
             let featureState = settings.borders.enabled
             settings.statusMenu.setControl(hidden.rawValue, isVisible: false)
@@ -151,8 +151,8 @@ final class StatusMenuSettingsTests: XCTestCase {
     }
 
     func testDisabledMenuItemSwitchKeepsItsStoredChoice() {
-        withStatusMenuSettings { settings, _ in
-            let hidden = StatusMenuItem.appRules
+        let hidden = StatusMenuItem.appRules
+        withStatusMenuSettings(source: "return {statusMenu = {hiddenMenuItems = {'\(hidden.rawValue)'}}}") { settings, _ in
             let shown = StatusMenuItem.settings
             settings.statusMenu.setMenuItem(hidden, isVisible: false)
             settings.statusMenu.setMenuItem(shown, isVisible: true)
@@ -179,7 +179,7 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
     func testChangingStatusMenuSettingsSchedulesASave() throws {
         try withStatusMenuSettings { settings, fileURL in
             func persisted() throws -> SettingsExport.StatusMenu {
-                try SettingsTOMLCodec.decode(Data(contentsOf: fileURL)).statusMenu
+                try SettingsLuauDocument(Data(contentsOf: fileURL)).export.statusMenu
             }
 
             var expected = SettingsExport.StatusMenu.defaults()
@@ -188,8 +188,9 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
             XCTAssertEqual(try persisted(), expected)
 
             let control = StatusMenuControl.bordersEnabled.rawValue
-            expected.hiddenControls = [control]
             settings.statusMenu.setControl(control, isVisible: false)
+            expected.hiddenControls = [control]
+            XCTAssertNil(settings.configNotice)
             XCTAssertEqual(try persisted(), expected)
 
             expected.showControls = !(try XCTUnwrap(expected.showControls))
@@ -201,14 +202,15 @@ final class StatusMenuSettingsPersistenceTests: XCTestCase {
             XCTAssertEqual(try persisted(), expected)
 
             let item = StatusMenuItem.appRules
-            expected.hiddenMenuItems = [item.rawValue]
             settings.statusMenu.setMenuItem(item, isVisible: false)
+            expected.hiddenMenuItems = [item.rawValue]
+            XCTAssertNil(settings.configNotice)
             XCTAssertEqual(try persisted(), expected)
         }
     }
 }
 
-final class StatusMenuSettingsTOMLTests: XCTestCase {
+final class StatusMenuSettingsLuauTests: XCTestCase {
     func testStatusMenuDefaultsRoundTrip() throws {
         let export = SettingsExport.defaults()
         let defaults = SettingsExport.StatusMenu.defaults()
@@ -216,11 +218,10 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
         XCTAssertEqual(export.statusMenu.showControlHelp, defaults.showControlHelp)
         XCTAssertEqual(export.statusMenu.hiddenControls, defaults.hiddenControls)
 
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         let text = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(text.contains("[statusMenu]"), text)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).statusMenu, export.statusMenu)
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: data), [])
+        XCTAssertTrue(text.contains("statusMenu = {"), text)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).statusMenu, export.statusMenu)
     }
 
     func testHiddenControlsRoundTrip() throws {
@@ -233,8 +234,8 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
         export.statusMenu.hiddenControls = controls
         export.statusMenu.hiddenMenuItems = items
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.statusMenu, export.statusMenu)
         XCTAssertEqual(decoded.statusMenu.hiddenControls, controls)
         XCTAssertEqual(decoded.statusMenu.hiddenMenuItems, items)
@@ -242,38 +243,31 @@ final class StatusMenuSettingsTOMLTests: XCTestCase {
     }
 
     func testRemovedAppMenuKeyIsUnknown() throws {
-        let key = "showAppMenu"
-        let table = "statusMenu"
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        let input = canonical.replacingOccurrences(of: "[\(table)]", with: "[\(table)]\n\(key) = true")
-        XCTAssertEqual(SettingsTOMLCodec.unknownKeyPaths(in: Data(input.utf8)), ["\(table).\(key)"])
+        let source = Data("return { statusMenu = { showAppMenu = true } }".utf8)
+        XCTAssertThrowsError(try SettingsLuauDocument(source)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("statusMenu.showAppMenu"))
+        }
     }
 
-    func testOmittedStatusMenuTableUsesDefaultsWithoutMigration() throws {
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(.defaults()), as: UTF8.self)
-        var lines = canonical.components(separatedBy: "\n")
-        guard let start = lines.firstIndex(where: { $0 == "[statusMenu]" }) else {
-            return XCTFail("canonical config is missing the statusMenu table")
-        }
-        var end = start + 1
-        while end < lines.count, !lines[end].hasPrefix("[") {
-            end += 1
-        }
-        lines.removeSubrange(start ..< end)
-
-        let result = try SettingsTOMLCodec.decodeForLoad(Data(lines.joined(separator: "\n").utf8))
-        XCTAssertEqual(result.export.statusMenu, SettingsExport.StatusMenu.defaults())
-        XCTAssertNil(result.migration)
-        XCTAssertNil(result.migratedData)
+    func testOmittedStatusMenuTableUsesDefaults() throws {
+        var fields = try SettingsLuauFixture.fields()
+        fields.removeValue(forKey: "statusMenu")
+        XCTAssertEqual(try SettingsLuauFixture.decode(SettingsLuauFixture.source(fields)).statusMenu, .defaults())
     }
 }
 
 @MainActor
-private func withStatusMenuSettings(_ body: (SettingsStore, URL) throws -> Void) rethrows {
+private func withStatusMenuSettings(source: String? = nil, _ body: (SettingsStore, URL) throws -> Void) rethrows {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("OmniWMStatusMenuSettingsTests-\(UUID().uuidString)", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let configDirectory = root.appendingPathComponent("config", isDirectory: true)
+    if let source {
+        do {
+            try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+            try Data(source.utf8).write(to: configDirectory.appendingPathComponent(SettingsFilePersistence.fileName))
+        } catch { return XCTFail("Could not create the settings fixture: \(error)") }
+    }
     let settings = SettingsStore(
         persistence: SettingsFilePersistence(
             directory: configDirectory,
@@ -286,5 +280,5 @@ private func withStatusMenuSettings(_ body: (SettingsStore, URL) throws -> Void)
         ),
         autosaveEnabled: true
     )
-    try body(settings, configDirectory.appendingPathComponent("settings.toml"))
+    try body(settings, settings.settingsFileURL)
 }

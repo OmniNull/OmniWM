@@ -13,51 +13,81 @@ Choose **Default**, or **Lake** once it is installed, in **Settings > Styles & W
 
 Lake’s **Island** tab provides **Add Widget…**, per-instance enable switches, drag to reorder, and **Remove**. Selecting an instance opens its options editor, which assigns it to Automatic, Main, Side, or Expanded Only placement and exposes its declared options. **Appearance** controls the island’s shape and colors; **Actions** and **Hover and Swipe** control click, right-click, hover, and swipe behavior, with motion tuning under **Advanced Motion**. **Placement** chooses displays, native fullscreen behavior, and advanced surface dimensions.
 
-Default’s Focus Ribbon builds its content automatically from the active workspace and focused window. Its Island tab explains that behavior; it does not use Lake’s component catalog. Both islands can be configured while disabled and run without the Workspace Bar. The native settings file stores the master switch as `[island] enabled = true`; placement belongs to the selected shell profile:
+Default’s Focus Ribbon builds its content automatically from the active workspace and focused window. Its Island tab explains that behavior; it does not use Lake’s component catalog. Both islands can be configured while disabled and run without the Workspace Bar. The native settings file stores the master switch as `island = { enabled = true }`; placement belongs to the selected shell profile:
 
-```toml
-# In a profile folder's shell.toml:
-[island]
-root = "my-island"
-displays = "notch"
-width = 760
-height = 300
-fullscreen = "hide"
+```lua
+-- In a profile folder's shell.luau:
+return {
+    island = {
+        root = "my-island",
+        displays = "notch",
+        width = 760,
+        height = 300,
+        fullscreen = "hide",
+    },
+}
 ```
 
-In the user shell file, use `[profiles.<profile>.island]` instead. An absent island table places no island. `root` defaults to `focus-ribbon`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Set `drawsSystemStats = true` when the island root draws its own system stats button, so the System Stats Button setting doesn't also add one to the Workspace Bar. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
+In the user shell file, use `profiles.<profile>.island` instead. An absent island table places no island. `root` defaults to `focus-ribbon`; that widget must exist in a configured widgets folder. `displays` accepts `notch`, `main`, or `all`. `fullscreen` accepts `hide` (default) or `show`. Set `drawsSystemStats = true` when the island root draws its own system stats button, so the System Stats Button setting doesn't also add one to the Workspace Bar. Width and height are the fixed panel envelope in points, from 1 to 8192, clamped to each display. Change the Luau tree's size to expand or collapse its contents; the window does not resize with those transitions.
 
 ## Reserve space for authored islands
 
-A profile can reserve window-layout space for an island through `[island.room]`. The reservation applies only while the island and Workspace Bar are enabled on a display included by the island's `displays` selector. Selecting a profile does not change those enable switches.
+A profile can reserve window-layout space for an island through `island.room`. The reservation applies only while the island and Workspace Bar are enabled on a display included by the island's `displays` selector. Selecting a profile does not change those enable switches.
 
-```toml
-[widgets.my-island]
-layout = "island"
-barSize = 1
-pins = []
-dockOverlap = false
-
-[island.room]
-setting = "layout"
-size = "barSize"
-
-[island.room.variants.island]
-top = { base = 8, scaled = 54, mode = "add" }
-dock = "bottom"
-
-[island.room.variants.frame]
-top = { base = 24, mode = "total", clear = "notch" }
-left = { base = 14, scaled = 62.1, mode = "total" }
-right = { base = 24, mode = "total" }
-bottom = { base = 24, mode = "total" }
-dock = "right"
-
-[island.room.dock]
-base = 23.8
-scaled = 45.9
-when = ["pins"]
-unless = "dockOverlap"
+```lua
+return {
+    widgets = {
+        ["my-island"] = {
+            layout = "island",
+            barSize = 1,
+            pins = {},
+            dockOverlap = false,
+        },
+    },
+    island = {
+        room = {
+            setting = "layout",
+            size = "barSize",
+            variants = {
+                island = {
+                    top = {
+                        base = 8,
+                        scaled = 54,
+                        mode = "add",
+                    },
+                    dock = "bottom",
+                },
+                frame = {
+                    top = {
+                        base = 24,
+                        mode = "total",
+                        clear = "notch",
+                    },
+                    left = {
+                        base = 14,
+                        scaled = 62.1,
+                        mode = "total",
+                    },
+                    right = {
+                        base = 24,
+                        mode = "total",
+                    },
+                    bottom = {
+                        base = 24,
+                        mode = "total",
+                    },
+                    dock = "right",
+                },
+            },
+            dock = {
+                base = 23.8,
+                scaled = 45.9,
+                when = { "pins" },
+                unless = "dockOverlap",
+            },
+        },
+    },
+}
 ```
 
 `setting` names a string setting on the configured island root; its value selects a named variant. `size` optionally names a numeric root setting, defaulting to 1 when absent. Each edge resolves to `floor(base + scaled * size + 0.5)` points; `base` and `scaled` default to zero. Values must resolve to finite nonnegative sizes. Unknown fields, invalid declarations and missing variants report a configuration problem and reserve no room.
@@ -88,25 +118,32 @@ The optional `lake` style draws its island in editable Luau. Its bar lanes remai
 
 These choices live in `widgets/lake/init.luau` and `lib/lake/intent.luau`, `policy.luau`, `slots.luau` and `motion.luau`. Replace them independently of `lib/lake/services/` to retain integrations. The profile requests gesture boundaries only; its UI does not run Luau for every pointer move. Native capture and automated tests do not establish perceived motion quality: hover dwell, press feel, trackpad direction and focus restoration still need a live check on the target display.
 
-Configure instances in the selected profile's `shell.toml`, or override the entire list under `[[profiles.lake.island.components]]` in your top-level `shell.toml`:
+Configure instances in the selected profile's `shell.luau`, or override the entire list under `profiles.lake.island.components` in your top-level `shell.luau`:
 
-```toml
-[[island.components]]
-id = "london"
-widget = "world-clock"
-zone = "Europe/London"
-label = "London"
-
-[[island.components]]
-id = "tokyo"
-widget = "world-clock"
-zone = "Asia/Tokyo"
-label = "Tokyo"
+```lua
+return {
+    island = {
+        components = {
+            {
+                id = "london",
+                widget = "world-clock",
+                zone = "Europe/London",
+                label = "London",
+            },
+            {
+                id = "tokyo",
+                widget = "world-clock",
+                zone = "Asia/Tokyo",
+                label = "Tokyo",
+            },
+        },
+    },
+}
 ```
 
 Each `id` has its own validated options and shared `instance.state`; `ctx.state` is separate for each display and placement. Disabling an instance runs its `deinit` hook. Editing options calls `options(instance, previous)` without restarting the root. Up to 64 configured instances share the root's VM.
 
-Each configured instance chooses an installed component package. Packages live in a widgets directory with `component.toml` metadata and `component.luau` views. The root discovers them through `ctx.data.components` and mounts a view with `ui.component`. View names and promotion policy belong to the root. The [component reference](/omnishell/reference/components-configuration/) covers manifests, lifecycle hooks, options and mount behavior.
+Each configured instance chooses an installed component package. Packages live in a widgets directory with `component.manifest.luau` metadata and `component.luau` views. The root discovers them through `ctx.data.components` and mounts a view with `ui.component`. View names and promotion policy belong to the root. The [component reference](/omnishell/reference/components-configuration/) covers manifests, lifecycle hooks, options and mount behavior.
 
 ## Customize the Lake profile
 
@@ -118,7 +155,7 @@ Region choices are lake's own policy: **Automatic** participates in the normal m
 
 These change the layer-rendered contents; the persistent island window retains its configured envelope. The fixed envelope clamps a requested content width that cannot fit.
 
-Root settings and their validation schema live in `widgets/lake/settings.toml`, while current values are saved in the selected profile's user configuration. The settings view is itself editable Luau in `lib/lake/settings.luau`.
+Root settings and their validation schema live in `widgets/lake/settings.luau`, while current values are saved in the selected profile's user configuration. The settings view is itself editable Luau in `lib/lake/settings.luau`.
 
 The native **Settings > Styles & Widgets > Island** editors provide the same declared widget options and profile controls without requiring the island to be enabled. Use **Advanced Motion** for native motion tuning and **Placement** for display scope and surface dimensions.
 
@@ -145,7 +182,7 @@ See [Components and configuration](/omnishell/reference/components-configuration
 
 ## Detachable widgets
 
-For authored roots, `[island] sizing = "display"` fits the island to its display. `ctx.data.island.usableRect` supplies local safe bounds outside the menu bar, notch and reserved workspace-bar band. The native preview uses representative display bounds, and fixed surface-size controls are hidden for display sizing. Use a fixed `ui.stack` with stable keyed child wrappers and the existing `dx`/`dy` layout offsets. Keep each component under the same wrapper and parent while changing placement.
+For authored roots, `island = { sizing = "display" }` fits the island to its display. `ctx.data.island.usableRect` supplies local safe bounds outside the menu bar, notch and reserved workspace-bar band. The native preview uses representative display bounds, and fixed surface-size controls are hidden for display sizing. Use a fixed `ui.stack` with stable keyed child wrappers and the existing `dx`/`dy` layout offsets. Keep each component under the same wrapper and parent while changing placement.
 
 A handle can declare `gesture.track.mode = "move"` or `"resize"`, a strict ancestor `target` key, `bounds`, `min`, and `max`. Resize also declares `edge` (`n`, `ne`, `e`, `se`, `s`, `sw`, `w`, or `nw`). Samples stay native. The handler receives `selected`, `began`, release `ended`, and `applied` or `cancelled` boundary events. On release, render `event.rect` on the target and set `manipulationCommit = event.transaction`. Persist only after the matching `applied` receipt. A callback acknowledgement alone does not confirm placement.
 

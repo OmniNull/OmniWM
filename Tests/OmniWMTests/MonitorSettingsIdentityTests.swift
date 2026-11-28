@@ -248,13 +248,13 @@ final class MonitorSettingsIdentityTests: XCTestCase {
                 innerGap: 4
             )
         ]
-        let validTOML = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
-        let malformedTOML = validTOML.replacingOccurrences(of: displayUUIDA, with: "not-a-uuid")
+        let validLuau = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
+        let malformedLuau = validLuau.replacingOccurrences(of: displayUUIDA, with: "not-a-uuid")
         let malformedOutput = Data(
             #"{"displayUUID":"not-a-uuid","displayId":2,"name":"Display"}"#.utf8
         )
 
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(malformedTOML.utf8)))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(malformedLuau.utf8)))
         XCTAssertThrowsError(try JSONDecoder().decode(OutputId.self, from: malformedOutput))
     }
 
@@ -421,12 +421,12 @@ final class MonitorSettingsIdentityTests: XCTestCase {
                 )
             ]
 
-            let data = try SettingsTOMLCodec.encode(export)
-            let toml = String(decoding: data, as: UTF8.self)
-            let decoded = try SettingsTOMLCodec.decode(data)
+            let data = try SettingsLuauDocument.initialSource(export)
+            let source = String(decoding: data, as: UTF8.self)
+            let decoded = try SettingsLuauFixture.decode(data)
 
-            XCTAssertEqual(toml.components(separatedBy: persistedKey).count - 1, 6)
-            XCTAssertFalse(toml.contains(absentKey))
+            XCTAssertEqual(source.components(separatedBy: persistedKey).count - 1, 6)
+            XCTAssertFalse(source.contains(absentKey))
             XCTAssertEqual(decoded.routing.arrangements.first?.monitors.first?.monitorDisplayUUID, uuid)
             XCTAssertEqual(decoded.monitorBarSettings.first?.monitorDisplayUUID, uuid)
             XCTAssertEqual(decoded.monitorOrientationSettings.first?.monitorDisplayUUID, uuid)
@@ -524,14 +524,11 @@ final class MonitorSettingsIdentityTests: XCTestCase {
             )
         ]
 
-        let data = try SettingsTOMLCodec.encode(
-            stable,
-            preservingUnknownKeysFrom: SettingsTOMLCodec.encode(legacy)
-        )
-        let toml = String(decoding: data, as: UTF8.self)
+        let data = try SettingsLuauFixture.editing(SettingsLuauDocument.initialSource(legacy), to: stable)
+        let source = String(decoding: data, as: UTF8.self)
 
-        XCTAssertTrue(toml.contains("monitorDisplayUUID = \"\(displayUUIDA)\""))
-        XCTAssertFalse(toml.contains("monitorDisplayId ="))
+        XCTAssertTrue(source.contains("monitorDisplayUUID = \"\(displayUUIDA)\""))
+        XCTAssertFalse(source.contains("monitorDisplayId ="))
     }
 
     func testCustomRoutingSeedsOnlyWhenNoArrangementCoversConnectedSet() {
@@ -811,15 +808,12 @@ final class MonitorSettingsIdentityTests: XCTestCase {
             )
         ]
 
-        let data = try SettingsTOMLCodec.encode(
-            stable,
-            preservingUnknownKeysFrom: SettingsTOMLCodec.encode(legacy)
-        )
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauFixture.editing(SettingsLuauDocument.initialSource(legacy), to: stable)
+        let source = String(decoding: data, as: UTF8.self)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("displayUUID = \"\(displayUUIDA)\""))
-        XCTAssertFalse(toml.contains("displayId ="))
+        XCTAssertTrue(source.contains("displayUUID = \"\(displayUUIDA)\""))
+        XCTAssertFalse(source.contains("displayId ="))
         guard case let .specificDisplay(output) = decoded.workspaceConfigurations[0].monitorAssignment else {
             return XCTFail("Expected specific display assignment")
         }

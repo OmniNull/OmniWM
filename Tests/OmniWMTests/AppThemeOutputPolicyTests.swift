@@ -33,7 +33,7 @@ final class AppThemeOutputPolicyTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: sandbox.path(".config/link"), withDestinationURL: sandbox.home)
         for path in [
             "~/.config/ghostty/themes/omniwm-dark", "~/Library/Application Support/x/y.json", "~/.zshrc",
-            "~/.config/link/.ssh/config", "~/.config/omniwm/settings.toml", "~/.config/kitty", "relative/theme"
+            "~/.config/link/.ssh/config", "~/.config/omniwm/settings.luau", "~/.config/kitty", "relative/theme"
         ] {
             let once = Result { try policy.destination(for: path, roots: roots) }.map(\.path)
             let each = Result { try policy.destination(for: path) }.map(\.path)
@@ -65,13 +65,13 @@ final class AppThemeOutputPolicyTests: XCTestCase {
 
     func testRefusesOmniWMsOwnFoldersAndSensitiveFolders() {
         for path in [
-            "~/.config/omniwm/settings.toml", "~/.config/omniwm-dev/settings.toml",
+            "~/.config/omniwm/settings.luau", "~/.config/omniwm-dev/settings.luau",
             "~/.local/state/omniwm/app-theming/state.json"
         ] {
             XCTAssertThrowsError(try sandbox.policy.destination(for: path), path)
         }
-        XCTAssertThrowsError(try sandbox.policy.destination(for: "~/.config/omniwm/shell/themes/x.toml")) {
-            XCTAssertEqual($0 as? AppThemeOutputError, .protectedFolder("~/.config/omniwm/shell/themes/x.toml"))
+        XCTAssertThrowsError(try sandbox.policy.destination(for: "~/.config/omniwm/shell/themes/x.luau")) {
+            XCTAssertEqual($0 as? AppThemeOutputError, .protectedFolder("~/.config/omniwm/shell/themes/x.luau"))
         }
     }
 
@@ -91,13 +91,13 @@ final class AppThemeOutputPolicyTests: XCTestCase {
     }
 
     func testSymlinkedDotfilesInsideHomeResolveToTheirTarget() throws {
-        let dotfiles = sandbox.path("dotfiles/herdr")
+        let dotfiles = sandbox.path("dotfiles/kitty")
         try FileManager.default.createDirectory(at: dotfiles, withIntermediateDirectories: true)
-        try "".write(to: dotfiles.appendingPathComponent("config.toml"), atomically: true, encoding: .utf8)
-        try FileManager.default.createSymbolicLink(at: sandbox.path(".config/herdr"), withDestinationURL: dotfiles)
+        try "".write(to: dotfiles.appendingPathComponent("kitty.conf"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: sandbox.path(".config/kitty"), withDestinationURL: dotfiles)
         XCTAssertEqual(
-            try sandbox.policy.destination(for: "~/.config/herdr/config.toml").path,
-            dotfiles.appendingPathComponent("config.toml").path
+            try sandbox.policy.destination(for: "~/.config/kitty/kitty.conf").path,
+            dotfiles.appendingPathComponent("kitty.conf").path
         )
     }
 

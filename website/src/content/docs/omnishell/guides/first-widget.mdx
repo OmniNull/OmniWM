@@ -15,7 +15,7 @@ Before running the commands below, turn on **Settings > Advanced > Enable IPC**;
 
 For `<profile>` in the paths below, use the selected style's profile folder, such as `default` or `lake`. Before creating `hello-clock`, check both `~/.config/omniwm/shell/<profile>/widgets/hello-clock/` and `~/.config/omniwm/shell/widgets/hello-clock/`.
 
-If the profile-local folder already exists, reuse it or choose another name; `shell init` leaves it intact. If the top-level folder contains `init.luau`, that override takes precedence over the profile-local copy. Edit the top-level widget and keep `settings.toml` beside it, or choose an unused name and use it for the command and every path below.
+If the profile-local folder already exists, reuse it or choose another name; `shell init` leaves it intact. If the top-level folder contains `init.luau`, that override takes precedence over the profile-local copy. Edit the top-level widget and keep `settings.luau` beside it, or choose an unused name and use it for the command and every path below.
 
 For a new widget, run:
 
@@ -43,9 +43,9 @@ The widget reads localized `ctx.data.clock` and `ctx.data.date`. `interval = 60`
 
 ## 3. Declare the option
 
-Save this file beside `init.luau`, at `<widget-folder>/settings.toml`:
+Save this file beside `init.luau`, at `<widget-folder>/settings.luau`:
 
-<ExampleFile file="widgets/hello-clock/settings.toml" />
+<ExampleFile file="widgets/hello-clock/settings.luau" />
 
 This declaration adds **Show date** to the widget's native options editor. The actual value is saved for the selected style and delivered as `ctx.data.settings`; the declaration describes the control and its default. [Components and configuration](/omnishell/reference/components-configuration/) explains the supported option types.
 
@@ -54,7 +54,7 @@ Your final folder contains:
 ```text
 <widget-folder>/
 ├── init.luau
-└── settings.toml
+└── settings.luau
 ```
 
 ## 4. Put it on the bar
@@ -83,7 +83,7 @@ Find `hello-clock` in the result and check its state and error. For editor compl
 | Symptom | Check |
 |---|---|
 | The widget is missing | Enable the Workspace Bar, add `hello-clock` to a lane, and check its exact folder name and `init.luau` filename. |
-| No options appear | Put `settings.toml` beside the effective `init.luau`, then check `shell-widgets` for metadata errors. |
+| No options appear | Put `settings.luau` beside the effective `init.luau`, then check `shell-widgets` for metadata errors. |
 | An edit fails to render | Read the reported error and fix that line; keep the global `render(ctx)` function. |
 | The date stays hidden | Open this widget's options in the active profile and turn **Show date** on. |
 

@@ -167,9 +167,9 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         try FileManager.default.createDirectory(at: widget, withIntermediateDirectories: true)
         try Data("function render(ctx) return ui.text{ text = \"hello\" } end".utf8)
             .write(to: widget.appendingPathComponent("init.luau"))
-        try Data("profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"test\"]\n"
+        try Data("return { profiles = { default = { leading = {}, center = {}, trailing = { \"test\" } } } }\n"
             .utf8)
-            .write(to: config.appendingPathComponent("shell/shell.toml"))
+            .write(to: config.appendingPathComponent("shell/shell.luau"))
         controller = WMController(settings: settings)
     }
 
@@ -259,8 +259,8 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
         try FileManager.default.removeItem(at: shell)
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("profiles.default.workspaceBar.position = \"overlappingMenuBar\"\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { workspaceBar = { position = \"overlappingMenuBar\" } } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         let workspace = try XCTUnwrap(controller.workspaceManager.workspaceId(for: "1", createIfMissing: true))
         let token = WindowToken(pid: NSRunningApplication.current.processIdentifier, windowId: 92_305)
         _ = WindowAdmissionTestSupport.track(token, in: workspace, controller: controller)
@@ -400,9 +400,9 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function render(ctx) return ui.text{ text = "d" } end
         function popout(ctx) return ui.box{ w = 50, h = 30 } end
         """.utf8).write(to: drawer.appendingPathComponent("init.luau"))
-        try Data("profiles.default.trailing = [\"test\", \"drawer\"]\n".utf8)
+        try Data("return { profiles = { default = { trailing = { \"test\", \"drawer\" } } } }\n".utf8)
             .write(to: drawer.deletingLastPathComponent().deletingLastPathComponent()
-                .appendingPathComponent("shell.toml"))
+                .appendingPathComponent("shell.luau"))
         controller.settings.workspaceBar.autoHide = true
         var pointer = display.frame.center
         controller.currentMouseLocation = { pointer }
@@ -456,10 +456,17 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 260, h = 30 } end
         """.utf8).write(to: drawer.appendingPathComponent("init.luau"))
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"test\"]\nprofiles.default.hiddenBarWidget = \"drawer\"\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = { leading = {}, center = {}, trailing = { "test" }, hiddenBarWidget = "drawer" },
+                },
+            }
+
+            """
+            .utf8
         )
-        .write(to: shell.appendingPathComponent("shell.toml"))
+        .write(to: shell.appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         let bar = barSurface(on: display)
@@ -539,11 +546,12 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 260, h = 30 } end
         """.utf8).write(to: drawer.appendingPathComponent("init.luau"))
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = ["test"]
-        profiles.default.hiddenBarWidget = "drawer"
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = { leading = {}, center = {}, trailing = { "test" }, hiddenBarWidget = "drawer" },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         manager.apply([barSurface(on: display)])
@@ -653,10 +661,17 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 260, h = 30 } end
         """.utf8).write(to: drawer.appendingPathComponent("init.luau"))
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"test\"]\nprofiles.default.hiddenBarWidget = \"drawer\"\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = { leading = {}, center = {}, trailing = { "test" }, hiddenBarWidget = "drawer" },
+                },
+            }
+
+            """
+            .utf8
         )
-        .write(to: shell.appendingPathComponent("shell.toml"))
+        .write(to: shell.appendingPathComponent("shell.luau"))
         controller.settings.workspaceBar.enabled = false
         controller.settings.hiddenBar.enabled = true
         let manager = makeManager()
@@ -700,15 +715,8 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
 
     func testHoverDrawersOpenWhenThePointerReachesTheirScreenEdge() async throws {
         executionTimeAllowance = failureBound
-        let monitors = controller.workspaceManager.monitors
-        guard let main = monitors.first(where: { $0.displayId == CGMainDisplayID() }) else {
-            throw MissingTestPrerequisite("drawers need the main display")
-        }
-        let point = CGPoint(x: main.frame.maxX - 0.5, y: main.frame.midY)
-        let edge = ShellDrawerConfig(id: "probe", edge: .right, widgets: [], hover: true)
-        guard ShellEdgeHover.touches(point, edge, main.frame, monitors.map(\.frame)) else {
-            throw MissingTestPrerequisite("the main display's right edge adjoins another display")
-        }
+        let monitor = try XCTUnwrap(controller.workspaceManager.monitors.max(by: { $0.frame.maxX < $1.frame.maxX }))
+        let point = CGPoint(x: monitor.frame.maxX - 0.5, y: monitor.frame.midY)
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent().appendingPathComponent("shell")
         let widget = shell.appendingPathComponent("widgets/test", isDirectory: true)
         try Data("""
@@ -716,24 +724,28 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 50, h = 30 } end
         """.utf8).write(to: widget.appendingPathComponent("init.luau"))
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = ["test"]
-        [profiles.default.drawer.controls]
-        widgets = ["test"]
-        hover = true
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = { "test" },
+                    drawer = { controls = { widgets = { "test" }, hover = true } },
+                },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
-        manager.apply([barSurface(on: main)])
-        await waitForShellWidgets(manager, on: main, count: 1)
+        manager.apply([barSurface(on: monitor)])
+        await waitForShellWidgets(manager, on: monitor, count: 1)
         XCTAssertTrue(manager.needsShellEdgeMouseMoves)
 
-        manager.handleAutoHideMouseMoved(at: CGPoint(x: main.frame.midX, y: main.frame.midY))
+        manager.handleAutoHideMouseMoved(at: CGPoint(x: monitor.frame.midX, y: monitor.frame.midY))
         XCTAssertNil(manager.shellHost?.drawer)
         manager.handleAutoHideMouseMoved(at: point)
         XCTAssertEqual(manager.shellHost?.drawer?.id, "controls")
-        XCTAssertEqual(manager.shellHost?.drawer?.monitor, main.id)
+        XCTAssertEqual(manager.shellHost?.drawer?.monitor, monitor.id)
     }
 
     func testFlushDashboardDrawersStayOpenUntilThePointerLeavesThem() async throws {
@@ -749,18 +761,27 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 300, h = 120, fill = "surface" } end
         """.utf8).write(to: widget.appendingPathComponent("init.luau"))
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = ["test"]
-        [profiles.default.drawer.dashboard]
-        edge = "top"
-        widgets = ["test"]
-        hover = true
-        reach = 10
-        width = 400
-        close = "leave"
-        chrome = false
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = { "test" },
+                    drawer = {
+                        dashboard = {
+                            edge = "top",
+                            widgets = { "test" },
+                            hover = true,
+                            reach = 10,
+                            width = 400,
+                            close = "leave",
+                            chrome = false,
+                        },
+                    },
+                },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         manager.apply([barSurface(on: main)])
@@ -812,10 +833,17 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 50, h = 30 } end
         """.utf8).write(to: stats.appendingPathComponent("init.luau"))
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"test\", \"stats\"]\nprofiles.default.systemStatsWidget = \"stats\"\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = { leading = {}, center = {}, trailing = { "test", "stats" }, systemStatsWidget = "stats" },
+                },
+            }
+
+            """
+            .utf8
         )
-        .write(to: shell.appendingPathComponent("shell.toml"))
+        .write(to: shell.appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         manager.apply([barSurface(on: display)])
@@ -864,10 +892,17 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 50, h = 30 } end
         """.utf8).write(to: stats.appendingPathComponent("init.luau"))
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"test\"]\nprofiles.default.systemStatsWidget = \"stats\"\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = { leading = {}, center = {}, trailing = { "test" }, systemStatsWidget = "stats" },
+                },
+            }
+
+            """
+            .utf8
         )
-        .write(to: shell.appendingPathComponent("shell.toml"))
+        .write(to: shell.appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         manager.apply([barSurface(on: display)])
@@ -876,7 +911,7 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         settled.assertForOverFulfill = false
         let loadFailureDeadline: TimeInterval = 10
         func statsState() -> String? {
-            host.widgetReport.widgets.first { $0.name == "stats" }?.state
+            host.widgetReport.widgets.first { $0.name == "stats" }?.state.rawValue
         }
         let published = host.onWidgetsChange
         host.onWidgetsChange = {
@@ -914,14 +949,18 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         executionTimeAllowance = failureBound
         let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = []
-        [profiles.default.workspaceBar]
-        height = 31
-        [profiles.default.hiddenBar]
-        enabled = false
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = {},
+                    workspaceBar = { height = 31 },
+                    hiddenBar = { enabled = false },
+                },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         controller.settings.hiddenBar.enabled = true
         let manager = makeManager()
         defer { manager.cleanup() }
@@ -1000,6 +1039,52 @@ final class ShellWidgetBarLifecycleTests: XCTestCase {
         XCTAssertEqual(instance?.model.snapshot.shellWidgets.map(\.island), [.secondary])
         XCTAssertEqual(instance?.secondary?.slice, .secondary)
         XCTAssertEqual(instance?.primary.slice, .active)
+    }
+
+    func testBothIslandsOfASplitBarUnderADarkMenuBarDrawDark() async throws {
+        let previous = NSApplication.shared.appearance
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        defer { NSApplication.shared.appearance = previous }
+        executionTimeAllowance = failureBound
+        let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
+        XCTAssertTrue(try ShellProfiles.setValue(
+            "overlappingMenuBar", at: ShellProfiles.key("workspaceBar", of: "default") + ["position"], in: shell
+        ))
+        XCTAssertTrue(try ShellProfiles.setValue(
+            false, at: ShellProfiles.key("workspaceBar", of: "default") + ["fullWidth"], in: shell
+        ))
+        controller.settings.workspaceBar.notchMode = .splitActiveLeft
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.menuBarIsDark = true
+        let focused = WorkspaceBarItem(
+            id: WorkspaceDescriptor.ID(),
+            name: "1",
+            rawName: "1",
+            isFocused: true,
+            tiledWindows: [],
+            floatingWindows: []
+        )
+
+        manager.apply([barSurface(items: [focused])])
+        await waitForShellWidgets(manager)
+        let instance = try XCTUnwrap(manager.barsByMonitor[monitor.id])
+        let secondary = try XCTUnwrap(instance.secondary)
+        XCTAssertEqual(instance.primary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(secondary.panel.appearance?.name, .darkAqua)
+        XCTAssertEqual(secondary.hostingView.appearance?.name, .darkAqua)
+        let host = try XCTUnwrap(manager.shellHost)
+        let islands = [WorkspaceBarIslandSlice.active, .secondary]
+        func palette(_ island: WorkspaceBarIslandSlice) -> ShellPalette {
+            host.palette(for: ShellBarKey(monitor: monitor.id, island: island))
+        }
+        XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.darkPalette })
+
+        manager.menuBarIsDark = false
+        manager.refreshMenuBarAppearance()
+        XCTAssertEqual(instance.primary.panel.appearance?.name, .aqua)
+        XCTAssertEqual(secondary.panel.appearance?.name, .aqua)
+        XCTAssertTrue(islands.allSatisfy { palette($0) === host.resources.palette })
     }
 
     private func waitForShellWidgets(_ manager: WorkspaceBarManager) async {
@@ -1120,7 +1205,7 @@ final class ShellWidgetClickTests: XCTestCase {
         notifications: ShellNotificationsController? = nil
     ) throws -> Harness {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let contents = ["shell.toml": "profiles.default.trailing = [\"\(widget)\"]\n"]
+        let contents = ["shell.luau": "return { profiles = { default = { trailing = { \"\(widget)\" } } } }\n"]
             .merging(files, uniquingKeysWith: { $1 })
             .merging(["widgets/\(widget)/init.luau": source], uniquingKeysWith: { $1 })
         for (path, contents) in contents {
@@ -1206,13 +1291,17 @@ final class ShellWidgetClickTests: XCTestCase {
                 text = batch and (batch.state .. ":" .. tostring(batch.completed) .. "/" .. tostring(batch.total)) or "none" }
         end
         """, widget: "notifications", bars: [ShellBarKey(monitor: main): ShellBarData()], files: [
-            "shell.toml": """
-            profiles.default.leading = []
-            profiles.default.center = []
-            profiles.default.trailing = ["notifications"]
-            [profiles.default.drawer.notification-history]
-            edge = "right"
-            widgets = ["notifications"]
+            "shell.luau": """
+            return {
+                profiles = {
+                    default = {
+                        leading = {},
+                        center = {},
+                        trailing = { "notifications" },
+                        drawer = { ["notification-history"] = { edge = "right", widgets = { "notifications" } } },
+                    },
+                },
+            }
             """
         ], notifications: notifications)
         defer { harness.close() }
@@ -1347,20 +1436,20 @@ final class ShellWidgetClickTests: XCTestCase {
         harness.host.onWidgetsChange = { changed.yield() }
         var reports = changes.makeAsyncIterator()
         XCTAssertEqual(harness.host.widgetReport.problems, [])
-        let config = harness.root.appendingPathComponent("shell/shell.toml")
+        let config = harness.root.appendingPathComponent("shell/shell.luau")
 
-        try Data("trailling = []\n".utf8).write(to: config)
+        try Data("return { trailling = {} }\n".utf8).write(to: config)
         while harness.host.widgetReport.problems.isEmpty {
             try await reports.change()
         }
-        XCTAssertEqual(harness.host.widgetReport.problems, ["shell.toml has unknown key trailling"])
+        XCTAssertEqual(harness.host.widgetReport.problems, ["shell.luau has unknown key trailling"])
 
-        try Data("trailing = [\n".utf8).write(to: config)
-        while harness.host.widgetReport.problems == ["shell.toml has unknown key trailling"] {
+        try Data("return {trailing = {\n".utf8).write(to: config)
+        while harness.host.widgetReport.problems == ["shell.luau has unknown key trailling"] {
             try await reports.change()
         }
         XCTAssertEqual(harness.host.widgetReport.problems.count, 1)
-        XCTAssertTrue(harness.host.widgetReport.problems.first?.hasPrefix("shell/shell.toml: ") == true)
+        XCTAssertTrue(harness.host.widgetReport.problems.first?.hasPrefix("shell/shell.luau: ") == true)
     }
 
     func testWidgetsThatIgnoreTitlesDoNotAskForThem() async throws {
@@ -1391,7 +1480,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let surface = try harness.barSurface()
         XCTAssertFalse(surface.hasAction(at: CGPoint(x: 45, y: 5)))
         click(surface, at: CGPoint(x: 5, y: 5))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
 
         click(surface, at: CGPoint(x: 25, y: 5))
         try await layoutChanges.change()
@@ -1418,7 +1507,7 @@ final class ShellWidgetClickTests: XCTestCase {
 
         surface.press(at: string, button: .right)
         surface.release(at: string, event: ShellEvent(button: .right))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
 
         surface.press(at: string, button: .middle)
         surface.release(at: string, event: ShellEvent(button: .middle))
@@ -1550,7 +1639,7 @@ final class ShellWidgetClickTests: XCTestCase {
             content: CGPoint(x: 0, y: 30)
         ))
         click(surface, at: CGPoint(x: 5, y: 5))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
     }
 
     func testClosingPopoutAndDrawerCancelsActiveSliderOnce() async throws {
@@ -1569,11 +1658,15 @@ final class ShellWidgetClickTests: XCTestCase {
             end }
         end
         """, bars: [ShellBarKey(monitor: main): ShellBarData()], files: [
-            "shell.toml": """
-            profiles.default.trailing = ["test"]
-            [profiles.default.drawer.test-controls]
-            edge = "right"
-            widgets = ["test"]
+            "shell.luau": """
+            return {
+                profiles = {
+                    default = {
+                        trailing = { "test" },
+                        drawer = { ["test-controls"] = { edge = "right", widgets = { "test" } } },
+                    },
+                },
+            }
             """
         ])
         defer { harness.close() }
@@ -1664,7 +1757,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let harness = try harness(
             "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
             files: [
-                "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                "shell.luau": "return { profile = \"look\", profiles = { look = { trailing = { \"test\" } } } }\n",
                 "look/lib/size.luau": "return 12"
             ]
         )
@@ -1717,7 +1810,7 @@ final class ShellWidgetClickTests: XCTestCase {
         let harness = try harness(
             "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
             files: [
-                "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                "shell.luau": "return { profile = \"look\", profiles = { look = { trailing = { \"test\" } } } }\n",
                 "look/lib/size.luau": "return \(profileWidth)"
             ]
         )
@@ -1763,7 +1856,7 @@ final class ShellWidgetClickTests: XCTestCase {
             let harness = try harness(
                 "function render(ctx) return ui.box{ w = require(\"../lib/size\"), h = 10 } end",
                 files: [
-                    "shell.toml": "profile = \"look\"\nprofiles.look.trailing = [\"test\"]\n",
+                    "shell.luau": "return { profile = \"look\", profiles = { look = { trailing = { \"test\" } } } }\n",
                     "look/lib/size.luau": "return \(profileWidth)"
                 ]
             )
@@ -1999,8 +2092,8 @@ final class ShellWidgetClickTests: XCTestCase {
             at: root.appendingPathComponent("shell", isDirectory: true),
             withIntermediateDirectories: true
         )
-        try Data("profiles.default.trailing = [\"test\"]\n".utf8)
-            .write(to: root.appendingPathComponent("shell/shell.toml"))
+        try Data("return { profiles = { default = { trailing = { \"test\" } } } }\n".utf8)
+            .write(to: root.appendingPathComponent("shell/shell.luau"))
         let workspace = ShellBarWorkspace(id: "1", name: "1", focused: true, windows: [])
         let sink = Sink()
         sink.bars = [Harness.bar: ShellBarData(monitor: "Main", workspaces: [workspace, workspace])]
@@ -2093,6 +2186,9 @@ final class ShellWidgetClickTests: XCTestCase {
         while harness.slot?.failure?.message.hasPrefix("Stopped after repeated errors") != true {
             try await layoutChanges.change()
         }
+        let stopped = try XCTUnwrap(harness.host.widgetReport.widgets.first { $0.name == "test" })
+        XCTAssertEqual(stopped.state, .failed)
+        XCTAssertEqual(stopped.error, harness.slot?.failure?.message)
         XCTAssertEqual(harness.host.dataDemand, 0)
     }
 
@@ -2143,7 +2239,7 @@ final class ShellWidgetClickTests: XCTestCase {
         defer { harness.close() }
         var published: [String?] = []
         harness.host.onWidgetsChange = { [host = harness.host] in
-            published.append(host.widgetReport.widgets.first { $0.name == "test" }?.state)
+            published.append(host.widgetReport.widgets.first { $0.name == "test" }?.state.rawValue)
         }
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.slot?.failure == nil {
@@ -2163,8 +2259,8 @@ final class ShellWidgetClickTests: XCTestCase {
         executionTimeAllowance = failureBound
         let harness = try harness("function render(ctx) return ui.box{ w = 10, h = 10 } end")
         defer { harness.close() }
-        try Data("profiles.default.trailing = [\"test\", \"clock\"]\n".utf8)
-            .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
+        try Data("return { profiles = { default = { trailing = { \"test\", \"clock\" } } } }\n".utf8)
+            .write(to: harness.root.appendingPathComponent("shell/shell.luau"))
         XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
@@ -2216,13 +2312,11 @@ final class ShellWidgetClickTests: XCTestCase {
                     .write(to: source)
             }
             try Data("""
-            profiles.default.leading = []
-            profiles.default.center = []
-            profiles.default.trailing = ["test", "clock"]
-            """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+            return { profiles = { default = { leading = {}, center = {}, trailing = { "test", "clock" } } } }
+            """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
             harness.host.rescan()
             var changes = harness.layoutChanges.makeAsyncIterator()
-            while harness.host.widgetReport.widgets.first(where: { $0.name == "clock" })?.state != "fallback" {
+            while harness.host.widgetReport.widgets.first(where: { $0.name == "clock" })?.state != .fallback {
                 try await changes.change()
             }
             let state = try XCTUnwrap(harness.host.widgets["clock"], context)
@@ -2250,7 +2344,7 @@ final class ShellWidgetClickTests: XCTestCase {
             let harness = try harness(
                 "function render(ctx) return ui.box{ w = 10, h = 10 } end",
                 files: [
-                    "shell.toml": "profiles.default.trailing = [\"test\", \"\(name)\"]\n",
+                    "shell.luau": "return { profiles = { default = { trailing = { \"test\", \"\(name)\" } } } }\n",
                     "widgets/\(name)/init.luau": "function render(ctx) return ui.box{ w = 33, h = 10 }",
                     "lib/menu-button.luau": "error('broken user menu library')",
                     "lib/keyboard-mode.luau": "error('broken user keyboard library')"
@@ -2412,26 +2506,25 @@ final class ShellWidgetClickTests: XCTestCase {
     }
 
     func testProfileColorsReachNativeAndNamedPalettesAndReset() throws {
+        let green = SettingsColor(red: 0, green: 1, blue: 0, alpha: 1)
+        let device = NSColor(deviceRed: green.red, green: green.green, blue: green.blue, alpha: green.alpha).cgColor
+        let sRGB = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
+        let components = try XCTUnwrap(device.converted(to: sRGB, intent: .defaultIntent, options: nil)?.components)
+        let expected = SIMD4(Float(components[0]), Float(components[1]), Float(components[2]), Float(components[3]))
         for theme in ["native", "look"] {
             let harness = try harness("function render(ctx) return ui.box{ w = 10, h = 10 } end", files: [
-                "shell.toml": "profiles.default.trailing = [\"test\"]\nprofiles.default.theme = \"\(theme)\"\n",
-                "themes/look.toml": "[light]\naccent = \"#0000FF\"\n[dark]\naccent = \"#0000FF\"\n"
+                "shell.luau": "return { profiles = { default = { trailing = { \"test\" }, theme = \"\(theme)\" } } }\n",
+                "themes/look.luau": "return { light = { accent = \"#0000FF\" }, dark = { accent = \"#0000FF\" } }\n"
             ])
             defer { harness.close() }
             let directory = harness.root.appendingPathComponent("shell", isDirectory: true)
             let accent = ShellRole.accent.rawValue
             let original = harness.resources.palette.shaderColors[accent]
-            XCTAssertTrue(try ShellProfiles.setValue(
-                SettingsColor(red: 0, green: 1, blue: 0, alpha: 1),
-                at: ["profiles", "default", "workspaceBar", "accentColor"], in: directory
-            ))
+            let accentColorKey = ["profiles", "default", "workspaceBar", "accentColor"]
+            XCTAssertTrue(try ShellProfiles.setValue(green, at: accentColorKey, in: directory))
             harness.host.reloadConfig()
-            XCTAssertGreaterThan(harness.resources.palette.shaderColors[accent].y, 0.9)
-            XCTAssertLessThan(harness.resources.palette.shaderColors[accent].x, 0.2)
-            XCTAssertTrue(try ShellProfiles.reset(
-                ["profiles", "default", "workspaceBar", "accentColor"],
-                in: directory
-            ))
+            XCTAssertEqual(harness.resources.palette.shaderColors[accent], expected)
+            XCTAssertTrue(try ShellProfiles.setNodes([(accentColorKey, nil)], in: directory))
             harness.host.reloadConfig()
             XCTAssertEqual(harness.resources.palette.shaderColors[accent], original)
         }
@@ -2719,7 +2812,7 @@ final class ShellWidgetClickTests: XCTestCase {
         surface.press(at: CGPoint(x: 2, y: 5))
         XCTAssertFalse(surface.endDrag(at: .zero))
         surface.release(at: CGPoint(x: 2, y: 5))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 2)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 2))))])
 
         let targets = harness.host.dropTargets(on: Harness.monitor)
         XCTAssertEqual(Set(targets.map(\.target)), ["window ow_a", "workspace 1"])
@@ -2799,10 +2892,10 @@ final class ShellWidgetClickTests: XCTestCase {
         )
         defer { harness.close() }
         try Data("""
-        profiles.default.leading = ["workspaces", "test"]
-        profiles.default.center = []
-        profiles.default.trailing = []
-        """.utf8).write(to: harness.root.appendingPathComponent("shell/shell.toml"))
+        return {
+            profiles = { default = { leading = { "workspaces", "test" }, center = {}, trailing = {} } },
+        }
+        """.utf8).write(to: harness.root.appendingPathComponent("shell/shell.luau"))
         XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
@@ -2849,8 +2942,11 @@ final class ShellWidgetClickTests: XCTestCase {
         spanIslands = true
         function render(ctx) return ui.box{ w = ctx.data.bar.island == "active" and 5 or 9, h = 10 } end
         """.utf8).write(to: side.appendingPathComponent("init.luau"))
-        try Data("profiles.default.leading = [\"workspaces\", \"test\"]\nprofiles.default.trailing = [\"side\"]\n".utf8)
-            .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
+        try Data(
+            "return { profiles = { default = { leading = { \"workspaces\", \"test\" }, trailing = { \"side\" } } } }\n"
+                .utf8
+        )
+        .write(to: harness.root.appendingPathComponent("shell/shell.luau"))
         XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         let placed = { (island: WorkspaceBarIslandSlice) in
@@ -2879,8 +2975,11 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(targets(.active), ["workspace 1", "window ow_a"])
         XCTAssertEqual(targets(.secondary), ["workspace 2", "window ow_b"])
 
-        try Data("profiles.default.leading = [\"workspaces\"]\nprofiles.default.trailing = [\"side\", \"test\"]\n".utf8)
-            .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
+        try Data(
+            "return { profiles = { default = { leading = { \"workspaces\" }, trailing = { \"side\", \"test\" } } } }\n"
+                .utf8
+        )
+        .write(to: harness.root.appendingPathComponent("shell/shell.luau"))
         harness.host.rescan()
         while !placed(.secondary).contains("test 7") {
             try await layoutChanges.change()
@@ -2925,8 +3024,8 @@ final class ShellWidgetClickTests: XCTestCase {
         )] {
             try write("function render(ctx) return ui.box{ w = \(width), h = 10 } end", "\(path)/init.luau")
         }
-        try write("trailing = [\"clock\", \"test\"]\n", "look/shell.toml")
-        try write("profile = \"look\"\n", "shell.toml")
+        try write("return { trailing = { \"clock\", \"test\" } }\n", "look/shell.luau")
+        try write("return { profile = \"look\" }\n", "shell.luau")
         harness.host.rescan()
         let widths = {
             Dictionary(uniqueKeysWithValues: harness.host.slots(for: Harness.monitor).map {
@@ -2938,7 +3037,10 @@ final class ShellWidgetClickTests: XCTestCase {
             try await layoutChanges.change()
         }
 
-        try write("profile = \"default\"\nprofiles.default.trailing = [\"clock\", \"test\"]\n", "shell.toml")
+        try write(
+            "return { profile = \"default\", profiles = { default = { trailing = { \"clock\", \"test\" } } } }\n",
+            "shell.luau"
+        )
         harness.host.rescan()
         while widths() != ["test": 10, "clock": 17] {
             try await layoutChanges.change()
@@ -3135,7 +3237,7 @@ final class ShellWidgetClickTests: XCTestCase {
         click(5, .shift)
         XCTAssertEqual(harness.sink.commands, [.moveFocusedWindow(target: "workspace 2")])
         click(5, [])
-        XCTAssertEqual(harness.sink.commands.last, .command(.workspace(.switchTo(workspaceNumber: 2))))
+        XCTAssertEqual(harness.sink.commands.last, .command(.init(.workspace(.switchTo(workspaceNumber: 2)))))
 
         click(15, .option)
         XCTAssertNil(harness.host.popout)
@@ -3296,7 +3398,7 @@ final class ShellWidgetClickTests: XCTestCase {
         function render(ctx) return ui.box{ w = 10, h = 10 } end
         function popout(ctx) return ui.box{ w = 20, h = 20 } end
         """, bars: [ShellBarKey(monitor: main): ShellBarData()], files: [
-            "look/shell.toml": "trailing = [\"test\"]\n"
+            "look/shell.luau": "return { trailing = { \"test\" } }\n"
         ])
         defer { harness.close() }
         var changes = harness.layoutChanges.makeAsyncIterator()
@@ -3343,7 +3445,7 @@ final class ShellWidgetClickTests: XCTestCase {
         while harness.slot?.failure == nil {
             try await layoutChanges.change()
         }
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
         XCTAssertEqual(harness.sink.origins.first?.widget, "test")
         XCTAssertEqual(harness.sink.origins.first?.command, "switch-workspace 3")
         XCTAssertEqual(
@@ -3469,8 +3571,8 @@ final class ShellWidgetClickTests: XCTestCase {
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         try await layoutChanges.change()
         let clockWidth = { harness.host.slots(for: Harness.monitor).first { $0.id == "clock" }?.size.width ?? 0 }
-        try Data("profiles.default.trailing = [\"test\", \"clock\"]\n".utf8)
-            .write(to: harness.root.appendingPathComponent("shell/shell.toml"))
+        try Data("return { profiles = { default = { trailing = { \"test\", \"clock\" } } } }\n".utf8)
+            .write(to: harness.root.appendingPathComponent("shell/shell.luau"))
         XCTAssertEqual(try ShellStyleFixture.prepare(into: harness.root.appendingPathComponent("shell")), [])
         harness.host.rescan()
         while clockWidth() == 0 {
@@ -3555,7 +3657,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(harness.host.dataDemand & gpu, 0)
     }
 
-    func testWidgetsReadTheirSettingsFromShellToml() async throws {
+    func testWidgetsReadTheirSettingsFromShellLuau() async throws {
         executionTimeAllowance = failureBound
         let harness = try harness("""
         function render(ctx)
@@ -3564,15 +3666,21 @@ final class ShellWidgetClickTests: XCTestCase {
         end
         """)
         defer { harness.close() }
-        let config = harness.root.appendingPathComponent("shell/shell.toml")
+        let config = harness.root.appendingPathComponent("shell/shell.luau")
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.slot?.size.width != 10 {
             try await layoutChanges.change()
         }
         let steps: [(String, CGFloat)] = [
-            ("profiles.default.trailing = [\"test\"]\n[profiles.default.widgets.test]\nsize = 30\n", 30),
-            ("profiles.default.trailing = [\"test\"]\n[profiles.default.widgets.test]\nsize = 40\n", 40),
-            ("profiles.default.trailing = [\"test\"]\n", 10)
+            (
+                "return { profiles = { default = { trailing = { \"test\" }, widgets = { test = { size = 30 } } } } }\n",
+                30
+            ),
+            (
+                "return { profiles = { default = { trailing = { \"test\" }, widgets = { test = { size = 40 } } } } }\n",
+                40
+            ),
+            ("return { profiles = { default = { trailing = { \"test\" } } } }\n", 10)
         ]
         for (contents, width) in steps {
             try Data(contents.utf8).write(to: config)
@@ -3584,7 +3692,7 @@ final class ShellWidgetClickTests: XCTestCase {
     }
 
     func testRequestsParseCommandsAndWindowActions() {
-        XCTAssertEqual(ShellRequest("switch-workspace 2"), .command(.workspace(.switchTo(workspaceNumber: 2))))
+        XCTAssertEqual(ShellRequest("switch-workspace 2"), .command(.init(.workspace(.switchTo(workspaceNumber: 2)))))
         XCTAssertEqual(ShellRequest("window focus ow_abc"), .window(IPCWindowRequest(name: .focus, windowId: "ow_abc")))
         XCTAssertNil(ShellRequest("window focus"))
         XCTAssertNil(ShellRequest("window explode ow_abc"))
@@ -3595,7 +3703,10 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertEqual(ShellAction("volume down"), .volume(.change(percent: -6.25)))
         XCTAssertEqual(ShellAction("volume mute"), .volume(.toggleMute))
         XCTAssertEqual(ShellAction("volume set 40"), .volume(.set(percent: 40)))
-        XCTAssertEqual(ShellAction("switch-workspace 2"), .wm(.command(.workspace(.switchTo(workspaceNumber: 2)))))
+        XCTAssertEqual(
+            ShellAction("switch-workspace 2"),
+            .wm(.command(.init(.workspace(.switchTo(workspaceNumber: 2)))))
+        )
         XCTAssertNil(ShellAction("volume"))
         XCTAssertNil(ShellAction("volume set loud"))
         XCTAssertNil(ShellAction("volume set nan"))
@@ -3626,7 +3737,7 @@ final class ShellWidgetClickTests: XCTestCase {
             }
         end
         """, files: [
-            "shell.toml": "profiles.default.trailing = [\"test\", \"target\"]\n",
+            "shell.luau": "return { profiles = { default = { trailing = { \"test\", \"target\" } } } }\n",
             "widgets/target/init.luau": """
             function render(ctx) return ui.box{ w = ctx.state.width or 5, h = 10 } end
             function trigger(ctx, event)
@@ -3711,13 +3822,17 @@ final class ShellWidgetClickTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 80, h = 30 } end
         """.utf8).write(to: second.appendingPathComponent("init.luau"))
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = ["test", "second"]
-        [profiles.default.drawer.controls]
-        edge = "right"
-        widgets = ["test", "second"]
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = { "test", "second" },
+                    drawer = { controls = { edge = "right", widgets = { "test", "second" } } },
+                },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.host.slots(for: main).count < 2 {
@@ -3907,11 +4022,12 @@ final class ShellWidgetClickTests: XCTestCase {
         function popout(ctx) return ui.box{ w = 10, h = 10 } end
         """.utf8).write(to: drawn.appendingPathComponent("init.luau"))
         try Data("""
-        profiles.default.trailing = ["test"]
-        [profiles.default.drawer.side]
-        edge = "right"
-        widgets = ["drawn"]
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = { trailing = { "test" }, drawer = { side = { edge = "right", widgets = { "drawn" } } } },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         harness.host.rescan()
 
         XCTAssertNotNil(harness.host.surfaceView(widget: "test", key: Harness.bar, scale: 2))
@@ -3934,8 +4050,8 @@ final class ShellWidgetClickTests: XCTestCase {
             withDestinationURL: target
         )
         XCTAssertEqual(try ShellBarLayout.load(shellDirectory: shell).get().addable.map(\.name), ["linked"])
-        try Data("profiles.default.trailing = [\"linked\", \"test\"]\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { trailing = { \"linked\", \"test\" } } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         harness.host.rescan()
 
         XCTAssertNotNil(harness.host.surfaceView(widget: "linked", key: Harness.bar, scale: 2))
@@ -3958,10 +4074,12 @@ final class ShellWidgetClickTests: XCTestCase {
 
         let shell = harness.root.appendingPathComponent("shell")
         try Data("""
-        profiles.default.trailing = ["test", "plain"]
-        [profiles.default.drawer.controls]
-        widgets = ["test"]
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = { trailing = { "test", "plain" }, drawer = { controls = { widgets = { "test" } } } },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         let before = changes
         harness.host.rescan()
         XCTAssertEqual(harness.host.toggleNames, ["controls", "test"])
@@ -4022,7 +4140,7 @@ final class ShellWidgetClickTests: XCTestCase {
             if event.name == "toggle" then ctx.state.width = #event.value end
         end
         """, bars: [ShellBarKey(monitor: main): ShellBarData()], files: [
-            "shell.toml": "profiles.default.trailing = [\"test\", \"pop\"]\n",
+            "shell.luau": "return { profiles = { default = { trailing = { \"test\", \"pop\" } } } }\n",
             "widgets/pop/init.luau": """
             function render(ctx) return ui.box{ w = 5, h = 10 } end
             function popout(ctx) return ui.box{ w = 50, h = 30 } end
@@ -4057,12 +4175,13 @@ final class ShellWidgetClickTests: XCTestCase {
         executionTimeAllowance = failureBound
         let harness = try harness("function render(ctx) return ui.box{ w = 5, h = 10 } end")
         defer { harness.close() }
+        XCTAssertEqual(harness.host.widgetReport.widgets.first { $0.name == "test" }?.state, .loading)
         var changes = 0
         harness.host.onWidgetsChange = { changes += 1 }
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         try await layoutChanges.change()
         let loaded = try XCTUnwrap(harness.host.widgetReport.widgets.first { $0.name == "test" })
-        XCTAssertEqual(loaded.state, "loaded")
+        XCTAssertEqual(loaded.state, .loaded)
         XCTAssertEqual(loaded.placements, ["trailing"])
         XCTAssertNil(loaded.error)
         XCTAssertTrue(loaded.source.hasSuffix("shell/widgets/test/init.luau"))
@@ -4072,7 +4191,7 @@ final class ShellWidgetClickTests: XCTestCase {
         try Data("function render(ctx) return ui.box{ w = = 5 } end".utf8)
             .write(to: harness.root.appendingPathComponent("shell/widgets/test/init.luau"))
         harness.host.rescan()
-        while harness.host.widgetReport.widgets.first(where: { $0.name == "test" })?.state != "failed" {
+        while harness.host.widgetReport.widgets.first(where: { $0.name == "test" })?.state != .failed {
             try await layoutChanges.change()
         }
         XCTAssertNotNil(harness.host.widgetReport.widgets.first { $0.name == "test" }?.error)
@@ -4521,7 +4640,7 @@ final class ShellWidgetClickTests: XCTestCase {
             keyCode: UInt16(kVK_Return)
         ))
         popout.surface.view.keyDown(with: enter)
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
         XCTAssertNil(harness.host.popout)
     }
 
@@ -4734,7 +4853,7 @@ final class ShellWidgetClickTests: XCTestCase {
         XCTAssertTrue(popout.panel.isVisible)
 
         click(popout.surface, at: CGPoint(x: 25, y: 15))
-        XCTAssertEqual(harness.sink.commands, [.command(.workspace(.switchTo(workspaceNumber: 3)))])
+        XCTAssertEqual(harness.sink.commands, [.command(.init(.workspace(.switchTo(workspaceNumber: 3))))])
         XCTAssertNil(harness.host.popout)
         XCTAssertFalse(popout.panel.isVisible)
 
@@ -4826,12 +4945,17 @@ extension ShellWidgetClickTests {
         defer { harness.close() }
         let shell = harness.root.appendingPathComponent("shell")
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = ["test"]
-        [profiles.default.drawer.controls]
-        widgets = ["test"]
-        """.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = { "test" },
+                    drawer = { controls = { widgets = { "test" } } },
+                },
+            },
+        }
+        """.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         harness.host.rescan()
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()
         while harness.host.slots(for: main).isEmpty {
@@ -4935,13 +5059,13 @@ extension ShellWidgetClickTests {
         while harness.host.slots(for: monitor).isEmpty {
             try await layoutChanges.change()
         }
-        let toml = harness.root.appendingPathComponent("shell/shell.toml")
-        try Data("profiles.default.trailing = []\n".utf8).write(to: toml)
+        let configURL = harness.root.appendingPathComponent("shell/shell.luau")
+        try Data("return { profiles = { default = { trailing = {} } } }\n".utf8).write(to: configURL)
         harness.host.rescan()
         XCTAssertTrue(harness.host.slots(for: monitor).isEmpty)
         XCTAssertEqual(harness.host.widgetReport.widgets.first?.placements, [])
 
-        try Data("profiles.default.trailing = [\"test\"]\n".utf8).write(to: toml)
+        try Data("return { profiles = { default = { trailing = { \"test\" } } } }\n".utf8).write(to: configURL)
         harness.host.rescan()
         while harness.host.slots(for: monitor).isEmpty {
             try await layoutChanges.change()
@@ -4960,10 +5084,15 @@ extension ShellWidgetClickTests {
                 .write(to: folder.appendingPathComponent("init.luau"))
         }
         try Data(
-            "profiles.default.leading = [\"one\"]\nprofiles.default.center = [\"test\"]\nprofiles.default.trailing = [\"two\"]\n"
-                .utf8
+            """
+            return {
+                profiles = { default = { leading = { "one" }, center = { "test" }, trailing = { "two" } } },
+            }
+
+            """
+            .utf8
         )
-        .write(to: shell.appendingPathComponent("shell.toml"))
+        .write(to: shell.appendingPathComponent("shell.luau"))
         harness.host.rescan()
         let monitor = Harness.bar.monitor
         var layoutChanges = harness.layoutChanges.makeAsyncIterator()

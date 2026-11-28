@@ -1,65 +1,67 @@
 ---
 title: Configuration
-description: Where OmniWM stores its settings, how live reload and recovery work, and how to edit the TOML safely.
+description: Edit settings in the window or in Luau, use formulas and helper files, and recover from an invalid edit.
 sidebar:
   order: 1
 ---
 
-OmniWM stores its editable configuration at `${XDG_CONFIG_HOME:-$HOME/.config}/omniwm/settings.toml`. `XDG_CONFIG_HOME` is honored only when it is an absolute path beginning with `/`; otherwise OmniWM uses `~/.config/omniwm/settings.toml`. That file is the canonical settings source: it is live-reloaded whenever you save it from an editor, and OmniWM configuration changes made in the Settings window are written back to it. OmniWM writes the top-level key `schemaVersion = 5`.
+OmniWM keeps settings in `~/.config/omniwm/settings.luau`. If `XDG_CONFIG_HOME` is an absolute path, it uses `$XDG_CONFIG_HOME/omniwm/settings.luau` instead. The first launch creates a file containing the default values. The Settings window and your editor work on that same file.
 
-:::caution[The schema is strict]
-After version upgrades, `settings.toml` is validated as a whole. In a version 5 file, a missing required key invalidates the **entire file**, and each action may appear in the `hotkeys` array **at most once** — an unknown or duplicate action id rejects the file, while an action that is left out is unassigned. Workspace `10+` hotkey entries are optional. Enumerated string keys must use one of their listed values; an unknown value rejects the whole file too. Conflicting trackpad gesture finger-count assignments (see [gestures](/config/settings-reference/#gestures)) reject the whole file as well. The safest way to edit is to change values in place (or use the Settings window) rather than deleting keys. See the [Settings Reference](/config/settings-reference/) for every key and its default.
-:::
+The file returns one Luau table. This small example uses an eight-point inner gap and takes the default values for the other settings:
+
+```lua
+--!strict
+local settings: OmniWMSettings = {
+    gaps = { size = 4 * 2 },
+}
+return settings
+```
+
+You can use local variables, functions and `require("./sizes")` or `require("../shared/sizes")` to load nearby `.luau` files. Each path starts at the folder of the file that calls `require`. Changes to the main file or any loaded helper reload your settings. Shortcuts, events and timers belong in the separate, optional `init.luau`.
+
+To enable editor completion and type checking, open the config folder in luau-lsp, select the standard platform, enable the new solver, and register the bundled `omniwm-config.d.luau` as a definitions file. For an app installed in Applications, it lives at `/Applications/OmniWM.app/Contents/Resources/OmniWM_OmniWM.bundle/Contents/Resources/omniwm-config.d.luau`. Keep the `--!strict` and `OmniWMSettings` annotation shown above. See the [settings reference](/config/settings-reference/) for keys, defaults and examples.
+
+## init.luau
+
+Shortcuts, palette commands, events, timers and window rules go in the optional `init.luau` next to `settings.luau`. The [init.luau Reference](/config/init-luau/) covers its functions, limits and recipes.
+
+### Rules and shortcuts: two homes
+
+- **`settings.luau` and the Settings window** hold the window rules you edit by hand and one shortcut for each action.
+- **`init.luau`** holds rules and shortcuts that code builds, such as a rule for each app in a list, and extra key chords for the same actions.
+- **Order:** OmniWM applies the Settings rules first, then `init.luau`'s. An `init.luau` rule whose `id` repeats a Settings rule is skipped, and the Settings window marks it **Overridden by Settings**.
+- **Script shortcuts take precedence.** An enabled `init.luau` binding takes over any overlapping Settings chord or mode key. The saved assignment stays in Settings and works again when you remove the winning binding. The notice shows the affected chord, the Settings action and the winning file and line, plus the total if several assignments are overridden. Load and callback errors appear first.
 
 ## Opening the file
 
 Click OmniWM's status bar icon and use:
 
-- **Reveal Settings File** — shows `settings.toml` in Finder.
+- **Reveal Settings File** — shows `settings.luau` in Finder.
 - **Edit Settings File** — opens it in your editor.
 
-Both commands recreate the file from the running settings if it was deleted, so you always land on a complete, valid file.
+If you delete the file while OmniWM is running, it keeps the working values and asks you to restore the file. To start over instead, these commands can create a new file with defaults.
 
 ## Settings window
 
-The searchable Settings window groups controls by task. **Desktop** contains Styles & Widgets, Menu Bar and Network & Permissions; **Windows** contains Workspaces, Layouts, Displays, App Rules, and Overview. **Appearance** holds motion, borders, and system-wide window corners. **Layouts** has Spacing, Niri, and Dwindle tabs. App Rules now uses the same settings window, with Save/Revert and discard protection for drafts. Clipboard retention limits and scratchpad labels are edited in TOML; clipboard history can be enabled from the [Command Palette's Clipboard mode](/features/command-palette/#clipboard-history).
+The searchable Settings window groups controls by task. **Desktop** contains Styles & Widgets, Menu Bar and Network & Permissions; **Windows** contains Workspaces, Layouts, Displays, App Rules, and Overview. **Appearance** holds motion, borders, and system-wide window corners. **Layouts** has Spacing, Niri, and Dwindle tabs. App Rules now uses the same settings window, with Save/Revert and discard protection for drafts. Clipboard retention limits and scratchpad labels can be edited in the file; clipboard history can be enabled from the [Command Palette's Clipboard mode](/features/command-palette/#clipboard-history).
 
 The Settings window is a managed floating window. It opens on the active workspace and appears in the window switcher, Overview and focus history, and it hides and returns with its workspace like any other floating window. Opening Settings again focuses the existing window. Other OmniWM windows, such as the Command Palette and the Welcome window, stay unmanaged.
 
-**Start at Login** is managed by macOS, and **System-wide Window Corners** changes a macOS preference. Neither is stored in `settings.toml`.
+**Start at Login** is managed by macOS, and **System-wide Window Corners** changes a macOS preference. Neither is stored in `settings.luau`.
 
 **Settings > Appearance > App & Motion** carries a **System-wide Window Corners** control (macOS 26.4+). It writes the system-wide preference, so it changes standard Mac app windows everywhere — including windows OmniWM does not manage — and apps that draw their own window chrome may ignore it. Affected apps must be fully quit and reopened before the new radius applies.
 
 ## Live reload and recovery
 
-- Saving `settings.toml` from an editor applies the changes immediately; no restart needed.
-- If the file cannot be parsed, OmniWM leaves it untouched and reports the problem in Diagnostics: at startup it runs with defaults, and a malformed live edit leaves the active settings unchanged. If you later save from the Settings window, OmniWM first secures the exact rejected bytes as `settings.toml.corrupt` (then `settings.toml.corrupt.1`) next to the config file — two write-once slots — before replacing the file.
-- Rejected edits and blocked writes also show an on-screen notice with the file path and error, even with the menu bar hidden. **Edit Settings File** opens the file for correction. The notice stays until dismissed or the error clears; repeated reports of the same error do not reopen a dismissed notice.
-- Unrecognized keys are preserved on save and reported by the built-in diagnostics rather than deleted. If an unrecognized key belongs to an array element that cannot be matched unambiguously after an edit, OmniWM leaves the file untouched and blocks writes instead of attaching the key to the wrong element.
-
-### Automatic version upgrades
-
-A file without `schemaVersion` is a legacy version 0 file; OmniWM v0.6.4 emitted version 1 files. OmniWM guarantees automatic upgrades for settings emitted by v0.6.2 through v0.6.4 and upgrades valid version 2, 3 and 4 files as well. Version 0 files pass through all five migration steps in memory. Version 1, 2, 3 and 4 files start at their next step without rerunning earlier migrations. Only the final strict version 5 file is written:
-
-- Missing settings introduced since version 0 receive their compatibility defaults. In particular, `focus.raiseOnMouseFocus` becomes `true` to preserve the old behavior; `gaps.fullscreenUsesOuterGaps` and `workspaceBar.hideInNativeFullscreen` become `false`; and `scratchpads.labels` starts empty.
-- The version 0 hotkey step adds the required scratchpad slot entries. The old `assignFocusedWindowToScratchpad` and `toggleScratchpadWindow` ids become their slot 1 equivalents while preserving the configured triggers; an explicitly configured slot 1 id wins if both forms are present.
-- The retired `consumeOrExpelWindowLeft` and `consumeOrExpelWindowRight` actions are removed. Diagnostics suggest the current replacement commands.
-- The version 1 to version 2 step adds the 18 `switchWorkspaceSlot.N` and `moveToWorkspaceSlot.N` entries plus `closeFocusedWindow`, all unassigned unless already present. Final validation still rejects any unrelated unknown or duplicate hotkey id.
-- The version 2 to version 3 step moves a nonempty `monitorRoutingOverrides` array into one `routing.arrangements` entry with a stable UUID. An empty array becomes no arrangements. All original monitor rows and their unrecognized fields remain intact, including rows for disconnected displays; the migration does not query displays. Custom routing can inherit that arrangement for a connected subset. A missing, non-array, or malformed old routing field rejects the configuration without rewriting it.
-- The version 3 to version 4 step adds the Set Mark and Remove Mark hotkey actions as unassigned entries. Existing hotkey bindings keep their assignments.
-- The version 4 to version 5 step renames the resize span actions, `setContainerPrimarySpan`, `setWindowPrimarySpan` and `setWindowSecondarySpan` with `.decrease10Percent` or `.increase10Percent`, to `resizeContainerPrimarySpan`, `resizeWindowPrimarySpan` and `resizeWindowSecondarySpan` with `.shrink` or `.grow`, keeping their triggers.
-
-Before rewriting version 0, 1, 2, 3, or 4, OmniWM copies its exact original bytes to the write-once backup `settings.toml.pre-v5`, using `settings.toml.pre-v5.1` if the first slot already contains different data. An existing byte-for-byte identical backup is reused. If neither slot is safe to use or the backup cannot be written, OmniWM leaves the original file untouched, applies the upgraded settings only in memory, and blocks subsequent settings writes so the original cannot be overwritten.
-
-After a successful backup, OmniWM atomically rewrites the file once as canonical version 5 TOML. The rewrite preserves unrecognized keys, the target of a symlink, and file permissions, but it can reorder the document and does not preserve comments. The pre-v5 backup retains the exact original text. If the rewrite fails, the original file remains intact and subsequent configuration writes are blocked. A valid release migration never creates a `.corrupt` backup; those recovery slots are reserved for a genuinely rejected file that is later replaced by an explicit settings save.
-
-Config logs and the built-in Diagnostics report every defaulted path, mapped or retired hotkey, and the backup location. Paths shown there use the resolved XDG config directory, including a custom `XDG_CONFIG_HOME`.
-
-Older schema-less files are attempted through the same migration, but are outside the guaranteed compatibility range. OmniWM v0.6.0 used direction-specific resize action ids: for both `resizeGrow` and `resizeShrink`, replace the `.left`/`.right` pair with one `.horizontal` entry and the `.up`/`.down` pair with one `.vertical` entry, choosing which binding to keep if the pair differed. If a version 0, 1, 2, 3, or 4 file contains structures that cannot satisfy strict post-migration validation, startup leaves the file untouched and runs with defaults, and a live edit is rejected without changing the active settings. A file with a newer, unsupported `schemaVersion` is not treated as corrupt: OmniWM leaves it untouched, blocks configuration writes, and reports that this OmniWM version cannot safely edit it.
+- Changing a literal in Settings edits that value in place and preserves surrounding code and comments. A **Code** mark beside a calculated value shows its source line. Click the mark to inspect the expression.
+- Editing a calculated value in Settings asks before replacing it. If a function calculates a whole group, the question shows which other values will become fixed. **Cancel** keeps the code. If the source changes while the question is open, the old approval expires.
+- A typo such as `gaps.ouetr` or a retired shortcut ID makes OmniWM reject the entire file, including other edits in the same save. While running, it keeps the last working settings, shows the file and line in an error, and blocks saves from the Settings window until you fix the file. **If you start OmniWM with an invalid file, every setting from that file uses its default.** Invalid values and broken helpers follow the same rule.
+- Interface language changes take effect at the next launch.
+- A symlink to your dotfiles stays a symlink when Settings writes through it. If the target is read-only, edit its source instead.
 
 ## Runtime state lives elsewhere
 
-Volatile runtime state is kept out of the config file so `settings.toml` stays clean for dotfile management. Clipboard history, update-check timestamps, the persisted window restore catalog (including Niri column and Dwindle tree placements), the Quake terminal's custom frame, and the last palette mode live in `${XDG_STATE_HOME:-$HOME/.local/state}/omniwm`. `XDG_STATE_HOME` is honored only when it is an absolute path beginning with `/`; otherwise OmniWM uses `~/.local/state/omniwm`.
+Volatile runtime state is kept out of the config file so `settings.luau` stays clean for dotfile management. Clipboard history, update-check timestamps, the persisted window restore catalog (including Niri column and Dwindle tree placements), the Quake terminal's custom frame, and the last palette mode live in `${XDG_STATE_HOME:-$HOME/.local/state}/omniwm`. `XDG_STATE_HOME` is honored only when it is an absolute path beginning with `/`; otherwise OmniWM uses `~/.local/state/omniwm`.
 
 The separate **OmniWM Dev** app uses `omniwm-dev` instead of `omniwm` for both its config and state directories. See [Building from Source](/developers/building/) for the development build workflow.
 
@@ -69,32 +71,32 @@ The full schema is documented key by key in the [Settings Reference](/config/set
 
 | Table / array | Covers |
 | --- | --- |
-| [`[general]`](/config/settings-reference/#general) | Hotkeys master switch, Hyper key, default layout, updates, IPC, animations, language |
-| [`[focus]`](/config/settings-reference/#focus) | Focus-follows-mouse and monitor-edge focus behavior |
-| [`[mouseWarp]`](/config/settings-reference/#mousewarp) | Cursor warping between monitors |
-| [`[routing]`](/config/settings-reference/#routing) | macOS vs. custom routing and saved arrangements per connected display set |
-| [`[monitors]`](/config/settings-reference/#monitors) | Optional ranking that decides which connected display is Main, Secondary, and so on |
-| [`[gaps]`](/config/settings-reference/#gaps) | Inner and outer gaps |
-| [`[niri]`](/config/settings-reference/#niri) | Scrolling (Niri) layout options |
-| [`[dwindle]`](/config/settings-reference/#dwindle) | Dwindle (BSP) layout options |
-| [`[borders]`](/config/settings-reference/#borders) | Focused-window border |
-| [`[overview]`](/config/settings-reference/#overview) | Overview visibility, zoom, input and colors |
-| [`[windowSwitcher]`](/config/settings-reference/#windowswitcher) | Command-Tab / Option-Tab window switcher |
-| [`[keyboardModes]`](/config/settings-reference/#keyboardmodes) | Shortcut pause timeout |
-| [`[workspaceBar]`](/config/settings-reference/#workspacebar) | Workspace bar appearance and behavior |
-| [`[island]`](/config/settings-reference/#island) | Dynamic Island master switch |
-| [`[gestures]`](/config/settings-reference/#gestures) | Mouse and trackpad gestures |
-| [`[statusBar]`](/config/settings-reference/#statusbar) | Menu bar icon extras |
-| [`[statusMenu]`](/config/settings-reference/#statusmenu) | Status menu panel contents |
-| [`[hiddenBar]`](/config/settings-reference/#hiddenbar) | Menu bar icon concealment |
-| [`[clipboard]`](/config/settings-reference/#clipboard) | Clipboard history limits |
-| [`[launcher]`](/config/settings-reference/#launcher) | Saved applications, commands, scripts and CLI launches; execution defaults and discovery folders |
-| [`[commandPalette]`](/config/settings-reference/#commandpalette) | Unified search and the palette modes it covers |
-| [`[quakeTerminal]`](/config/settings-reference/#quaketerminal) | Drop-down terminal |
-| [`[scratchpads]`](/config/settings-reference/#scratchpads) | Scratchpad slot labels |
-| [`[appearance]`](/config/settings-reference/#appearance) | Light/dark appearance of OmniWM's own UI |
-| [`[shellPermissions]`](/config/settings-reference/#shellpermissions) | Remembered OmniShell host/program decisions and built-in service switches |
-| [`[[hotkeys]]`](/config/settings-reference/#hotkeys) | One entry per assignable action |
-| [`[[workspaces]]`](/config/settings-reference/#workspaces) | Workspace definitions |
-| [`[[appRules]]`](/config/settings-reference/#apprules) | Per-app window rules |
-| [`[[monitor*Overrides]]`](/config/settings-reference/#per-monitor-overrides) | Per-monitor bar, orientation, Niri, Dwindle, and gap overrides |
+| [`general`](/config/settings-reference/#general) | Hotkeys master switch, Hyper key, default layout, updates, IPC, animations, language |
+| [`focus`](/config/settings-reference/#focus) | Focus-follows-mouse and monitor-edge focus behavior |
+| [`mouseWarp`](/config/settings-reference/#mousewarp) | Cursor warping between monitors |
+| [`routing`](/config/settings-reference/#routing) | macOS vs. custom routing and saved arrangements per connected display set |
+| [`monitors`](/config/settings-reference/#monitors) | Optional ranking that decides which connected display is Main, Secondary, and so on |
+| [`gaps`](/config/settings-reference/#gaps) | Inner and outer gaps |
+| [`niri`](/config/settings-reference/#niri) | Scrolling (Niri) layout options |
+| [`dwindle`](/config/settings-reference/#dwindle) | Dwindle (BSP) layout options |
+| [`borders`](/config/settings-reference/#borders) | Focused-window border |
+| [`overview`](/config/settings-reference/#overview) | Overview visibility, zoom, input and colors |
+| [`windowSwitcher`](/config/settings-reference/#windowswitcher) | Command-Tab / Option-Tab window switcher |
+| [`keyboardModes`](/config/settings-reference/#keyboardmodes) | Shortcut pause timeout |
+| [`workspaceBar`](/config/settings-reference/#workspacebar) | Workspace bar appearance and behavior |
+| [`island`](/config/settings-reference/#island) | Dynamic Island master switch |
+| [`gestures`](/config/settings-reference/#gestures) | Mouse and trackpad gestures |
+| [`statusBar`](/config/settings-reference/#statusbar) | Menu bar icon extras |
+| [`statusMenu`](/config/settings-reference/#statusmenu) | Status menu panel contents |
+| [`hiddenBar`](/config/settings-reference/#hiddenbar) | Menu bar icon concealment |
+| [`clipboard`](/config/settings-reference/#clipboard) | Clipboard history limits |
+| [`launcher`](/config/settings-reference/#launcher) | Saved applications, commands, scripts and CLI launches; execution defaults and discovery folders |
+| [`commandPalette`](/config/settings-reference/#commandpalette) | Unified search and the palette modes it covers |
+| [`quakeTerminal`](/config/settings-reference/#quaketerminal) | Drop-down terminal |
+| [`scratchpads`](/config/settings-reference/#scratchpads) | Scratchpad slot labels |
+| [`appearance`](/config/settings-reference/#appearance) | Light/dark appearance of OmniWM's own UI |
+| [`shellPermissions`](/config/settings-reference/#shellpermissions) | Remembered OmniShell host/program decisions and built-in service switches |
+| [`hotkeys`](/config/settings-reference/#hotkeys) | One entry per assignable action |
+| [`workspaces`](/config/settings-reference/#workspaces) | Workspace definitions |
+| [`appRules`](/config/settings-reference/#apprules) | Per-app window rules |
+| [`monitor*Overrides`](/config/settings-reference/#per-monitor-overrides) | Per-monitor bar, orientation, Niri, Dwindle, and gap overrides |

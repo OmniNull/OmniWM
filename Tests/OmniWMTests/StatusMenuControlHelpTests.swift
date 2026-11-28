@@ -318,8 +318,8 @@ final class StatusMenuControlHelpTests: XCTestCase {
             at: directory.appendingPathComponent("look"),
             withIntermediateDirectories: true
         )
-        try Data("profile = 'look'\n[profiles.look.hiddenBar]\nenabled = false\n".utf8)
-            .write(to: directory.appendingPathComponent("shell.toml"))
+        try Data("return { profile = \"look\", profiles = { look = { hiddenBar = { enabled = false } } } }\n".utf8)
+            .write(to: directory.appendingPathComponent("shell.luau"))
         settings.hiddenBar.enabled = true
         let activeProfile = ShellConfig.resolve(shellDirectory: directory)
         settings.workspaceBar.profileOverride = activeProfile.barOverride
@@ -363,8 +363,8 @@ final class StatusMenuControlHelpTests: XCTestCase {
         let settings = fixture.model.settings
         let directory = ShellWidgetHost.shellDirectory(in: settings.settingsFileURL.deletingLastPathComponent())
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let invalid = Data("trailing = [".utf8)
-        let url = directory.appendingPathComponent("shell.toml")
+        let invalid = Data("return {trailing = {".utf8)
+        let url = directory.appendingPathComponent("shell.luau")
         try invalid.write(to: url)
         settings.hiddenBar.enabled = false
         var messages: [(String, String)] = []

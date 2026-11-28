@@ -86,18 +86,15 @@ final class HostedAppPermissionTests: XCTestCase {
         try FileManager.default.createDirectory(at: helper, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: folder.deletingLastPathComponent()) }
         try Data("""
-        title = "Network App"
-        icon = "app"
-        views = ["window"]
-        uses = ["helper"]
-        capabilities = { network = ["api.example"], purpose = "Shows a report" }
-
-        [window]
-        width = 320
-        height = 200
-        minWidth = 200
-        minHeight = 120
-        """.utf8).write(to: folder.appendingPathComponent("component.toml"))
+        return {
+            title = "Network App",
+            icon = "app",
+            views = { "window" },
+            uses = { "helper" },
+            capabilities = { network = { "api.example" }, purpose = "Shows a report" },
+            window = { width = 320, height = 200, minWidth = 200, minHeight = 120 },
+        }
+        """.utf8).write(to: folder.appendingPathComponent("component.manifest.luau"))
         try Data("""
         return {
             init = function() assert(omniwm.http({url='https://api.example/data'}, function(result) end)) end,
@@ -105,9 +102,11 @@ final class HostedAppPermissionTests: XCTestCase {
         }
         """.utf8).write(to: folder.appendingPathComponent("init.luau"))
         try Data("""
-        views = ["compact"]
-        capabilities = { network = ["helper.example"] }
-        """.utf8).write(to: helper.appendingPathComponent("component.toml"))
+        return {
+            views = { "compact" },
+            capabilities = { network = { "helper.example" } },
+        }
+        """.utf8).write(to: helper.appendingPathComponent("component.manifest.luau"))
         try Data("""
         return { views = { compact = function() return ui.box{ w = 1, h = 1 } end } }
         """.utf8).write(to: helper.appendingPathComponent("component.luau"))
@@ -221,20 +220,15 @@ final class HostedAppPermissionTests: XCTestCase {
         """.utf8).write(to: folder.appendingPathComponent("init.luau"))
         func publish(host: String, command: String) async throws {
             try Data("""
-            title = "Edited App"
-            icon = "app"
-            views = ["window"]
-            capabilities = { network = ["\(host)"], provider = true }
-
-            [provider]
-            command = ["\(command)"]
-
-            [window]
-            width = 320
-            height = 200
-            minWidth = 200
-            minHeight = 120
-            """.utf8).write(to: folder.appendingPathComponent("component.toml"))
+            return {
+                title = "Edited App",
+                icon = "app",
+                views = { "window" },
+                capabilities = { network = { "\(host)" }, provider = true },
+                provider = { command = { "\(command)" } },
+                window = { width = 320, height = 200, minWidth = 200, minHeight = 120 },
+            }
+            """.utf8).write(to: folder.appendingPathComponent("component.manifest.luau"))
             await catalog.refresh()
             XCTAssertEqual(catalog.problems, [])
             XCTAssertEqual(catalog.definitions["edited-app"]?.component?.capabilities.network, [host])

@@ -2,33 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-
-public enum IPCWindowActionName: String, Codable, Equatable, Sendable {
-    case focus
-    case navigate
-    case summonRight = "summon-right"
-    case moveToWorkspace = "move-to-workspace"
-    case close
-    case moveColumnToFirst = "move-column-to-first"
-    case moveColumnToLast = "move-column-to-last"
-    case moveColumnToIndex = "move-column-to-index"
-    case moveColumn = "move-column"
-    case toggleContainerFullPrimarySpan = "toggle-container-full-primary-span"
-    case setContainerPrimarySpan = "set-container-primary-span"
-    case setWindowPrimarySpan = "set-window-primary-span"
-    case cycleWindowPrimarySpan = "cycle-window-primary-span"
-    case setWindowSecondarySpan = "set-window-secondary-span"
-    case resetWindowSecondarySpan = "reset-window-secondary-span"
-    case cycleWindowSecondarySpan = "cycle-window-secondary-span"
-    case toggleColumnTabbed = "toggle-column-tabbed"
-    case toggleFloating = "toggle-floating"
-    case assignToScratchpad = "assign-to-scratchpad"
-}
-
-public enum IPCCycleDirection: String, Codable, CaseIterable, Equatable, Sendable {
-    case forward
-    case backward
-}
+import OmniWMAutomation
 
 public struct IPCWindowRequest: Codable, Equatable, Sendable {
     public let name: IPCWindowActionName
@@ -160,23 +134,114 @@ public enum IPCWindowOpaqueIDValidationResult: Equatable, Sendable {
     case invalid
 }
 
+private struct Base64URLState {
+    private static let alphabet: StaticString = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    private var bits: UInt16 = 0
+    private var bitCount = 0
+
+    mutating func append(_ byte: UInt8, into buffer: UnsafeMutableRawBufferPointer, at index: inout Int) {
+        bits = (bits << 8) | UInt16(byte)
+        bitCount += 8
+        while bitCount >= 6 {
+            bitCount -= 6
+            buffer[index] = Self.alphabet.utf8Start[Int((bits >> bitCount) & 63)]
+            index += 1
+        }
+    }
+
+    func finish(into buffer: UnsafeMutableRawBufferPointer, at index: inout Int) {
+        if bitCount > 0 {
+            buffer[index] = Self.alphabet.utf8Start[Int((bits << (6 - bitCount)) & 63)]
+            index += 1
+        }
+    }
+}
+
 public enum IPCWindowOpaqueID {
-    private struct DecodedPayload {
-        let sessionToken: String
-        let pid: Int32
-        let windowId: Int
+    public struct Address: Equatable, Sendable {
+        public let sessionToken: String
+        public let pid: Int32
+        public let windowId: Int
+    }
+
+    public struct Encoder {
+        private let prefix: [UInt8]
+        private let state: Base64URLState
+
+        public init(sessionToken: String) {
+            var state = Base64URLState()
+            var prefix = [UInt8](repeating: 0, count: 3 + (sessionToken.utf8.count + 1) * 8 / 6)
+            prefix.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+                buffer[0] = UInt8(ascii: "o")
+                buffer[1] = UInt8(ascii: "w")
+                buffer[2] = UInt8(ascii: "_")
+                var index = 3
+                for byte in sessionToken.utf8 { state.append(byte, into: buffer, at: &index) }
+                state.append(UInt8(ascii: ":"), into: buffer, at: &index)
+            }
+            self.prefix = prefix
+            self.state = state
+        }
+
+        public func append(pid: Int32, windowId: Int, to data: inout Data) {
+            withEncodedBytes(pid: pid, windowId: windowId) { prefix, suffix in
+                data.append(contentsOf: prefix)
+                data.append(contentsOf: suffix)
+            }
+        }
+
+        public func append(pid: Int32, windowId: Int, to bytes: inout [UInt8]) {
+            withEncodedBytes(pid: pid, windowId: windowId) { prefix, suffix in
+                bytes.append(contentsOf: prefix)
+                bytes.append(contentsOf: suffix)
+            }
+        }
+
+        package func withEncodedBytes<R>(
+            pid: Int32, windowId: Int, _ read: (UnsafeRawBufferPointer, UnsafeRawBufferPointer) -> R
+        ) -> R {
+            var decimal = InlineArray<32, UInt8>(repeating: 0)
+            var start = decimal.count
+            Self.prependDecimal(windowId, to: &decimal, at: &start)
+            start -= 1
+            decimal[start] = UInt8(ascii: ":")
+            Self.prependDecimal(Int(pid), to: &decimal, at: &start)
+            var state = state
+            var suffix = InlineArray<44, UInt8>(repeating: 0)
+            return withUnsafeMutableBytes(of: &suffix) { buffer in
+                var count = 0
+                for index in start ..< decimal.count { state.append(decimal[index], into: buffer, at: &count) }
+                state.finish(into: buffer, at: &count)
+                let tail = UnsafeRawBufferPointer(start: buffer.baseAddress, count: count)
+                return prefix.withUnsafeBytes { read($0, tail) }
+            }
+        }
+
+        private static func prependDecimal(_ value: Int, to bytes: inout InlineArray<32, UInt8>, at index: inout Int) {
+            var magnitude = value.magnitude
+            repeat {
+                index -= 1
+                bytes[index] = UInt8(ascii: "0") + UInt8(magnitude % 10)
+                magnitude /= 10
+            } while magnitude != 0
+            if value < 0 {
+                index -= 1
+                bytes[index] = UInt8(ascii: "-")
+            }
+        }
     }
 
     public static func encode(pid: Int32, windowId: Int, sessionToken: String) -> String {
-        let payload = "\(sessionToken):\(pid):\(windowId)"
-        return "ow_" + base64URLEncoded(Data(payload.utf8))
+        var bytes = Data()
+        Encoder(sessionToken: sessionToken).append(pid: pid, windowId: windowId, to: &bytes)
+        return String(decoding: bytes, as: UTF8.self)
     }
 
     public static func validate(
         _ value: String,
         expectingSessionToken sessionToken: String
     ) -> IPCWindowOpaqueIDValidationResult {
-        guard let decoded = decodePayload(value) else {
+        guard let decoded = decode(value) else {
             return .invalid
         }
         guard decoded.sessionToken == sessionToken else {
@@ -198,7 +263,7 @@ public enum IPCWindowOpaqueID {
         }
     }
 
-    private static func decodePayload(_ value: String) -> DecodedPayload? {
+    public static func decode(_ value: String) -> Address? {
         guard value.hasPrefix("ow_") else { return nil }
         let encoded = String(value.dropFirst(3))
         guard let data = base64URLDecoded(encoded),
@@ -225,18 +290,11 @@ public enum IPCWindowOpaqueID {
             return nil
         }
 
-        return DecodedPayload(
+        return Address(
             sessionToken: sessionToken,
             pid: pid,
             windowId: windowId
         )
-    }
-
-    private static func base64URLEncoded(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
     }
 
     private static func base64URLDecoded(_ value: String) -> Data? {

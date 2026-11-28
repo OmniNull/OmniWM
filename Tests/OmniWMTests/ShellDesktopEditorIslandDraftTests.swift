@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -200,7 +199,7 @@ extension ShellDesktopEditorTests {
         fixture.editor.updateDraft(key, .text("Home"))
         let draft = try XCTUnwrap(fixture.editor.draft(key))
         _ = await fixture.editor.selectSurface(.bar)
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         try Data("[broken".utf8).write(to: file)
         await fixture.editor.resolve(.save)
         XCTAssertEqual(fixture.editor.surface, .island)
@@ -227,7 +226,7 @@ extension ShellDesktopEditorTests {
         XCTAssertTrue(saved)
         let after = try document(fixture)
         XCTAssertEqual(after["profiles"], before["profiles"])
-        guard case let .table(root)? = after["weather"] else { return XCTFail("Missing shared Weather") }
+        guard case let .record(root)? = after["weather"] else { return XCTFail("Missing shared Weather") }
         XCTAssertEqual(root["city"], .string("London"))
     }
 }

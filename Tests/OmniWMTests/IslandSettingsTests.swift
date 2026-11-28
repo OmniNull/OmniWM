@@ -3,38 +3,31 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class IslandSettingsTests: XCTestCase {
     func testIslandIsDisabledByDefaultAndRoundTripsIndependentlyOfBar() throws {
         let defaults = SettingsExport.defaults()
-        let tree = try TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: SettingsTOMLCodec.encode(defaults)
-        )
-        XCTAssertEqual(tree["island"], .table(["enabled": .boolean(false)]))
+        let tree = try SettingsLuauFixture.fields(in: SettingsLuauDocument.initialSource(defaults))
+        XCTAssertEqual(tree["island"], .record(["enabled": .boolean(false)]))
 
         for barEnabled in [false, true] {
             for islandEnabled in [false, true] {
                 var export = defaults
                 export.workspaceBar.enabled = barEnabled
                 export.island.enabled = islandEnabled
-                XCTAssertEqual(try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)), export)
+                XCTAssertEqual(try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)), export)
             }
         }
     }
 
     func testAbsentIslandIsDisabledAndInvalidEnablementIsRejected() throws {
-        var tree = try TOMLDecoder().decode(
-            [String: TOMLNode].self,
-            from: SettingsTOMLCodec.encode(.defaults())
-        )
+        var tree = try SettingsLuauFixture.fields(in: SettingsLuauDocument.initialSource(.defaults()))
         tree.removeValue(forKey: "island")
-        XCTAssertFalse(try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).island.enabled)
+        XCTAssertFalse(try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)).island.enabled)
 
-        tree["island"] = .table(["enabled": .string("true")])
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)))
+        tree["island"] = .record(["enabled": .string("true")])
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)))
     }
 
     @MainActor
@@ -48,7 +41,7 @@ final class IslandSettingsTests: XCTestCase {
         settings.workspaceBar.enabled = false
         settings.island.enabled = true
 
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertTrue(saved.island.enabled)
         XCTAssertFalse(saved.workspaceBar.enabled)
         XCTAssertEqual(saved, settings.toExport())

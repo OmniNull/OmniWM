@@ -72,7 +72,6 @@ final class NativeFullscreenPlaceholderView: NSView {
         updateTextGeometry()
     }
 
-    @available(*, unavailable)
     required init?(coder _: NSCoder) {
         nil
     }

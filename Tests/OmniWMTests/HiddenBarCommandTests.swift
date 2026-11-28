@@ -13,7 +13,10 @@ final class HiddenBarCommandTests: XCTestCase {
 
         XCTAssertEqual(descriptor.commandWords, ["hidden-bar", "panel"])
         XCTAssertEqual(descriptor.path, "command hidden-bar panel")
-        XCTAssertEqual(try IPCCommandRequest(name: descriptor.name, argumentValues: []), .presentation(.hiddenBar))
+        XCTAssertEqual(
+            try IPCCommandRequest(name: descriptor.name, argumentValues: []),
+            .init(.presentation(.hiddenBar))
+        )
     }
 
     @MainActor
@@ -22,7 +25,7 @@ final class HiddenBarCommandTests: XCTestCase {
         defer { controller.hiddenBarController.dismissPanel() }
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.presentation(.hiddenBar)), .executed)
+        XCTAssertEqual(router.handle(.init(.presentation(.hiddenBar))), .executed)
     }
 
     @MainActor

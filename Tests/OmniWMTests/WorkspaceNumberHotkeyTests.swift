@@ -58,17 +58,17 @@ final class WorkspaceNumberHotkeyTests: XCTestCase {
         XCTAssertNil(bindings.first { $0.id == "switchWorkspace.14" })
     }
 
-    func testTOMLAcceptsWorkspaceActionsAboveNineAndDoesNotRequireThem() throws {
+    func testLuauAcceptsWorkspaceActionsAboveNineAndDoesNotRequireThem() throws {
         var export = SettingsExport.defaults()
         let chord = HotkeyTrigger.chord(KeyBinding(keyCode: UInt32(kVK_ANSI_0), modifiers: UInt32(optionKey)))
         try export.hotkeyBindings.append(XCTUnwrap(
             HotkeyBindingRegistry.makeBinding(id: "switchWorkspace.9", trigger: chord)
         ))
 
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         XCTAssertEqual(decoded.hotkeyBindings.first { $0.id == "switchWorkspace.9" }?.binding, chord)
 
-        let withoutDynamic = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(.defaults()))
+        let withoutDynamic = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(.defaults()))
         XCTAssertEqual(withoutDynamic.hotkeyBindings, HotkeyBindingRegistry.defaults())
     }
 

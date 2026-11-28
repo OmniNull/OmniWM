@@ -4,7 +4,6 @@
 import CoreGraphics
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -63,15 +62,14 @@ final class NiriMonitorSpanSettingsTests: XCTestCase {
             MonitorNiriSettings(monitorName: "App", defaultContainerPrimarySpan: .app),
             MonitorNiriSettings(monitorName: "Custom", defaultContainerPrimarySpan: .custom(0.6))
         ]
-        let data = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: data).isEmpty)
-        let tree = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        guard case let .array(overrides) = tree["monitorNiriOverrides"] else {
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+        let tree = try SettingsLuauFixture.fields(in: data)
+        guard case let .list(overrides) = tree["monitorNiriOverrides"] else {
             return XCTFail("Missing monitor overrides")
         }
-        let spans = overrides.compactMap { node -> (String, TOMLNode?)? in
-            guard case let .table(table) = node, case let .string(name) = table["monitorName"] else { return nil }
+        let spans = overrides.compactMap { node -> (String, SettingsLuauValue?)? in
+            guard case let .record(table) = node, case let .string(name) = table["monitorName"] else { return nil }
             return (name, table["defaultContainerPrimarySpan"])
         }
         XCTAssertEqual(spans.count, 4)
@@ -80,7 +78,7 @@ final class NiriMonitorSpanSettingsTests: XCTestCase {
             case "Global": XCTAssertNil(span)
             case "Auto": XCTAssertEqual(span, .string("auto"))
             case "App": XCTAssertEqual(span, .string("app"))
-            case "Custom": XCTAssertEqual(span, .float(0.6))
+            case "Custom": XCTAssertEqual(span, .number(0.6))
             default: XCTFail("Unexpected monitor")
             }
         }
@@ -89,13 +87,13 @@ final class NiriMonitorSpanSettingsTests: XCTestCase {
     func testInvalidMonitorSpanOverridesRejectDecode() throws {
         var export = SettingsExport.defaults()
         export.monitorNiriSettings = [MonitorNiriSettings(monitorName: "Auto", defaultContainerPrimarySpan: .auto)]
-        let toml = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
-        for invalid in ["\"unknown\"", "0.0", "1.5", "nan", "true"] {
-            let input = toml.replacingOccurrences(
+        let source = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
+        for invalid in ["\"unknown\"", "0.0", "1.5", "(0 / 0)", "true"] {
+            let input = source.replacingOccurrences(
                 of: "defaultContainerPrimarySpan = \"auto\"",
                 with: "defaultContainerPrimarySpan = \(invalid)"
             )
-            XCTAssertThrowsError(try SettingsTOMLCodec.decode(Data(input.utf8)), invalid)
+            XCTAssertThrowsError(try SettingsLuauFixture.decode(Data(input.utf8)), invalid)
         }
     }
 }

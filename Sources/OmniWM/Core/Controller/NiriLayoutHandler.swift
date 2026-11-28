@@ -105,6 +105,7 @@ enum StructuralMutationOutcome: Equatable {
 
     struct NiriStructuralMutation {
         let operation: LayoutOperation
+        var stackSwap: (oldFrames: [WindowToken: CGRect], yContainmentFrame: CGRect?)?
     }
 
     enum WindowTarget {
@@ -269,19 +270,32 @@ struct NodeActivationOptions {
     func preparePredictedAnimation(
         state: ViewportState,
         oldFrames: [WindowToken: CGRect],
-        yContainmentFrame: CGRect? = nil
+        yContainmentFrame: CGRect? = nil,
+        edgeTuck: NiriEdgeTuck = .settledOnly
     ) {
         let animationTime = (engine.animationClock?.now() ?? CACurrentMediaTime()) + 2.0
         _ = engine.triggerMoveAnimations(
             in: wsId,
             oldFrames: oldFrames,
-            newFrames: predictedFrames(state: state, at: animationTime),
+            newFrames: predictedFrames(state: state, at: animationTime, edgeTuck: edgeTuck),
             motion: motion,
             yContainmentFrame: yContainmentFrame
         )
     }
 
-    func predictedFrames(state: ViewportState, at animationTime: TimeInterval) -> [WindowToken: CGRect] {
+    func tuckForStackSwap(before: ViewportState, after: ViewportState) -> NiriEdgeTuck {
+        guard before.activeColumnIndex == after.activeColumnIndex,
+              before.viewOffset == after.viewOffset,
+              !after.hasPendingOffsetAnimation,
+              !controller.workspaceManager.animationDriver.hasMotion(in: wsId),
+              !engine.hasAnyColumnAnimationsRunning(in: wsId)
+        else { return .settledOnly }
+        return .windowAnimations(engine.windowAnimationAxes(in: wsId))
+    }
+
+    func predictedFrames(
+        state: ViewportState, at animationTime: TimeInterval, edgeTuck: NiriEdgeTuck = .settledOnly
+    ) -> [WindowToken: CGRect] {
         let scale = NSScreen.screens.first(where: { $0.displayId == monitor.displayId })?
             .backingScaleFactor ?? 2.0
         let layoutFrames = controller.layoutFrames(for: monitor, scale: scale)
@@ -309,7 +323,8 @@ struct NodeActivationOptions {
             gaps: layoutGaps,
             state: state,
             workingArea: workingArea,
-            animationTime: animationTime
+            animationTime: animationTime,
+            edgeTuck: edgeTuck
         ).frames
     }
 

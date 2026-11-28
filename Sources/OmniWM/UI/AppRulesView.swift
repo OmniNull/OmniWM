@@ -98,6 +98,7 @@ struct AppRulesView: View {
     private var sidebar: some View {
         AppRulesSidebar(
             rules: settings.appRules,
+            scriptRules: controller.configScript?.acceptedRules ?? [],
             searchText: $searchText,
             selection: selectionBinding,
             onAdd: { presentNewRule() },
@@ -245,6 +246,7 @@ struct AppRulesView: View {
 
 struct AppRulesSidebar: View {
     let rules: [AppRule]
+    let scriptRules: [ConfigScriptRule]
     @Binding var searchText: String
     @Binding var selection: AppRule.ID?
     let onAdd: () -> Void
@@ -252,13 +254,16 @@ struct AppRulesSidebar: View {
     let onMove: ((IndexSet, Int) -> Void)?
 
     var body: some View {
+        let rows = AppRulesSidebarRows(rules: rules, scriptRules: scriptRules, search: searchText)
         VStack(alignment: .leading, spacing: 12) {
             TextField("Search rules", text: $searchText)
                 .textFieldStyle(.roundedBorder)
             Button("Add Rule", systemImage: "plus", action: onAdd)
+                .settingsField(.appRules)
             List(selection: $selection) {
-                ForEach(filteredRules) { rule in
+                ForEach(rows.rules) { rule in
                     AppRuleSidebarRow(rule: rule)
+                        .settingsField(.appRules, row: rule.id.uuidString)
                         .tag(rule.id)
                         .contextMenu {
                             Button(role: .destructive) {
@@ -279,33 +284,43 @@ struct AppRulesSidebar: View {
                     .selectionDisabled()
                     .listRowSeparator(.hidden)
                 }
+                if !rows.scriptRules.isEmpty {
+                    Section("Script Rules") {
+                        ForEach(rows.scriptRules, id: \.rule.id) { row in
+                            let location = row.sourceLocation
+                            VStack(alignment: .leading, spacing: 2) {
+                                AppRuleSidebarRow(rule: row.rule)
+                                Text(verbatim: location)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .help(location)
+                                if rows.configuredIDs.contains(row.rule.id) {
+                                    Text("Overridden by Settings")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .selectionDisabled()
+                        }
+                    }
+                }
             }
             .listStyle(.inset)
             .overlay {
-                if !rules.isEmpty, filteredRules.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
-                } else if rules.isEmpty {
+                if rules.isEmpty, scriptRules.isEmpty {
                     ContentUnavailableView(
                         "No App Rules",
                         systemImage: "app.badge.checkmark",
                         description: Text("Add a rule to choose how an app’s windows are managed.")
                     )
+                } else if rows.rules.isEmpty, rows.scriptRules.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
             }
         }
         .padding(12)
-    }
-
-    private var filteredRules: [AppRule] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return rules }
-        return rules.filter { rule in
-            if rule.displayLabel.lowercased().contains(query) { return true }
-            if rule.bundleId.lowercased().contains(query) { return true }
-            return [rule.appNameSubstring, rule.titleSubstring, rule.titleRegex, rule.axRole, rule.axSubrole]
-                .compactMap { $0?.lowercased() }
-                .contains { $0.contains(query) }
-        }
     }
 }
 

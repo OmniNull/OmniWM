@@ -10,6 +10,7 @@ import OmniWMIPC
 final class FocusSettings {
     private nonisolated static let defaults = SettingsExport.Focus.defaults()
     @ObservationIgnored var onChange: (() -> Void)?
+    @ObservationIgnored var onEdgeNavigationEnabledChange: (() -> Void)?
 
     nonisolated static let edgeNavigationIntervalRange = 0.25 ... 2.0
     nonisolated static let edgeNavigationIntervalStep = 0.25
@@ -30,6 +31,18 @@ final class FocusSettings {
 
     var clickFocusWithoutScrolling = FocusSettings.defaults.clickFocusWithoutScrolling {
         didSet { onChange?() }
+    }
+
+    var edgeNavigationEnabled = FocusSettings.defaults.edgeNavigationEnabled {
+        didSet {
+            guard oldValue != edgeNavigationEnabled else { return }
+            onEdgeNavigationEnabledChange?()
+            onChange?()
+        }
+    }
+
+    var edgeNavigationEnabledUntracked: Bool {
+        _edgeNavigationEnabled
     }
 
     var edgeNavigationInterval = FocusSettings.defaults.edgeNavigationInterval {
@@ -72,6 +85,7 @@ final class FocusSettings {
             followsMouse: followsMouse,
             followsMouseOnlyFullyVisible: followsMouseOnlyFullyVisible,
             clickFocusWithoutScrolling: clickFocusWithoutScrolling,
+            edgeNavigationEnabled: edgeNavigationEnabled,
             edgeNavigationInterval: edgeNavigationInterval,
             raiseOnMouseFocus: raiseOnMouseFocus,
             lockModifier: lockModifier,
@@ -86,6 +100,7 @@ final class FocusSettings {
         followsMouse = focus.followsMouse
         followsMouseOnlyFullyVisible = focus.followsMouseOnlyFullyVisible
         clickFocusWithoutScrolling = focus.clickFocusWithoutScrolling
+        edgeNavigationEnabled = focus.edgeNavigationEnabled
         edgeNavigationInterval = focus.edgeNavigationInterval
         raiseOnMouseFocus = focus.raiseOnMouseFocus
         lockModifier = focus.lockModifier

@@ -6,20 +6,22 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
-    func placeFloatingWindow(_ handle: WindowHandle, frame: CGRect) {
+    @discardableResult
+    func placeFloatingWindow(_ handle: WindowHandle, frame: CGRect) -> Bool {
         guard workspaceManager.handle(for: handle.id) === handle,
               let entry = workspaceManager.entry(for: handle), entry.mode == .floating,
               entry.layoutReason == .standard,
               let monitor = workspaceManager.monitorForWorkspace(entry.workspaceId)
-        else { return }
+        else { return false }
         let targetFrame = FloatingFrameGeometry.clamped(frame, in: monitor.visibleFrame)
         workspaceManager.updateFloatingGeometry(
             frame: targetFrame, for: entry.token, referenceMonitor: monitor, restoreToFloating: true
         )
         guard !workspaceManager.isHiddenInCorner(entry.token),
               shouldApplyFloatingFrameImmediately(for: entry.workspaceId)
-        else { return }
+        else { return true }
         applyFloatingWindowFrame(targetFrame, to: entry)
+        return true
     }
 
     private func applyFloatingWindowFrame(_ frame: CGRect, to entry: WindowState) {

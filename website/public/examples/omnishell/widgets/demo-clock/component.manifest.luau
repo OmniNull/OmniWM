@@ -1,0 +1,13 @@
+return {
+    title = "Demo clock",
+    icon = "clock",
+    views = { "compact", "expanded" },
+    options = {
+        label = {
+            type = "string",
+            title = "Label",
+            default = "Desk",
+            maxLength = 48,
+        },
+    },
+}

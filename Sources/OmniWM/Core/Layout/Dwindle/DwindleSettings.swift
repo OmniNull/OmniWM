@@ -20,8 +20,10 @@ struct DwindleSettings {
         min(max(ratio, 0.1), 1.9)
     }
 
+    static let physicalRatios: ClosedRange<CGFloat> = 0 ... 2
+
     func ratioToFraction(_ ratio: CGFloat) -> CGFloat {
-        min(max(ratio / 2.0, 0), 1)
+        min(max(ratio / Self.physicalRatios.upperBound, 0), 1)
     }
 
     func resizeRatioRange(from ratio: CGFloat) -> ClosedRange<CGFloat> {

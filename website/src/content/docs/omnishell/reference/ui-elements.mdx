@@ -54,7 +54,7 @@ ui.text{ font = "Material Symbols Rounded", text = "dashboard", filled = true, s
 ui.icon{ app = "com.apple.finder", placeholder = "app", w = 20, h = 20 }
 ```
 
-A style ships its own fonts in `fonts/` next to its `shell.toml`; `fonts/` in the shell folder serves every profile. Each folder takes up to 16 `.ttf` or `.otf` files of at most 16 MiB. When two different files ship the same family, the first one loaded is used, and a changed font file takes effect after OmniWM restarts.
+A style ships its own fonts in `fonts/` next to its `shell.luau`; `fonts/` in the shell folder serves every profile. Each folder takes up to 16 `.ttf` or `.otf` files of at most 16 MiB. When two different files ship the same family, the first one loaded is used, and a changed font file takes effect after OmniWM restarts.
 
 <LuauDeclaration name="ui.text" />
 

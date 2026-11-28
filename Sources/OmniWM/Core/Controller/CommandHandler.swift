@@ -7,6 +7,7 @@ import Foundation
 @MainActor
 final class CommandHandler {
     weak var controller: WMController?
+    private(set) lazy var scriptNotice = ShellTooltip(wrapping: true)
     var nativeFullscreenStateProvider: ((AXWindowRef) -> Bool)?
     var nativeFullscreenSetter: ((AXWindowRef, Bool) -> Bool)?
     var frontmostAppPidProvider: (() -> pid_t?)?
@@ -23,7 +24,15 @@ final class CommandHandler {
     @discardableResult
     func handleHotkeyInvocation(_ invocation: HotkeyInvocation) -> ExternalCommandResult {
         guard let controller else { return .notFound }
-        guard controller.isEnabled else { return .ignoredDisabled }
+        return Self.handleHotkeyInvocation(invocation, controller: controller)
+    }
+
+    @discardableResult
+    static func handleHotkeyInvocation(
+        _ invocation: HotkeyInvocation,
+        controller: WMController
+    ) -> ExternalCommandResult {
+        guard controller.commandsEnabled else { return .ignoredDisabled }
         controller.noteUserAction()
         if invocation.command == .presentation(.overview), invocation.trigger?.isRepeat == true {
             return .executed
@@ -34,23 +43,33 @@ final class CommandHandler {
         case .blocked:
             return .ignoredOverview
         case .inactive:
-            return performCommand(invocation.command)
+            return performCommand(invocation.command, source: .shortcut, controller: controller)
         }
     }
 
     @discardableResult
-    func performCommand(_ command: HotkeyCommand) -> ExternalCommandResult {
+    func performCommand(_ command: HotkeyCommand, source: Source = .shortcut) -> ExternalCommandResult {
         guard let controller else { return .notFound }
-        guard controller.isEnabled else { return .ignoredDisabled }
+        return Self.performCommand(command, source: source, controller: controller)
+    }
+
+    private static func performCommand(
+        _ command: HotkeyCommand, source: Source, controller: WMController
+    ) -> ExternalCommandResult {
+        guard controller.commandsEnabled else { return .ignoredDisabled }
         guard !Self.shouldIgnoreCommand(command, isOverviewOpen: controller.isOverviewOpen()) else {
             return .ignoredOverview
         }
 
-        guard Self.isLayoutCompatible(command.layoutCompatibility, with: currentLayoutType()) else {
+        let compatibility = command.layoutCompatibility
+        guard compatibility == .shared || Self.isLayoutCompatible(
+            compatibility,
+            with: controller.commandHandler.currentLayoutType()
+        ) else {
             return .ignoredLayoutMismatch
         }
 
-        return performAllowedCommand(command, controller: controller)
+        return performAllowedCommand(command, source: source, controller: controller)
     }
 
     static func isLayoutCompatible(_ compatibility: LayoutCompatibility, with layoutType: LayoutType) -> Bool {
@@ -64,55 +83,68 @@ final class CommandHandler {
         }
     }
 
-    private func performAllowedCommand(_ command: HotkeyCommand, controller: WMController) -> ExternalCommandResult {
+    private static func performAllowedCommand(
+        _ command: HotkeyCommand,
+        source: Source,
+        controller: WMController
+    ) -> ExternalCommandResult {
         var changeStart = layoutChangeStart(recording: command, controller: controller)
         let mixedTransferSource = mixedTransferSelection(for: command, controller: controller)
         defer { finishLayoutChange(changeStart, transfer: mixedTransferSource, controller: controller) }
+        return dispatch(command, source: source, controller: controller, changeStart: &changeStart)
+    }
+
+    private static func dispatch(
+        _ command: HotkeyCommand, source: Source, controller: WMController,
+        changeStart: inout NiriLayoutChangeStart?
+    ) -> ExternalCommandResult {
+        var handler: CommandHandler {
+            controller.commandHandler
+        }
         switch command {
-        case let .focus(direction):
-            focusWindow(direction: direction)
-        case let .focusNavigation(action): return perform(action, controller: controller)
+        case let .configFunction(id): return controller.enqueueConfigFunction(id)
+        case let .namedKeyMode(id): return controller.hotkeys.enterNamedKeyMode(id).result
+        case let .focus(direction): handler.focusWindow(direction: direction)
+        case let .focusNavigation(action): return handler.perform(action, controller: controller)
         case let .move(direction):
-            moveWindowCrossingMonitors(direction: direction, controller: controller, widening: &changeStart)
-        case let .workspace(action): return perform(action, controller: controller)
-        case let .windowMovement(action): return perform(action, controller: controller, widening: &changeStart)
-        case let .column(action): return perform(action, controller: controller)
-        case let .monitorFocus(action): return perform(action, controller: controller)
-        case let .fullscreen(action): return perform(action, controller: controller)
-        case let .moveColumn(direction):
-            moveContainer(direction: direction)
-        case let .sizing(action): return perform(action, controller: controller)
-        case let .dwindle(action): return perform(action, controller: controller)
-        case .openCommandPalette:
-            controller.openCommandPalette()
+            handler.moveWindowCrossingMonitors(direction: direction, controller: controller, widening: &changeStart)
+        case let .workspace(action): return handler.perform(action, source: source, controller: controller)
+        case let .windowMovement(action): return handler.perform(action, controller: controller, widening: &changeStart)
+        case let .column(action): return handler.perform(action, controller: controller)
+        case let .monitorFocus(action): return handler.perform(action, controller: controller)
+        case let .fullscreen(action): return handler.perform(action, controller: controller)
+        case let .moveColumn(direction): handler.moveContainer(direction: direction)
+        case let .sizing(action): return handler.perform(action, controller: controller)
+        case let .dwindle(action): return handler.perform(action, controller: controller)
+        case .openCommandPalette: controller.openCommandPalette()
         case let .openCommandPaletteMode(mode):
             controller.openCommandPalette(mode: CommandPaletteMode(ipc: mode))
-        case .raiseAllFloatingWindows:
-            controller.raiseAllFloatingWindows()
-        case .toggleFloatingFocus:
-            return controller.toggleFloatingFocus()
-        case .rescueOffscreenWindows:
-            _ = controller.rescueOffscreenWindows()
-        case .windowState(.toggleFloating):
-            return controller.toggleFocusedWindowFloating()
-        case .windowState(.close):
-            return controller.closeFocusedWindow()
-        case let .scratchpad(action): return perform(action, controller: controller)
-        case .openMenuAnywhere:
-            controller.openMenuAnywhere()
+        case let .windowSwitcher(direction, scope):
+            return controller.windowSwitcherController.advanceFromAutomation(
+                reverse: direction == .previous,
+                scope: scope
+            )
+        case .raiseAllFloatingWindows: return controller.raiseAllFloatingWindows()
+        case .toggleFloatingFocus: return controller.toggleFloatingFocus()
+        case .rescueOffscreenWindows: return controller.rescueOffscreenWindows() > 0 ? .executed : .noChange
+        case .windowState(.toggleFloating): return controller.toggleFocusedWindowFloating()
+        case .windowState(.close): return controller.closeFocusedWindow()
+        case let .scratchpad(action): return handler.perform(action, controller: controller)
+        case .openMenuAnywhere: controller.openMenuAnywhere()
+        case .openSettings: controller.openSettings()
         case let .windowMark(action):
-            return performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
-        case let .presentation(action): return perform(action, controller: controller)
-        case let .media(action): perform(action, controller: controller)
-        case let .keyboardMode(command):
-            return controller.performKeyboardModeCommand(command)
-        case let .shellToggle(name):
-            return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
+            return handler.performWindowMarkAction(action, for: controller.workspaceManager.nativeManagedFocusToken)
+        case let .presentation(action): return handler.perform(action, controller: controller)
+        case let .media(action): handler.perform(action, controller: controller)
+        case let .keyboardMode(command): return controller.performKeyboardModeCommand(command)
+        case let .shellToggle(name): return controller.workspaceBarManager.toggleShell(name) ? .executed : .notFound
         case let .shellAppOpen(appID):
             return controller.shellAppWindowManager.open(appID) ? .executed : .notFound
         case let .shellAppNewWindow(appID):
             return controller.shellAppWindowManager.newWindow(appID) ? .executed : .notFound
-        case let .openApp(bundleID): return openApp(bundleID, controller: controller)
+        case let .openApp(bundleID): return handler.openApp(bundleID, controller: controller)
+        case let .runProgram(argv): handler.runProgram(argv)
+        case let .showNotice(text): handler.scriptNotice.showTransient(text, at: controller.currentMouseLocation())
         }
         return .executed
     }
@@ -122,7 +154,9 @@ final class CommandHandler {
         if case .keyboardMode = command { return false }
         return command != .presentation(.overview)
     }
+}
 
+extension CommandHandler {
     func layoutHandler<T>(as capability: T.Type) -> T? {
         guard let controller else { return nil }
         let layoutType = currentLayoutType()
@@ -289,9 +323,9 @@ final class CommandHandler {
         return controller.settings.workspaces.layoutType(for: ws.name)
     }
 
-    func toggleWorkspaceLayout() {
-        guard let controller else { return }
-        guard let workspace = controller.activeWorkspace() else { return }
+    func toggleWorkspaceLayout() -> ExternalCommandResult {
+        guard let controller else { return .noChange }
+        guard let workspace = controller.activeWorkspace() else { return .noChange }
         let workspaceName = workspace.name
 
         let currentLayout = controller.settings.workspaces.layoutType(for: workspaceName)
@@ -302,22 +336,28 @@ final class CommandHandler {
         case .dwindle: .niri
         }
 
-        _ = setWorkspaceLayout(newLayout, forWorkspaceNamed: workspaceName)
+        return setWorkspaceLayout(newLayout, forWorkspaceNamed: workspaceName)
     }
 
     @discardableResult
-    func setWorkspaceLayout(_ newLayout: LayoutType, forWorkspaceNamed workspaceName: String? = nil) -> Bool {
-        guard let controller else { return false }
+    func setWorkspaceLayout(
+        _ newLayout: LayoutType,
+        forWorkspaceNamed workspaceName: String? = nil
+    ) -> ExternalCommandResult {
+        guard let controller else { return .noChange }
         let resolvedWorkspaceName = workspaceName ?? controller.activeWorkspace()?.name
-        guard let resolvedWorkspaceName else { return false }
+        guard let resolvedWorkspaceName else { return .noChange }
 
         var configs = controller.settings.workspaces.configurations
-        guard let index = configs.firstIndex(where: { $0.name == resolvedWorkspaceName }) else { return false }
+        guard let index = configs.firstIndex(where: { $0.name == resolvedWorkspaceName }) else { return .noChange }
 
-        guard configs[index].layoutType != newLayout else { return false }
+        guard configs[index].layoutType != newLayout else { return .noChange }
 
+        guard controller.settings.permitsWorkspaceLayoutEdit(for: configs[index].id)
+        else { return .workspaceStateConflict }
         configs[index] = configs[index].with(layoutType: newLayout)
         controller.settings.workspaces.configurations = configs
+        guard controller.settings.workspaces.configurations == configs else { return .noChange }
         controller.refreshStatusBar()
         controller.layoutRefreshController.requestRelayout(reason: .workspaceLayoutToggled)
         if let ipcApplicationBridge = controller.ipcApplicationBridge {
@@ -325,59 +365,14 @@ final class CommandHandler {
                 await ipcApplicationBridge.publishEvent(.layoutChanged)
             }
         }
-        return true
+        return .executed
     }
 }
 
 extension CommandHandler {
-    enum LayoutChangeCoverage {
-        case ownWorkspace
-        case everyNiriWorkspace
-    }
-
-    static func layoutChangeCoverage(of command: HotkeyCommand) -> LayoutChangeCoverage? {
-        switch command {
-        case .move,
-             .moveColumn,
-             .windowMovement:
-            .ownWorkspace
-        case let .column(action):
-            switch action {
-            case .moveToFirst,
-                 .moveToLast,
-                 .moveToIndex,
-                 .toggleTabbed: .ownWorkspace
-            case .moveToWorkspace,
-                 .moveToWorkspaceUp,
-                 .moveToWorkspaceDown: .everyNiriWorkspace
-            }
-        case let .workspace(action):
-            switch action {
-            case .moveTo,
-                 .moveUp,
-                 .moveDown,
-                 .moveToMonitor,
-                 .moveToSlot: .everyNiriWorkspace
-            default: nil
-            }
-        case let .sizing(action):
-            action != .undo && action != .redo ? .ownWorkspace : nil
-        default:
-            nil
-        }
-    }
-
-    private func layoutChangeStart(
-        recording command: HotkeyCommand,
-        controller: WMController
-    ) -> NiriLayoutChangeStart? {
-        let layout = controller.niriLayoutHandler
-        return switch Self.layoutChangeCoverage(of: command) {
-        case .ownWorkspace: layout.activeLayoutChangeStart()
-        case .everyNiriWorkspace:
-            layout.layoutChangeStartCoveringEveryNiriWorkspace(in: controller.activeWorkspace()?.id)
-        case nil: nil
-        }
+    enum Source {
+        case shortcut
+        case ipc
     }
 
     private func moveWindowCrossingMonitors(
@@ -451,5 +446,15 @@ extension CommandHandler {
             ""
         ))
         return .executed
+    }
+
+    private func runProgram(_ argv: [String]) {
+        Task { @concurrent in
+            do {
+                try await LauncherProcess.start(argv)
+            } catch {
+                Log.config.error("omniwm.run: \(error.localizedDescription)")
+            }
+        }
     }
 }

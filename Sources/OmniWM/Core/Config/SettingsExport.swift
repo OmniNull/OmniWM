@@ -24,6 +24,7 @@ struct SettingsExport: Equatable {
     var keyboardModes = KeyboardModes()
     var workspaceAutoBackAndForth = false
     var focusNativeFullscreenOnWorkspaceSwitch = false
+    var workspaceSwitchWrapAround = true
 
     var hotkeyBindings: [HotkeyBinding]
     var systemHyperTrigger: SystemHyperTrigger
@@ -54,6 +55,7 @@ struct SettingsExport: Equatable {
     var animationSpeed: Double
     var slideWorkspaceSwitches = false
     var pausePalettePasteDuringSecureInput = true
+    var showSecureInputExplanation = true
     var language: String?
 
     var launcher = LauncherConfiguration()
@@ -75,6 +77,7 @@ struct SettingsExport: Equatable {
         var followsMouse: Bool
         var followsMouseOnlyFullyVisible: Bool = false
         var clickFocusWithoutScrolling: Bool = false
+        var edgeNavigationEnabled: Bool = true
         var edgeNavigationInterval: Double
         var raiseOnMouseFocus: Bool
         var lockModifier: FocusLockModifier
@@ -292,6 +295,8 @@ extension SettingsExport.Focus {
             ?? Self.defaults().followsMouseOnlyFullyVisible
         clickFocusWithoutScrolling = try container.decodeIfPresent(Bool.self, forKey: .clickFocusWithoutScrolling)
             ?? Self.defaults().clickFocusWithoutScrolling
+        edgeNavigationEnabled = try container.decodeIfPresent(Bool.self, forKey: .edgeNavigationEnabled)
+            ?? Self.defaults().edgeNavigationEnabled
         edgeNavigationInterval = try container.decodeIfPresent(Double.self, forKey: .edgeNavigationInterval)
             ?? Self.defaults().edgeNavigationInterval
         raiseOnMouseFocus = try container.decode(Bool.self, forKey: .raiseOnMouseFocus)

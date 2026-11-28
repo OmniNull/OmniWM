@@ -1,0 +1,25 @@
+name: Select Xcode
+description: Use the newest Xcode release installed on the runner.
+runs:
+  using: composite
+  steps:
+    - name: Select the newest installed Xcode release
+      shell: bash
+      run: |
+        set -euo pipefail
+        xcode="$(
+          for candidate in /Applications/Xcode_*.app; do
+            resolved="$(realpath "$candidate" 2>/dev/null)" || continue
+            version="$(basename "$resolved" .app)"
+            version="${version#Xcode_}"
+            if [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+              printf '%s\t%s\n' "$version" "$resolved"
+            fi
+          done | sort -k1,1V | tail -n 1 | cut -f 2
+        )"
+        if [ -z "$xcode" ]; then
+          echo "::error::No Xcode release is installed in /Applications."
+          exit 1
+        fi
+        echo "Using $xcode"
+        echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"

@@ -33,8 +33,8 @@ final class NiriEdgePeekDisplaySettingsTests: XCTestCase {
             MonitorNiriSettings(monitorName: "Studio", edgePeekPercent: 6.5),
             MonitorNiriSettings(monitorName: "Laptop", edgePeekPercent: 0)
         ]
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
 
         XCTAssertEqual(decoded, export)
         XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("edgePeek ="))

@@ -6,10 +6,11 @@ import Foundation
 import OmniWMIPC
 
 extension WorkspaceNavigationHandler {
-    func focusMonitorCyclic(previous: Bool) {
-        guard let controller else { return }
+    @discardableResult
+    func focusMonitorCyclic(previous: Bool) -> Bool {
+        guard let controller else { return false }
         guard let currentMonitorId = interactionMonitorId(for: controller)
-        else { return }
+        else { return false }
 
         let targetMonitor: Monitor? = if previous {
             controller.workspaceManager.previousMonitor(from: currentMonitorId)
@@ -17,19 +18,20 @@ extension WorkspaceNavigationHandler {
             controller.workspaceManager.nextMonitor(from: currentMonitorId)
         }
 
-        guard let target = targetMonitor else { return }
-        switchToMonitor(target.id, fromMonitor: currentMonitorId)
+        guard let target = targetMonitor else { return false }
+        return switchToMonitor(target.id, fromMonitor: currentMonitorId)
     }
 
-    func focusLastMonitor() {
-        guard let controller else { return }
-        guard let previousId = controller.workspaceManager.previousInteractionMonitorId else { return }
+    @discardableResult
+    func focusLastMonitor() -> Bool {
+        guard let controller else { return false }
+        guard let previousId = controller.workspaceManager.previousInteractionMonitorId else { return false }
         guard let currentMonitorId = interactionMonitorId(for: controller)
-        else { return }
+        else { return false }
 
-        guard controller.workspaceManager.monitors.contains(where: { $0.id == previousId }) else { return }
+        guard controller.workspaceManager.monitors.contains(where: { $0.id == previousId }) else { return false }
 
-        switchToMonitor(previousId, fromMonitor: currentMonitorId)
+        return switchToMonitor(previousId, fromMonitor: currentMonitorId)
     }
 
     @discardableResult

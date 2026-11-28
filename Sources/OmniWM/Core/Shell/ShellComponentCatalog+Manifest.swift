@@ -2,17 +2,16 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 extension ShellComponentCatalog {
     static func load(
         _ widget: String, folder: URL, sourceFile: String = "component.luau"
     ) throws -> ShellComponentDescriptor {
         guard validName(widget) else { throw Failure("Invalid component name \(widget)") }
-        let url = folder.appendingPathComponent("component.toml")
+        let url = folder.appendingPathComponent(manifestName)
         let data = try SettingsFileAccess.readContents(at: url).data
-        guard data.count <= 256 * 1024 else { throw Failure("\(widget)/component.toml is larger than 256 KiB") }
-        let table = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
+        guard data.count <= 256 * 1024 else { throw Failure("\(widget)/\(manifestName) is larger than 256 KiB") }
+        let table = try ShellLiteralMetadata.fields(data, filename: "\(widget)/\(manifestName)")
         guard FileManager.default.fileExists(atPath: folder.appendingPathComponent(sourceFile).path) else {
             throw Failure("\(widget) has no \(sourceFile)")
         }
@@ -35,7 +34,7 @@ extension ShellComponentCatalog {
         let capabilities = try parseCapabilities(table["capabilities"], place: widget, describesPurpose: true)
         var command: [String]?
         if let node = table["provider"] {
-            guard case let .table(provider) = node else { throw Failure("\(widget) provider must be a table") }
+            guard case let .record(provider) = node else { throw Failure("\(widget) provider must be a table") }
             try checkKeys(provider, allowed: ["command"], place: "\(widget) provider")
             let argv = try strings(provider["command"], fallback: [], place: "\(widget) provider command")
             guard let executable = argv.first, !executable.isEmpty, argv.count <= 64,

@@ -220,7 +220,7 @@ struct MonitorNeighborAxes: Equatable {
 }
 
 extension Monitor {
-    enum Orientation: String, Codable, Equatable {
+    enum Orientation: String, Codable, CaseIterable, Equatable {
         case horizontal
         case vertical
     }

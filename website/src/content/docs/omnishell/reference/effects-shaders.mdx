@@ -31,14 +31,17 @@ With `fps` at 0, animations off or Low Power Mode, a shader draws once, with `pr
 
 A profile can also draw a shader behind the entire workspace bar, underneath all three widget lanes:
 
-```toml
-[barShader]
-source = "matrix-rain.metal"
-fps = 30
-values = [0.38, 1, 12, 1]
+```lua
+return {
+    barShader = {
+        source = "matrix-rain.metal",
+        fps = 30,
+        values = { 0.38, 1, 12, 1 },
+    },
+}
 ```
 
-Put this table in the profile's `shell.toml`; in the user shell file, use `[profiles.matrix.barShader]`. The source is a `.metal` filename resolved through `shell/shaders/`, the selected profile's `shaders/`, then `default/shaders/`. `fps` accepts integers from 0 to 60, and `values` accepts up to four finite numbers. `enabled = false` disables the profile's bar shader. Matrix's four values are intensity, speed, character size in points, and bar glow (0–1). Sakura's are petal opacity, speed, petal size in points, and time offset; its popouts set these in `sakura/lib/style.luau`. The background follows bar opacity and yields to transparent or solid-black bar settings. It never intercepts clicks, and it pauses while hidden, locked or displays are asleep. Oversized bars keep their full logical bounds while lowering shader resolution to fit the existing 4096-pixel limit; widget text remains at display resolution. Failed shaders leave the ordinary bar fill visible and report their error in the shell log.
+Put this table in the profile's `shell.luau`; in the user shell file, use `profiles.matrix.barShader`. The source is a `.metal` filename resolved through `shell/shaders/`, the selected profile's `shaders/`, then `default/shaders/`. `fps` accepts integers from 0 to 60, and `values` accepts up to four finite numbers. `enabled = false` disables the profile's bar shader. Matrix's four values are intensity, speed, character size in points, and bar glow (0–1). Sakura's are petal opacity, speed, petal size in points, and time offset; its popouts set these in `sakura/lib/style.luau`. The background follows bar opacity and yields to transparent or solid-black bar settings. It never intercepts clicks, and it pauses while hidden, locked or displays are asleep. Oversized bars keep their full logical bounds while lowering shader resolution to fit the existing 4096-pixel limit; widget text remains at display resolution. Failed shaders leave the ordinary bar fill visible and report their error in the shell log.
 
 `open` and `close` on a popout's root set how many seconds `progress` takes to run from 0 to 1 and back, for example `ui.stack{ open = 0.8, close = 0.4, ... }`. They are exact: they ignore the animation speed setting, still play with animations off, and keep the shader drawing while they run whatever its `fps`. Drawers use the `open` and `close` of each widget they show; without them a drawer's shaders follow its slide.
 
@@ -63,7 +66,7 @@ end
 
 Until a mask shader draws its first frame its stack stays hidden; if it fails to compile, the stack shows unmasked.
 
-The element shader `fps` property is bounded to 0–120; profile-wide `[barShader].fps` is 0–60. Those are distinct contracts. `texture` accepts a qualified asset or contained image path; `source` names the Metal program, `values` supplies up to four parameters, and `audio = true` enables the native spectrum input.
+The element shader `fps` property is bounded to 0–120; profile-wide `barShader.fps` is 0–60. Those are distinct contracts. `texture` accepts a qualified asset or contained image path; `source` names the Metal program, `values` supplies up to four parameters, and `audio = true` enables the native spectrum input.
 
 <LuauDeclaration name="ui.shader" />
 
@@ -192,7 +195,7 @@ Source impulses and triggered shapes are planned at every matching analytic cros
 
 ## Editable effects library
 
-Add `effects-lab` to a bar lane in `shell.toml` to try the bundled motion, light and mask presets. The gallery is opt-in and works with every profile. Its **Glass / Frosted** button changes the panel material; the light and mask previews also use a blurred material behind their content. **Hide / Show** plays element transitions, **Move** retargets the trailing indicator, **Freeze / Animate** selects a static or animated shader, and the mask slider scrubs the reveal. Stretch also plays when the panel opens. Freeze draws the shader at time zero; it does not hold its last animated frame.
+Add `effects-lab` to a bar lane in `shell.luau` to try the bundled motion, light and mask presets. The gallery is opt-in and works with every profile. Its **Glass / Frosted** button changes the panel material; the light and mask previews also use a blurred material behind their content. **Hide / Show** plays element transitions, **Move** retargets the trailing indicator, **Freeze / Animate** selects a static or animated shader, and the mask slider scrubs the reveal. Stretch also plays when the panel opens. Freeze draws the shader at time zero; it does not hold its last animated frame.
 
 The editable files are installed under `~/.config/omniwm/shell/default/`:
 

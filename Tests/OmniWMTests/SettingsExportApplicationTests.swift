@@ -18,7 +18,7 @@ final class SettingsExportApplicationTests: XCTestCase {
         )
         XCTAssertEqual(settings.animationSpeed, 1)
         settings.animationSpeed = 2
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertEqual(saved.animationSpeed, 2)
         for speed in [0.25, 1, 4, Double.infinity] {
             var values = saved
@@ -40,7 +40,7 @@ final class SettingsExportApplicationTests: XCTestCase {
 
         settings.tabRailAppIcons = true
 
-        let saved = try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        let saved = try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
         XCTAssertTrue(saved.tabRailAppIcons)
         XCTAssertTrue(settings.toExport().tabRailAppIcons)
 

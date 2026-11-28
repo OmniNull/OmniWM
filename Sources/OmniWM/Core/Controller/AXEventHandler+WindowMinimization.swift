@@ -5,10 +5,13 @@ import ApplicationServices
 import Foundation
 
 extension AXEventHandler {
-    func handleWindowMinimized(pid: pid_t, axRef: AXWindowRef, minimized: Bool) {
+    func handleWindowMinimized(pid: pid_t, axRef: AXWindowRef, minimized: Bool, sequence: UInt64 = 0) {
         guard let controller else { return }
         let token = canonicalObservedWindowToken(pid: pid, axRef: axRef)
-        guard let entry = controller.workspaceManager.entry(for: token) else {
+        let entry = controller.workspaceManager.entry(for: token)
+        guard let entry, let entryAXRef = entry.axRef, CFEqual(entryAXRef.element, axRef.element) else {
+            recordPendingRebindMinimization(axRef: axRef, isMinimized: minimized, sequence: sequence)
+            guard entry == nil else { return }
             if minimized {
                 controller.workspaceManager.clearExternalFocusIdentity(matching: token)
             }
@@ -18,7 +21,6 @@ extension AXEventHandler {
             }
             return
         }
-        guard let entryAXRef = entry.axRef, CFEqual(entryAXRef.element, axRef.element) else { return }
         updateWindowMinimizedState(minimized, token: token)
         if !minimized, entry.mode == .floating {
             requestTargetedFullRescan(for: [pid])
@@ -26,6 +28,18 @@ extension AXEventHandler {
         if !minimized, frontmostApplicationPIDProvider() == pid {
             handleAppActivation(pid: pid, source: .focusedWindowChanged)
         }
+    }
+
+    private func recordPendingRebindMinimization(axRef: AXWindowRef, isMinimized: Bool, sequence: UInt64) {
+        guard let windowId = UInt32(exactly: axRef.windowId),
+              var state = admissionRetryStateByWindowId[windowId],
+              case .running = state.executionPhase,
+              !state.identityRebindTargetDestroyed,
+              case let .identityRebind(_, target, .some, _, _, _) = state.trigger,
+              sameAXWindowIdentity(target.axRef, axRef)
+        else { return }
+        state.rebindMinimization = WindowMinimizationObservation(isMinimized: isMinimized, sequence: sequence)
+        admissionRetryStateByWindowId[windowId] = state
     }
 
     @discardableResult

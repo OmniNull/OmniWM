@@ -1,6 +1,6 @@
 # <Style title>
 
-<The summary from style.toml.>
+<The summary from style.luau.>
 
 ## Previews
 

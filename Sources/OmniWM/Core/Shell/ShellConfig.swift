@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 enum ShellLane: String, Equatable, CaseIterable, Sendable {
     case leading
@@ -35,6 +34,8 @@ struct ShellConfig: Equatable {
 
     var profile = ShellDefaults.profile
     var directories: [URL] = []
+    var helperFiles: Set<URL> = []
+    var barLayoutCustomized = false
     var themeName = "native"
     var styleThemeName = "native"
     var theme = ShellTheme.native
@@ -73,10 +74,10 @@ struct ShellConfig: Equatable {
         }
     }
 
-    func file(_ path: String) -> URL? {
+    func file(_ path: String, exists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }) -> URL? {
         directories.lazy
             .map { $0.appendingPathComponent(path) }
-            .first { FileManager.default.fileExists(atPath: $0.path) }
+            .first(where: exists)
     }
 
     static func widgetFolders(in layer: URL) -> [URL] {
@@ -121,11 +122,8 @@ extension ShellConfig {
     }
 
     static func resolve(shellDirectory: URL, problems: inout [String]) -> ShellConfig {
-        if let config = load(shellDirectory: shellDirectory, problems: &problems) {
-            return config
-        }
-        problems = []
-        return load(shellDirectory, skippingBrokenLayers: true, problems: &problems) ?? ShellConfig()
+        var inputs = SourceFiles()
+        return resolve(shellDirectory: shellDirectory, problems: &problems, inputs: &inputs)
     }
 
     static func report(_ problem: String, _ problems: inout [String]) {
@@ -133,38 +131,42 @@ extension ShellConfig {
         problems.append(problem)
     }
 
-    private static func load(
-        _ shellDirectory: URL,
-        profile: String? = nil,
-        skippingBrokenLayers: Bool,
-        problems: inout [String]
+    static func load(
+        _ shellDirectory: URL, profile: String? = nil, skippingBrokenLayers: Bool = false,
+        problems: inout [String], inputs: inout SourceFiles
     ) -> ShellConfig? {
         var config = ShellConfig()
-        guard var top = layer(in: shellDirectory, &problems) ?? (skippingBrokenLayers ? [:] : nil) else { return nil }
+        guard var top = layer(in: shellDirectory, packageRoot: nil, files: &inputs, &problems) ??
+            (skippingBrokenLayers ? [:] : nil)
+        else { return nil }
         if let profile { top["profile"] = .string(profile) }
-        selectProfile(top, in: shellDirectory, for: &config, &problems)
-        var table: [String: TOMLNode] = [:]
+        selectProfile(top, in: shellDirectory, for: &config, inputs: &inputs, &problems)
+        var table: [String: SettingsLuauValue] = [:]
         for directory in config.directories.reversed() where directory != shellDirectory {
-            guard let next = layer(in: directory, &problems) ?? (skippingBrokenLayers ? [:] : nil) else { return nil }
+            guard let next = layer(in: directory, packageRoot: directory, files: &inputs, &problems) ??
+                (skippingBrokenLayers ? [:] : nil)
+            else { return nil }
             table = merged(table, next)
         }
         if case let .string(name)? = table["theme"] {
             config.styleThemeName = name
         }
-        if case let .table(drawers)? = table["drawer"] {
+        if case let .record(drawers)? = table["drawer"] {
             config.styleDrawers = Set(drawers.keys)
         }
         let own = ownLayer(top, profile: config.profile, &problems)
+        config.barLayoutCustomized = ["leading", "center", "trailing", "priority"].contains { own[$0] != nil }
         table = merged(table, own)
-        applyProfile(table, own: own, to: &config, &problems)
+        applyProfile(table, own: own, to: &config, inputs: &inputs, &problems)
+        config.helperFiles = inputs.helpers
         return config
     }
 
     private static func applyProfile(
-        _ table: [String: TOMLNode], own: [String: TOMLNode],
-        to config: inout ShellConfig, _ problems: inout [String]
+        _ table: [String: SettingsLuauValue], own: [String: SettingsLuauValue],
+        to config: inout ShellConfig, inputs: inout SourceFiles, _ problems: inout [String]
     ) {
-        unknownKeys(in: table, known: profileKeys, of: "shell.toml", &problems)
+        unknownKeys(in: table, known: profileKeys, of: "shell.luau", &problems)
         config.themeName = config.styleThemeName
         if case let .string(name)? = table["theme"] {
             config.themeName = name
@@ -174,27 +176,27 @@ extension ShellConfig {
                 config.wallpaperScheme = value
             } else {
                 let names = ShellWallpaperScheme.allCases.map(\.rawValue).joined(separator: ", ")
-                report("shell.toml: scheme must be one of \(names)", &problems)
+                report("shell.luau: scheme must be one of \(names)", &problems)
             }
         }
         config.leading = names(table["leading"], key: "leading", &problems)
         config.center = names(table["center"], key: "center", &problems)
         config.trailing = names(table["trailing"], key: "trailing", &problems)
         config.priority = names(table["priority"], key: "priority", &problems)
-        if case let .table(widgets)? = table["widgets"] {
+        if case let .record(widgets)? = table["widgets"] {
             applyWidgetSettings(widgets, to: &config, &problems)
         }
         applyServices(table, to: &config, &problems)
         config.barShader = ShellBarShader.parse(table["barShader"], problems: &problems)
         applyComponentTrust(own, to: &config)
-        applyBarSettings(table, to: &config, &problems)
+        applyBarSettings(table, to: &config, inputs: &inputs, &problems)
     }
 
-    private static func applyComponentTrust(_ own: [String: TOMLNode], to config: inout ShellConfig) {
+    private static func applyComponentTrust(_ own: [String: SettingsLuauValue], to config: inout ShellConfig) {
         if var island = config.island {
             let userInstances: [ShellComponentInstance]
-            if case let .table(ownIsland)? = own["island"] {
-                userInstances = (try? ShellComponentCatalog.instances(from: ownIsland["components"])) ?? []
+            if case let .record(ownIsland)? = own["island"] {
+                userInstances = (try? ShellComponentCatalog.instances(in: ownIsland["components"])) ?? []
             } else {
                 userInstances = []
             }
@@ -208,13 +210,14 @@ extension ShellConfig {
     }
 
     private static func applyBarSettings(
-        _ table: [String: TOMLNode], to config: inout ShellConfig, _ problems: inout [String]
+        _ table: [String: SettingsLuauValue], to config: inout ShellConfig,
+        inputs: inout SourceFiles, _ problems: inout [String]
     ) {
-        var bar: [String: TOMLNode] = [:]
-        if case let .table(themeBar)? = loadTheme(into: &config, &problems)?["workspaceBar"] {
+        var bar: [String: SettingsLuauValue] = [:]
+        if case let .record(themeBar)? = loadTheme(into: &config, inputs: &inputs, &problems)?["workspaceBar"] {
             bar = themeBar
         }
-        if case let .table(profileBar)? = table["workspaceBar"] {
+        if case let .record(profileBar)? = table["workspaceBar"] {
             bar = merged(bar, profileBar)
         }
         let room = room(in: table, island: config.island, problems: &problems)
@@ -228,55 +231,62 @@ extension ShellConfig {
         )
         if let monitors = table["monitorBarOverrides"] {
             do {
-                config.barOverride?.monitorOverrides = try ShellTOMLText.decode(
-                    [MonitorBarSettings].self,
-                    from: monitors
-                )
+                config.barOverride?
+                    .monitorOverrides = try (monitors == .record([:]) ? SettingsLuauValue.list([]) : monitors)
+                    .decode([MonitorBarSettings].self)
             } catch {
-                report("shell.toml: monitorBarOverrides must contain valid monitor bar settings", &problems)
+                report("shell.luau: monitorBarOverrides must contain valid monitor bar settings", &problems)
             }
         }
     }
 
     private static func ownLayer(
-        _ top: [String: TOMLNode],
+        _ top: [String: SettingsLuauValue],
         profile: String,
         _ problems: inout [String]
-    ) -> [String: TOMLNode] {
+    ) -> [String: SettingsLuauValue] {
         for key in top.keys.sorted() where !topKeys.contains(key) {
             report(
                 profileKeys.contains(key)
-                    ? "shell.toml: \(key) belongs in [\(profilesKey).\(profile)], the settings for the \(profile) profile"
-                    : "shell.toml has unknown key \(key)",
+                    ? "shell.luau: \(key) belongs in \(profilesKey)[\(SettingsLuauValue.quoted(profile))], the settings for the \(profile) profile"
+                    : "shell.luau has unknown key \(key)",
                 &problems
             )
         }
-        var own: [String: TOMLNode] = [:]
-        if case let .table(weather)? = top["weather"] {
-            own["weather"] = .table(weather)
+        var own: [String: SettingsLuauValue] = [:]
+        if case let .record(weather)? = top["weather"] {
+            own["weather"] = .record(weather)
         }
         switch top[profilesKey] {
         case nil:
             break
-        case let .table(profiles)?:
-            if case let .table(settings)? = profiles[profile] {
+        case let .record(profiles)?:
+            if case let .record(settings)? = profiles[profile] {
                 own = merged(own, settings)
             } else if profiles[profile] != nil {
-                report("shell.toml: [\(profilesKey).\(profile)] must be a table of settings", &problems)
+                report(
+                    "shell.luau: \(profilesKey)[\(SettingsLuauValue.quoted(profile))] must be a table of settings",
+                    &problems
+                )
             }
         default:
-            report("shell.toml: \(profilesKey) must be a table of profile settings", &problems)
+            report("shell.luau: \(profilesKey) must be a table of profile settings", &problems)
         }
         return own
     }
 
     private static func selectProfile(
-        _ top: [String: TOMLNode],
+        _ top: [String: SettingsLuauValue],
         in shellDirectory: URL,
-        for config: inout ShellConfig,
+        for config: inout ShellConfig, inputs: inout SourceFiles,
         _ problems: inout [String]
     ) {
         if case let .string(name)? = top["profile"] {
+            if inputs.versions != nil, isName(name) {
+                let folder = shellDirectory.appendingPathComponent(name)
+                inputs.observe(folder)
+                inputs.observe(folder.appendingPathComponent(ShellStyleManifest.fileName))
+            }
             if let problem = ShellProfiles.problem(selecting: name, in: shellDirectory) {
                 report("\(problem), using \(ShellDefaults.profile)", &problems)
             } else {
@@ -292,24 +302,24 @@ extension ShellConfig {
     }
 
     private static func applyWidgetSettings(
-        _ widgets: [String: TOMLNode],
+        _ widgets: [String: SettingsLuauValue],
         to config: inout ShellConfig,
         _ problems: inout [String]
     ) {
         for (name, node) in widgets {
-            guard case .table = node else {
-                report("shell.toml: [widgets.\(name)] must be a table of settings", &problems)
+            guard case .record = node else {
+                report("shell.luau: widgets[\(SettingsLuauValue.quoted(name))] must be a table of settings", &problems)
                 continue
             }
             var writer = ShellValueWriter()
             encode(node, into: &writer)
             config.widgetSettings[name] = writer.bytes
-            if case let .table(settings) = node,
+            if case let .record(settings) = node,
                let interval = number(settings["interval"]).flatMap(ShellWidgetDeclaration.validInterval)
             {
                 config.widgetIntervals[name] = interval
             }
-            if name == bundledScratchpads, case let .table(settings) = node,
+            if name == bundledScratchpads, case let .record(settings) = node,
                let icons = number(settings["shownWindows"])
             {
                 config.scratchpadIcons = Int(min(6, max(0, icons)))
@@ -317,42 +327,53 @@ extension ShellConfig {
         }
     }
 
-    private static func loadTheme(into config: inout ShellConfig, _ problems: inout [String]) -> [String: TOMLNode]? {
+    private static func loadTheme(
+        into config: inout ShellConfig, inputs: inout SourceFiles,
+        _ problems: inout [String]
+    ) -> [String: SettingsLuauValue]? {
         guard config.themeName != "native" else { return nil }
-        let path = "themes/\(config.themeName).toml"
-        let themeURL = isName(config.themeName) ? config.file(path) ?? ShellDefaults.bundledFile(path) : nil
+        let path = "themes/\(config.themeName).luau"
+        let themeURL = isName(config.themeName) ? config.file(path) { inputs.exists($0) } ?? ShellDefaults
+            .bundledFile(path) : nil
         if themeURL == nil, config.themeName == ShellWallpaperPalette.themeName {
             return nil
         }
         guard let themeURL else {
-            report("shell.toml: no theme named \(config.themeName)", &problems)
+            report("shell.luau: no theme named \(config.themeName)", &problems)
             config.themeName = "native"
             return nil
         }
-        guard let theme = decode(themeURL, &problems) else {
+        let owner = themeURL.deletingLastPathComponent().deletingLastPathComponent()
+        let root = owner.standardizedFileURL.path == config.directories.first?.standardizedFileURL.path ? nil : owner
+        guard let theme = decode(themeURL, packageRoot: root, files: &inputs, &problems) else {
             config.themeName = "native"
             return nil
         }
         unknownKeys(in: theme, known: themeKeys, of: "Theme \(config.themeName)", &problems)
-        config.theme = ShellTheme(toml: theme, name: config.themeName, problems: &problems)
+        config.theme = ShellTheme(values: theme, name: config.themeName, problems: &problems)
         return theme
     }
 
     static func unknownKeys(
-        in table: [String: TOMLNode],
+        in table: [String: SettingsLuauValue],
         known: Set<String>,
         of place: String,
+        path: String? = nil,
         _ problems: inout [String]
     ) {
         for key in table.keys.sorted() where !known.contains(key) {
-            report("\(place) has unknown key \(key)", &problems)
+            if let path {
+                report("\(place): \(SettingsLuauValue.fieldPath(key, in: path)) is an unknown key", &problems)
+            } else {
+                report("\(place) has unknown key \(key)", &problems)
+            }
         }
     }
 
     private static let barOverrideID = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
 
     private static func barOverride(
-        _ table: [String: TOMLNode],
+        _ table: [String: SettingsLuauValue],
         profile: String,
         theme: ShellTheme,
         _ problems: inout [String],
@@ -368,18 +389,23 @@ extension ShellConfig {
         for (key, node) in table.sorted(by: { $0.key < $1.key })
             where !applyDisplayKey(key, node, to: &bar.settings) && !applyGlobalKey(key, node, theme: theme, to: &bar)
         {
+            let path = SettingsLuauValue.fieldPath(key, in: "workspaceBar")
             let color = WorkspaceBarProfileOverride.colorKeys.contains { $0.key == key }
             report(
                 color
-                    ? "[workspaceBar] \(key) must be a palette role such as \"surface\" or \"surface/0.8\""
-                    : "[workspaceBar] \(key) is not a bar setting a shell profile or theme can override",
+                    ? "\(path) must be a palette role such as \"surface\" or \"surface/0.8\""
+                    : "\(path) is not a bar setting a shell profile or theme can override",
                 &problems
             )
         }
         return bar.overriddenKeys.isEmpty ? nil : bar
     }
 
-    private static func applyDisplayKey(_ key: String, _ node: TOMLNode, to bar: inout MonitorBarSettings) -> Bool {
+    private static func applyDisplayKey(
+        _ key: String,
+        _ node: SettingsLuauValue,
+        to bar: inout MonitorBarSettings
+    ) -> Bool {
         if let flag = MonitorBarSettings.flagKeys.first(where: { $0.key == key }), case let .boolean(value) = node {
             bar[keyPath: flag.path] = value
         } else if let entry = MonitorBarSettings.numberKeys.first(where: { $0.key == key }), let value = number(node) {
@@ -404,7 +430,7 @@ extension ShellConfig {
 
     private static func applyGlobalKey(
         _ key: String,
-        _ node: TOMLNode,
+        _ node: SettingsLuauValue,
         theme: ShellTheme,
         to bar: inout WorkspaceBarProfileOverride
     ) -> Bool {
@@ -421,7 +447,7 @@ extension ShellConfig {
         {
             bar[keyPath: entry.path] = color
         } else if key == "accentColor" || key == "textColor",
-                  let color = try? ShellTOMLText.decode(SettingsColor.self, from: node),
+                  let color = try? node.decode(SettingsColor.self),
                   [color.red, color.green, color.blue, color.alpha]
                       .allSatisfy({ $0.isFinite && (0 ... 1).contains($0) })
         {
@@ -440,16 +466,16 @@ extension ShellConfig {
         return true
     }
 
-    static func names(_ node: TOMLNode?, key: String, _ problems: inout [String]) -> [String] {
+    static func names(_ node: SettingsLuauValue?, key: String, _ problems: inout [String]) -> [String] {
         guard let node else { return [] }
-        guard case let .array(values) = node else {
-            report("shell.toml: \(key) must be a list of widget names", &problems)
+        guard let values = node.shellArray else {
+            report("shell.luau: \(key) must be a list of widget names", &problems)
             return []
         }
         var names: [String] = []
         for value in values {
             guard case let .string(name) = value else {
-                report("shell.toml: \(key) must contain widget names", &problems)
+                report("shell.luau: \(key) must contain widget names", &problems)
                 continue
             }
             names.append(name)
@@ -457,27 +483,14 @@ extension ShellConfig {
         return names
     }
 
-    private static func layer(in directory: URL, _ problems: inout [String]) -> [String: TOMLNode]? {
-        let url = directory.appendingPathComponent("shell.toml")
-        guard FileManager.default.fileExists(atPath: url.path) else { return [:] }
-        return decode(url, &problems)
-    }
-
-    private static func merged(_ base: [String: TOMLNode], _ overlay: [String: TOMLNode]) -> [String: TOMLNode] {
+    private static func merged(
+        _ base: [String: SettingsLuauValue],
+        _ overlay: [String: SettingsLuauValue]
+    ) -> [String: SettingsLuauValue] {
         base.merging(overlay) { current, next in
-            guard case let .table(current) = current, case let .table(next) = next else { return next }
-            return .table(merged(current, next))
-        }
-    }
-
-    private static func decode(_ url: URL, _ problems: inout [String]) -> [String: TOMLNode]? {
-        do {
-            let data = try SettingsFileAccess.readContents(at: url).data
-            return try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        } catch {
-            let name = "\(url.deletingLastPathComponent().lastPathComponent)/\(url.lastPathComponent)"
-            report("\(name): \(error.localizedDescription)", &problems)
-            return nil
+            if case .list = current, next == .record([:]) { return .list([]) }
+            guard case let .record(current) = current, case let .record(next) = next else { return next }
+            return .record(merged(current, next))
         }
     }
 }

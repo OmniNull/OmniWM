@@ -1,11 +1,13 @@
-.PHONY: setup setup-tools doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile arc-audit test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version check-pins hooks
+.PHONY: setup setup-tools doctor format format-check lint lint-fix build localization-check localization-sync run dev-install use-dev use-release test-dev-tools energy-profile arc-audit script-arc-audit test-skylight-live release-check verify check check-tool-versions check-swiftformat-version check-swiftlint-version check-pins luau-check hooks
 
 include Scripts/dev-tools.env
 
 NIX_BUILD := nix --extra-experimental-features "nix-command flakes" build
 GHOSTTYKIT := Frameworks/GhosttyKit.xcframework
-SWIFTFORMAT := $(CURDIR)/.cache/flake-tools/bin/swiftformat
-SWIFTLINT := $(CURDIR)/.cache/flake-tools/bin/swiftlint
+DEV_TOOLS := $(if $(OMNIWM_DEV_TOOLS),$(OMNIWM_DEV_TOOLS),$(CURDIR)/.cache/flake-tools)
+SWIFTFORMAT := $(DEV_TOOLS)/bin/swiftformat
+SWIFTLINT := $(DEV_TOOLS)/bin/swiftlint
+LUAU_CHECK := $(DEV_TOOLS)/bin/luau-check
 SWIFT_WITH_GHOSTTY = LIBRARY_PATH="$$(./Scripts/ghostty-preflight.sh print-library-dir)$${LIBRARY_PATH:+:$$LIBRARY_PATH}"
 SWIFT := $(or $(SWIFTLY_HOME_DIR),$(HOME)/.swiftly)/bin/swift
 
@@ -25,6 +27,9 @@ doctor:
 
 check-pins:
 	python3 Scripts/check-pinned-downloads.py
+
+luau-check:
+	python3 Scripts/luau_check.py "$(LUAU_CHECK)"
 
 hooks:
 	git config core.hooksPath .githooks
@@ -83,10 +88,13 @@ energy-profile:
 arc-audit:
 	./Scripts/arc-audit.sh
 
+script-arc-audit:
+	./Scripts/script-arc-audit.sh
+
 test-skylight-live:
 	OMNIWM_LIVE_CHECKS=1 "$(SWIFT)" test --filter SkyLightNativeSpaceInventoryLiveTests/testLiveTransactionMoveIsObservedThroughWindowServerBounds
 
-release-check: localization-check
+release-check: localization-check luau-check
 
 verify: format-check lint localization-check
 

@@ -37,12 +37,14 @@ struct LauncherSettingsPage: View {
                             controller.commandPaletteController.removeLauncherEntry(entry.id, settings: settings)
                         }
                     }
+                    .settingsField(.launcherEntries, row: entry.id.uuidString)
                 }
                 Menu("Add Entry…") {
                     ForEach([LauncherEntry.Kind.application, .command, .script], id: \.self) { kind in
                         Button(kind.title) { add(kind) }
                     }
                 }
+                .settingsField(.launcherEntries, row: nil)
                 SettingsCaption(localized: "Saved apps, commands, and scripts appear together in the Launcher.")
             }
             Section("Execution Defaults") {
@@ -52,12 +54,14 @@ struct LauncherSettingsPage: View {
                     }
                 }
                 .onChange(of: settings.launcher.shell) { _, _ in settings.launcher.shellExecutable = "" }
+                .settingsField(.launcherShell, .launcherShellExecutable)
                 Picker("Terminal", selection: $settings.launcher.terminal) {
                     ForEach(
                         LauncherTerminal.allCases.filter { $0 != .defaultTerminal && $0 != .background },
                         id: \.self
                     ) { Text($0.title).tag($0) }
                 }
+                .settingsField(.launcherTerminal)
                 SettingsCaption(localized: "Used by saved entries and CLI tools unless an entry overrides them.")
                 SettingsCaption(
                     localized: "Commands open in a fresh session and keep their output visible. The built-in option requires the Ghostty Quake Terminal. Background execution is available per entry."
@@ -68,18 +72,19 @@ struct LauncherSettingsPage: View {
                 DisclosureGroup("Discovery and Advanced Options", isExpanded: $showsDiscovery) {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("App Folders").font(.headline)
-                        folderList($settings.launcher.appFolders)
+                        folderList($settings.launcher.appFolders, field: .launcherAppFolders)
                         SettingsCaption(
                             localized: "Standard app folders and active Nix profiles are included. Add custom folders for other apps, including Homebrew formula apps kept inside a keg."
                         )
                         Divider()
                         Text("Extra CLI Folders").font(.headline)
-                        folderList($settings.launcher.cliFolders)
+                        folderList($settings.launcher.cliFolders, field: .launcherCliFolders)
                         SettingsCaption(
                             localized: "CLI search uses the selected shell’s PATH, Homebrew, and active Nix profiles. Extra folders are searched after PATH."
                         )
                         Divider()
                         fileField("Custom Shell Executable", path: $settings.launcher.shellExecutable)
+                            .settingsField(.launcherShellExecutable)
                     }
                     .padding(.vertical, 8)
                 }
@@ -126,9 +131,11 @@ struct LauncherSettingsPage: View {
         .sheet(item: $navigation.launcherEditorRequest) { request in
             LauncherEntryEditor(
                 entry: request.entry, runOnly: request.runOnly, configuration: settings.launcher,
-                save: { entry in
+                save: { entry, arguments in
                     if let index = settings.launcher.entries.firstIndex(where: { $0.id == entry.id }) {
-                        settings.launcher.entries[index] = entry
+                        settings.editList(at: ["launcher", "entries", String(index), "arguments"], keeping: arguments) {
+                            settings.launcher.entries[index] = entry
+                        }
                     } else {
                         settings.launcher.entries.append(entry)
                     }
@@ -152,20 +159,27 @@ struct LauncherSettingsPage: View {
         navigation.launcherEditorRequest = .init(entry: entry)
     }
 
-    private func folderList(_ folders: Binding<[String]>) -> some View {
+    private func folderList(_ folders: Binding<[String]>, field: SettingsFieldID) -> some View {
         VStack(alignment: .leading) {
             ForEach(folders.wrappedValue.indices, id: \.self) { index in
                 HStack {
                     Text(folders.wrappedValue[index]).textSelection(.enabled).lineLimit(1).truncationMode(.middle)
                     Spacer()
-                    Button("Remove") { folders.wrappedValue.remove(at: index) }
+                    Button("Remove") {
+                        let kept = folders.wrappedValue.indices.filter { $0 != index }.map(Optional.some)
+                        settings.editList(at: field.rawValue.split(separator: ".").map(String.init), keeping: kept) {
+                            folders.wrappedValue.remove(at: index)
+                        }
+                    }
                 }
+                .settingsField(field, index: index)
             }
             Button("Add Folder…") {
                 if let path = LauncherEntryEditor.choosePath(directory: true), !folders.wrappedValue.contains(path) {
                     folders.wrappedValue.append(path)
                 }
             }
+            .settingsField(field, index: nil)
         }
     }
 

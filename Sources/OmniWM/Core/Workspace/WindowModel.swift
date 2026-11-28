@@ -10,7 +10,6 @@ enum TrackedWindowMode: Equatable, Hashable, Sendable {
 }
 
 final class WindowModel {
-    typealias WindowKey = WindowToken
     typealias EntryIndex = Dictionary<WindowToken, WindowState>.Values.Index
 
     private struct WorkspaceModeKey: Hashable {
@@ -23,9 +22,12 @@ final class WindowModel {
         let cachedAt: Date
     }
 
+    var onModeChange: ((WindowToken, TrackedWindowMode) -> Void)?
+    var onMembershipChange: ((MembershipChange) -> Void)?
     private(set) var entries: [WindowToken: WindowState] = [:]
     private var windowIdToToken: [Int: WindowToken] = [:]
     private var handleByToken: [WindowToken: WindowHandle] = [:]
+    private var admissions: UInt64 = 0
     private var constraintsCacheByToken: [WindowToken: ConstraintsCacheRecord] = [:]
     private var observedSizeEvidenceByToken: [WindowToken: ObservedSizeEvidence] = [:]
     private var workspaceIndex = WindowTokenIndex<WorkspaceDescriptor.ID>()
@@ -125,6 +127,7 @@ final class WindowModel {
             return token
         }
 
+        admissions &+= 1
         let entry = WindowState(
             token: token,
             target: target,
@@ -133,7 +136,8 @@ final class WindowModel {
             managedReplacementMetadata: managedReplacementMetadata,
             ruleEffects: ruleEffects,
             admissionHints: admissionHints,
-            lifetimeAuthority: lifetimeAuthority
+            lifetimeAuthority: lifetimeAuthority,
+            admission: admissions
         )
         entries[token] = entry
         handleByToken[token] = WindowHandle(id: token)
@@ -209,6 +213,7 @@ final class WindowModel {
     func updateWorkspace(for token: WindowToken, workspace: WorkspaceDescriptor.ID) {
         guard let (oldWorkspace, mode) = readEntry(token, { ($0.workspaceId, $0.mode) }) else { return }
         if oldWorkspace != workspace {
+            onMembershipChange?(MembershipChange(token: token, source: oldWorkspace, destination: workspace))
             workspaceIndex.remove(
                 token,
                 from: oldWorkspace
@@ -227,8 +232,11 @@ final class WindowModel {
     }
 
     func windows(in workspace: WorkspaceDescriptor.ID) -> [WindowState] {
-        guard let tokens = workspaceIndex.tokensByKey[workspace] else { return [] }
-        return tokens.compactMap { entries[$0] }
+        tokens(in: workspace).compactMap { entries[$0] }
+    }
+
+    func tokens(in workspace: WorkspaceDescriptor.ID) -> [WindowToken] {
+        workspaceIndex.tokensByKey[workspace] ?? []
     }
 
     func forEachToken(in workspace: WorkspaceDescriptor.ID, _ body: (WindowToken) -> Void) {
@@ -242,6 +250,10 @@ final class WindowModel {
         for token in entries.keys {
             body(token)
         }
+    }
+
+    func collectStandardWindowTokens(into tokens: inout [WindowToken]) {
+        Self.scanStandardWindowTokens(&entries, into: &tokens)
     }
 
     func windowCount(in workspace: WorkspaceDescriptor.ID) -> Int {
@@ -270,18 +282,6 @@ final class WindowModel {
         readEntry(token) { $0.workspaceId }
     }
 
-    func entry(for token: WindowToken) -> WindowState? {
-        entries[token]
-    }
-
-    func entry(for handle: WindowHandle) -> WindowState? {
-        entry(for: handle.id)
-    }
-
-    func entry(forPid pid: pid_t, windowId: Int) -> WindowState? {
-        entry(for: WindowToken(pid: pid, windowId: windowId))
-    }
-
     func entries(forPid pid: pid_t) -> [WindowState] {
         guard let tokens = pidIndex.tokensByKey[pid] else { return [] }
         return tokens.compactMap { entries[$0] }
@@ -293,12 +293,6 @@ final class WindowModel {
 
     func entry(forWindowId windowId: Int) -> WindowState? {
         windowIdToToken[windowId].flatMap { entries[$0] }
-    }
-
-    func entry(forWindowId windowId: Int, inVisibleWorkspaces visibleIds: Set<WorkspaceDescriptor.ID>) -> WindowState? {
-        guard let entry = entry(forWindowId: windowId),
-              visibleIds.contains(entry.workspaceId) else { return nil }
-        return entry
     }
 
     func allEntries() -> [WindowState] {
@@ -314,6 +308,18 @@ final class WindowModel {
 }
 
 extension WindowModel {
+    func configWindow(for token: WindowToken, withoutMetadata: Bool = false) -> ConfigScriptWindowIdentity? {
+        guard let index = entries.index(forKey: token) else { return nil }
+        return Self.configIdentity(&entries.values[index], withoutMetadata: withoutMetadata)
+    }
+
+    private static func configIdentity(
+        _ row: inout WindowState, withoutMetadata: Bool
+    ) -> ConfigScriptWindowIdentity? {
+        guard !withoutMetadata || row.managedReplacementMetadata == nil else { return nil }
+        return ConfigScriptWindowIdentity(row)
+    }
+
     private func readEntry<Result>(_ token: WindowToken, _ read: (inout WindowState) -> Result) -> Result? {
         guard let index = entries.index(forKey: token) else { return nil }
         return read(&entries.values[index])
@@ -356,6 +362,7 @@ extension WindowModel {
             token,
             to: WorkspaceModeKey(workspaceId: workspaceId, mode: mode)
         )
+        onModeChange?(token, currentMode)
     }
 
     func floatingState(for token: WindowToken) -> FloatingState? {
@@ -438,10 +445,6 @@ extension WindowModel {
         readEntry(token) { $0.layoutReason } ?? .standard
     }
 
-    func isNativeFullscreenSuspended(_ token: WindowToken) -> Bool {
-        readEntry(token) { $0.layoutReason == .nativeFullscreen } ?? false
-    }
-
     func setLayoutReason(_ reason: LayoutReason, for token: WindowToken) {
         updateEntry(token) { $0.layoutReason = reason }
     }
@@ -454,7 +457,7 @@ extension WindowModel {
     }
 
     @discardableResult
-    func removeWindow(key: WindowKey) -> WindowState? {
+    func removeWindow(key: WindowToken) -> WindowState? {
         handleByToken.removeValue(forKey: key)
         constraintsCacheByToken.removeValue(forKey: key)
         observedSizeEvidenceByToken.removeValue(forKey: key)

@@ -316,7 +316,7 @@ local function render(ctx, island, close)
                 rows[#rows + 1] = settingRow(ctx, key, schema[key], ctx.data.settings or {}, setRoot, width - 24, "root")
             end
         end
-        if #rows == 0 then rows[1] = ui.text{ text = "Edit this profile’s settings in shell.toml.", size = 11, color = secondary } end
+        if #rows == 0 then rows[1] = ui.text{ text = "Edit this profile’s settings in shell.luau.", size = 11, color = secondary } end
         content = ui.column(rows)
     end
     local notice = ctx.state.settingsError or ctx.state.alertError or (if (ctx.state.settingsRequests or 0) > 0 then "Saving…" else "Command + Return saves text · Escape cancels")

@@ -97,19 +97,19 @@ final class WorkspaceBarFullWidthTests: XCTestCase {
             MonitorBarSettings(monitorName: "Built-in", fullWidth: false, fullWidthNotchMode: .leftOfNotch),
             MonitorBarSettings(monitorName: "External")
         ]
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(toml.contains("fullWidthNotchMode = \"splitAroundNotch\""))
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(source.contains("fullWidthNotchMode = \"splitAroundNotch\""))
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.workspaceBar, export.workspaceBar)
         XCTAssertEqual(decoded.monitorBarSettings[0].fullWidth, false)
         XCTAssertEqual(decoded.monitorBarSettings[0].fullWidthNotchMode, .leftOfNotch)
         XCTAssertNil(decoded.monitorBarSettings[1].fullWidth)
 
-        let stripped = toml.split(separator: "\n", omittingEmptySubsequences: false)
-            .filter { !$0.hasPrefix("fullWidth") }
+        let stripped = source.split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("fullWidth") }
             .joined(separator: "\n")
-        XCTAssertFalse(try SettingsTOMLCodec.decode(Data(stripped.utf8)).workspaceBar.fullWidth)
+        XCTAssertFalse(try SettingsLuauFixture.decode(Data(stripped.utf8)).workspaceBar.fullWidth)
 
         let applied = WorkspaceBarSettings()
         applied.applyIdentity(decoded.workspaceBar)
@@ -119,8 +119,13 @@ final class WorkspaceBarFullWidthTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data("[profiles.default.workspaceBar]\nfullWidth = true\nfullWidthNotchMode = \"leftOfNotch\"\n".utf8)
-            .write(to: root.appendingPathComponent("shell.toml"))
+        try Data("""
+        return {
+            profiles = { default = { workspaceBar = { fullWidth = true, fullWidthNotchMode = "leftOfNotch" } } },
+        }
+
+        """.utf8)
+            .write(to: root.appendingPathComponent("shell.luau"))
         let override = try XCTUnwrap(ShellConfig.load(shellDirectory: root)?.barOverride)
         XCTAssertEqual(override.overriddenKeys, ["accentColor", "fullWidth", "fullWidthNotchMode", "textColor"])
         let bar = WorkspaceBarSettings()

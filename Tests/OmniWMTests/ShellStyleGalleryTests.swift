@@ -31,8 +31,8 @@ extension ShellDesktopEditorTests {
         XCTAssertEqual(fixture.editor.selectedStyle, ShellDefaults.profile)
         XCTAssertEqual(fixture.editor.snapshot?.config.profile, ShellDefaults.profile)
         XCTAssertEqual(gallery.status(of: style), .available)
-        let settings = try String(contentsOf: fixture.shell.appendingPathComponent("shell.toml"), encoding: .utf8)
-        XCTAssertTrue(settings.contains("[profiles.\(style.name).workspaceBar]"), settings)
+        let settings = try String(contentsOf: fixture.shell.appendingPathComponent("shell.luau"), encoding: .utf8)
+        XCTAssertNotNil(try ShellLuauDocument(Data(settings.utf8)).value["profiles"]?[style.name]?["workspaceBar"])
     }
 
     func testTheGalleryUpdatesAnUnchangedStyleAndAsksBeforeReplacingChangedFiles() async throws {
@@ -97,7 +97,7 @@ extension ShellDesktopEditorTests {
         browser.address = remote.address
         browser.adding = true
         let before = try FileManager.default.contentsOfDirectory(atPath: fixture.shell.path).sorted()
-        let settings = fixture.shell.appendingPathComponent("shell.toml")
+        let settings = fixture.shell.appendingPathComponent("shell.luau")
         let savedSettings = try Data(contentsOf: settings)
 
         await browser.load(session: remote.session)

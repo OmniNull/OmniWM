@@ -218,7 +218,7 @@ final class ScratchpadRevealTests: XCTestCase {
         XCTAssertEqual(fixture.controller.toggleScratchpad(9), .notFound)
         XCTAssertNil(fixture.controller.workspaceManager.revealedScratchpadIndex())
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
-        XCTAssertEqual(router.handle(.scratchpad(.toggle(index: 1))), .notFound)
+        XCTAssertEqual(router.handle(.init(.scratchpad(.toggle(index: 1)))), .notFound)
         XCTAssertNil(fixture.controller.workspaceManager.revealedScratchpadIndex())
     }
 

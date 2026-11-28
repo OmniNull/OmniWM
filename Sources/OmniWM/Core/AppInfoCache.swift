@@ -84,7 +84,35 @@ final class AppInfoCache {
         info(for: pid)?.bundleId
     }
 
+    func cachedBundleId(for pid: pid_t) -> String? {
+        cache[pid]?.bundleId
+    }
+
+    func withCachedBundleId<R>(for pid: pid_t, _ read: (borrowing String?) -> R) -> R {
+        guard let index = cache.index(forKey: pid) else { return read(nil) }
+        func project(_ info: inout AppInfo) -> R {
+            read(info.bundleId)
+        }
+        return project(&cache.values[index])
+    }
+
+    func withCachedName<R>(for pid: pid_t, _ read: (borrowing String?) -> R) -> R {
+        guard let index = cache.index(forKey: pid) else { return read(nil) }
+        func project(_ info: inout AppInfo) -> R {
+            read(info.name)
+        }
+        return project(&cache.values[index])
+    }
+
+    func withCachedIdentity(for pid: pid_t, _ read: (borrowing String?, borrowing String?) -> Void) {
+        guard let index = cache.index(forKey: pid) else { return read(nil, nil) }
+        func project(_ info: inout AppInfo) {
+            read(info.bundleId, info.name)
+        }
+        project(&cache.values[index])
+    }
+
     func hasCachedInfo(for pid: pid_t) -> Bool {
-        cache[pid] != nil
+        cache.index(forKey: pid) != nil
     }
 }

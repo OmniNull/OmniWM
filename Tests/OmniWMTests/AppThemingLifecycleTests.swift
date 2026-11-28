@@ -52,11 +52,11 @@ final class AppThemingLifecycleTests: XCTestCase {
         controller.settings.appTheming.values.kitty.enabled = true
         let service = controller.appThemeService
         XCTAssertNotNil(service)
-        controller.settings.appTheming.values.herdr.enabled = true
+        controller.settings.appTheming.values.ghostty.enabled = true
         XCTAssertTrue(controller.appThemeService === service)
         controller.settings.appTheming.values.kitty.enabled = false
         XCTAssertTrue(controller.appThemeService === service)
-        controller.settings.appTheming.values.herdr.enabled = false
+        controller.settings.appTheming.values.ghostty.enabled = false
         XCTAssertNil(controller.appThemeService)
     }
 
@@ -84,18 +84,18 @@ final class AppThemingLifecycleTests: XCTestCase {
 
     @MainActor
     func testTurningOnAReviewedFileTakesItOverWithABackup() throws {
-        try sandbox.write("[keys]\nprefix = \"x\"\n", to: ".config/herdr/config.toml")
+        try sandbox.write("background #123456\n", to: ".config/kitty/dark-theme.auto.conf")
         let controller = makeController()
         let preview = controller.appThemePreview
-        let changes = try preview.changes(for: preview.target(for: .herdr), onlyExisting: true)
+        let changes = try preview.changes(for: preview.target(for: .kitty), onlyExisting: true)
         XCTAssertEqual(changes.count, 1)
         XCTAssertNil(controller.appThemeService)
-        controller.turnOnAppTheme(.herdr, approving: changes)
+        controller.turnOnAppTheme(.kitty, approving: changes)
         let service = try XCTUnwrap(controller.appThemeService)
-        XCTAssertEqual(service.results["herdr"]?.outcome, .updated)
+        XCTAssertEqual(service.results["kitty"]?.outcome, .updated)
         let backup = try XCTUnwrap(service.lastBackup)
-        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "[keys]\nprefix = \"x\"\n")
-        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/herdr/config.toml")).contains("[theme.custom]"))
+        XCTAssertEqual(try String(contentsOf: backup, encoding: .utf8), "background #123456\n")
+        XCTAssertTrue(try XCTUnwrap(sandbox.read(".config/kitty/dark-theme.auto.conf")).contains("background "))
     }
 
     @MainActor
@@ -190,7 +190,8 @@ final class AppThemingLifecycleTests: XCTestCase {
         manager.makeWallpaperPalette = { destination, scheme, onFailure in
             ShellWallpaperPaletteWriter(
                 destination: destination, scheme: scheme,
-                source: { { .capture(aerial: false) } }, image: { _ in wallpaper.image },
+                source: { { .capture(aerial: false) } },
+                image: { _, _ in ShellWallpaperPalette.ScreenImage(wallpaper.image) },
                 perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }, onFailure: onFailure
             )
         }
@@ -207,7 +208,7 @@ final class AppThemingLifecycleTests: XCTestCase {
         XCTAssertNil(manager.shellHost)
         XCTAssertTrue(writer.isRechecking)
         XCTAssertTrue(FileManager.default
-            .fileExists(atPath: shell.shellDirectory.appendingPathComponent("themes/wallpaper.toml").path))
+            .fileExists(atPath: shell.shellDirectory.appendingPathComponent("themes/wallpaper.luau").path))
         try await shell.refresh()
         let previous = try XCTUnwrap(sandbox.read(".config/kitty/dark-theme.auto.conf"))
         XCTAssertEqual(service.palette, AppThemePalette(theme: shell.config.theme))

@@ -16,4 +16,4 @@ Widgets keep their media, audio, calendar, weather and system controls. Adjust S
 
 ## Credits and licences
 
-Style code is GPL-2.0-only, as declared in [style.toml](style.toml). The petal shader and style code are part of OmniWM.
+Style code is GPL-2.0-only, as declared in [style.luau](style.luau). The petal shader and style code are part of OmniWM.

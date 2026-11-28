@@ -12,12 +12,12 @@ final class WorkspaceBarNotchModeSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.workspaceBar.notchMode = .splitActiveLeft
         export.workspaceBar.notchActiveZoneWidth = 220
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
 
-        XCTAssertTrue(toml.contains("notchMode = \"splitActiveLeft\""))
-        XCTAssertTrue(toml.contains("notchActiveZoneWidth = 220"))
-        let decoded = try SettingsTOMLCodec.decode(data)
+        XCTAssertTrue(source.contains("notchMode = \"splitActiveLeft\""))
+        XCTAssertTrue(source.contains("notchActiveZoneWidth = 220"))
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.workspaceBar.notchMode, .splitActiveLeft)
         XCTAssertEqual(decoded.workspaceBar.notchActiveZoneWidth, 220)
     }
@@ -32,9 +32,9 @@ final class WorkspaceBarNotchModeSettingsTests: XCTestCase {
             ),
             MonitorBarSettings(monitorName: "External")
         ]
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
 
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded.monitorBarSettings.count, 2)
         XCTAssertEqual(decoded.monitorBarSettings[0].notchMode, .splitActiveRight)
         XCTAssertEqual(decoded.monitorBarSettings[0].notchActiveZoneWidth, 240)

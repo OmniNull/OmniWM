@@ -6,6 +6,20 @@ import Foundation
 import QuartzCore
 
 extension WorkspaceManager {
+    func persistedHydrationMutation(from hydrationPlan: PersistedRestorePlanner.Plan) -> PersistedHydrationMutation {
+        PersistedHydrationMutation(
+            workspaceId: hydrationPlan.workspaceId,
+            monitorId: hydrationPlan.preferredMonitorId ?? effectiveMonitor(for: hydrationPlan.workspaceId)?.id,
+            targetMode: hydrationPlan.targetMode,
+            floatingFrame: hydrationPlan.floatingFrame,
+            niriPlacement: hydrationPlan.niriPlacement,
+            detachedNiriContainerSizingState: hydrationPlan.detachedNiriContainerSizingState,
+            dwindlePlacement: hydrationPlan.dwindlePlacement,
+            consumedKey: hydrationPlan.consumedKey,
+            consumedEntry: hydrationPlan.consumedEntry
+        )
+    }
+
     func applyRestoreRefresh(_ plan: RestoreRefreshPlan) {
         if plan.refreshRestoreIntents {
             refreshRestoreIntentsForAllEntries()

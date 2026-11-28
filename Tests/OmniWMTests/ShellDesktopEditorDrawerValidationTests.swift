@@ -9,7 +9,7 @@ import XCTest
 extension ShellDesktopEditorTests {
     func testHiddenInternalAndIslandRootWidgetNamesCannotBecomeDrawers() async throws {
         let fixture = try await fixture(style: "default")
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         for (profile, name) in [
             ("default", "hidden-bar"), ("default", "hidden-bar-menu"),
@@ -35,7 +35,7 @@ extension ShellDesktopEditorTests {
     func testPreviewedDrawerKeepsAccessToAnExistingShortcutBinding() async throws {
         let fixture = try await drawerFixture()
         let editor = fixture.editor
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         let action = ActionCatalog.shellTogglePrefix + "dashboard"
         editor.settings.hotkeyBindings.removeAll { $0.id == action }

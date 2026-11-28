@@ -32,7 +32,8 @@ final class CommandPaletteShellTests: XCTestCase {
         manager.makeWallpaperPalette = { destination, scheme, onFailure in
             ShellWallpaperPaletteWriter(
                 destination: destination, scheme: scheme,
-                source: { { .capture(aerial: false) } }, image: { _ in wallpaper.image },
+                source: { { .capture(aerial: false) } },
+                image: { _, _ in ShellWallpaperPalette.ScreenImage(wallpaper.image) },
                 perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }, onFailure: onFailure
             )
         }
@@ -41,7 +42,7 @@ final class CommandPaletteShellTests: XCTestCase {
         XCTAssertNil(manager.shellHost)
         let writer = try XCTUnwrap(manager.wallpaperPalette)
         XCTAssertTrue(writer.isRechecking)
-        let destination = root.appendingPathComponent("themes/wallpaper.toml")
+        let destination = root.appendingPathComponent("themes/wallpaper.luau")
         let pixels = ShellWallpaperPalette.pixels(of: wallpaper.image)
         XCTAssertEqual(
             try String(contentsOf: destination, encoding: .utf8),
@@ -63,7 +64,8 @@ final class CommandPaletteShellTests: XCTestCase {
         manager.makeWallpaperPalette = { destination, scheme, onFailure in
             ShellWallpaperPaletteWriter(
                 destination: destination, scheme: scheme,
-                source: { { .capture(aerial: false) } }, image: { _ in wallpaper.image },
+                source: { { .capture(aerial: false) } },
+                image: { _, _ in ShellWallpaperPalette.ScreenImage(wallpaper.image) },
                 perform: { $0() }, deliver: { MainActor.assumeIsolated($0) }, onFailure: onFailure
             )
         }

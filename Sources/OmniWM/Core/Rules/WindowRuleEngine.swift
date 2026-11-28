@@ -16,7 +16,8 @@ final class WindowRuleEngine {
         case rejected(WindowDecision)
     }
 
-    private var compiledUserRules: [CompiledWindowRule] = []
+    private(set) var compiledUserRules: [CompiledWindowRule] = []
+    private(set) var rebuildCount: UInt64 = 0
     private let builtInRules: [CompiledWindowRule]
     private var titleRules: [CompiledWindowRule] = []
     private(set) var invalidRegexMessagesByRuleId: [UUID: String] = [:]
@@ -50,15 +51,21 @@ final class WindowRuleEngine {
         if eligibilityPolicy.requiresPictureInPictureTitle(for: bundleId) {
             return true
         }
-        let canMatchApp: (CompiledWindowRule) -> Bool = { candidate in
-            candidate.requiresDynamicReevaluation
-                && candidate.matchesApp(
-                    bundleId: bundleId,
-                    appName: appName ?? candidate.rule.appNameSubstring
-                )
+        return Self.hasDynamicRule(in: builtInRules, matchingBundleId: bundleId, appName: appName)
+            || Self.hasDynamicRule(in: compiledUserRules, matchingBundleId: bundleId, appName: appName)
+    }
+
+    private static func hasDynamicRule(
+        in rules: [CompiledWindowRule],
+        matchingBundleId bundleId: String,
+        appName: String?
+    ) -> Bool {
+        for rule in rules where rule.requiresDynamicReevaluation
+            && rule.matchesApp(bundleId: bundleId, appName: appName ?? rule.rule.appNameSubstring)
+        {
+            return true
         }
-        return builtInRules.contains(where: canMatchApp)
-            || compiledUserRules.contains(where: canMatchApp)
+        return false
     }
 
     func requiresTitle(for bundleId: String?, appName: String? = nil) -> Bool {
@@ -67,6 +74,7 @@ final class WindowRuleEngine {
     }
 
     func rebuild(rules: [AppRule]) {
+        rebuildCount &+= 1
         var invalidRegexMessagesByRuleId: [UUID: String] = [:]
         compiledUserRules = rules.enumerated().compactMap { index, rule in
             guard rule.hasIdentifyingMatcher, rule.hasEffect else { return nil }

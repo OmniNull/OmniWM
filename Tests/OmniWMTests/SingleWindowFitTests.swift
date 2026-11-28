@@ -65,7 +65,7 @@ final class SingleWindowFitTests: XCTestCase {
         XCTAssertEqual(SingleWindowFit(mode: .custom, width: 1920, height: -1).frame(in: working), working)
     }
 
-    func testSettingsTOMLRoundTripsSingleWindowFitKeys() throws {
+    func testSettingsLuauRoundTripsSingleWindowFitKeys() throws {
         var export = SettingsExport.defaults()
         export.niri.singleWindowFit = SingleWindowFit(mode: .containerPrimarySpan)
         export.dwindle.singleWindowFit = SingleWindowFit(mode: .custom, width: 1280, height: 720)
@@ -82,61 +82,29 @@ final class SingleWindowFitTests: XCTestCase {
             )
         ]
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("singleWindowFit"))
-        XCTAssertFalse(toml.contains("singleWindowAspectRatio"))
+        XCTAssertTrue(source.contains("singleWindowFit"))
+        XCTAssertFalse(source.contains("singleWindowAspectRatio"))
         XCTAssertEqual(decoded.niri.singleWindowFit.serialized, "container_primary_span")
         XCTAssertEqual(decoded.dwindle.singleWindowFit.serialized, "1280x720")
         XCTAssertEqual(decoded.monitorNiriSettings.first?.singleWindowFit?.serialized, "container_primary_span")
         XCTAssertEqual(decoded.monitorDwindleSettings.first?.singleWindowFit?.serialized, "1024x768")
     }
 
-    func testLegacySingleWindowAspectRatioKeysAreIgnoredAndDiagnosed() throws {
-        var export = SettingsExport.defaults()
-        export.niri.singleWindowFit = SingleWindowFit(mode: .containerPrimarySpan)
-        export.dwindle.singleWindowFit = SingleWindowFit(mode: .custom, width: 1280, height: 720)
-        export.monitorNiriSettings = [
-            MonitorNiriSettings(
-                monitorName: "Portrait",
-                singleWindowFit: SingleWindowFit(mode: .containerPrimarySpan)
-            )
-        ]
-        export.monitorDwindleSettings = [
-            MonitorDwindleSettings(
-                monitorName: "Landscape",
-                singleWindowFit: SingleWindowFit(mode: .custom, width: 1024, height: 768)
-            )
-        ]
-
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
-        let legacy = Data(
-            canonical
-                .split(separator: "\n", omittingEmptySubsequences: false)
-                .flatMap { line -> [Substring] in
-                    guard line.contains("singleWindowFit") else { return [line] }
-                    return [
-                        line,
-                        Substring(line.replacingOccurrences(
-                            of: "singleWindowFit",
-                            with: "singleWindowAspectRatio"
-                        ))
-                    ]
-                }
-                .joined(separator: "\n")
-                .utf8
-        )
-        let decoded = try SettingsTOMLCodec.decode(legacy)
-        let unknownKeys = Set(SettingsTOMLCodec.unknownKeyPaths(in: legacy))
-
-        XCTAssertEqual(decoded.niri.singleWindowFit, export.niri.singleWindowFit)
-        XCTAssertEqual(decoded.dwindle.singleWindowFit, export.dwindle.singleWindowFit)
-        XCTAssertTrue(unknownKeys.contains("niri.singleWindowAspectRatio"))
-        XCTAssertTrue(unknownKeys.contains("dwindle.singleWindowAspectRatio"))
-        XCTAssertTrue(unknownKeys.contains("monitorNiriOverrides[0].singleWindowAspectRatio"))
-        XCTAssertTrue(unknownKeys.contains("monitorDwindleOverrides[0].singleWindowAspectRatio"))
+    func testUnknownSingleWindowAspectRatioKeysAreRejected() throws {
+        for section in ["niri", "dwindle", "monitorNiriOverrides", "monitorDwindleOverrides"] {
+            let isList = section.hasPrefix("monitor")
+            let row = "{ singleWindowAspectRatio = 'fill', monitorName = 'Display' }"
+            let value = isList ? "{ \(row) }" : "{ singleWindowAspectRatio = 'fill' }"
+            let expected = section + (isList ? "[0]" : "") + ".singleWindowAspectRatio"
+            let source = Data("return { \(section) = \(value) }".utf8)
+            XCTAssertThrowsError(try SettingsLuauDocument(source)) { error in
+                XCTAssertTrue(error.localizedDescription.contains(expected), error.localizedDescription)
+            }
+        }
     }
 }
 

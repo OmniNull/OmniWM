@@ -44,6 +44,7 @@ struct AppThemingSettingsPage: View {
                     Text("Follow Palette").tag(AppThemeTerminalColors.palette)
                     Text("Standard Hues").tag(AppThemeTerminalColors.standard)
                 }
+                .settingsField(.appThemingTerminalColors)
                 SettingsCaption(
                     localized: "Follow Palette takes terminal colors from a wallpaper palette’s accents, so the terminal matches the wallpaper, though red and green may not look red and green in diffs. Standard Hues keeps familiar red, green, yellow, blue, magenta and cyan for ls and git, tinted toward the accent. A theme with its own terminal hues keeps them with Follow Palette."
                 )
@@ -75,7 +76,7 @@ struct AppThemingSettingsPage: View {
                 controller: controller,
                 paths: page.paths,
                 editing: $editing,
-                onReplace: { reviewConflict(preview.target(for: $0)) }
+                onReplace: { reviewConflict($0.target) }
             )
             AppThemingPlaceholderHelp()
         }
@@ -108,7 +109,8 @@ struct AppThemingSettingsPage: View {
             }
         }
         .sheet(item: $editing) { custom in
-            AppThemingCustomEditor(custom: custom, policy: controller.appThemeEngine.policy) { saved in
+            let row = settings.appTheming.values.custom.first { $0.id == custom.id }?.id
+            AppThemingCustomEditor(custom: custom, row: row, policy: controller.appThemeEngine.policy) { saved in
                 var values = settings.appTheming.values
                 if let index = values.custom.firstIndex(where: { $0.id == saved.id }) {
                     values.custom[index] = saved
@@ -147,6 +149,7 @@ struct AppThemingSettingsPage: View {
                     SettingsCaption(reloadDescription(app))
                 }
             }
+            .settingsField(app.enabledField)
             AppThemingPaths(paths: page.paths[target.id] ?? [])
             if settings.appTheming.values.isEnabled(app) {
                 AppThemingStatus(result: service?.results[app.id]) { reviewConflict(target) }
@@ -160,53 +163,53 @@ struct AppThemingSettingsPage: View {
     private func extras(_ app: AppThemeBuiltIn) -> some View {
         switch app {
         case .ghostty:
-            switch page.ghosttyStatus {
-            case .selected:
-                EmptyView()
-            case .notSelected:
-                HStack {
-                    Text(verbatim: AppThemeBuiltIn.ghosttyThemeLine)
-                        .font(.caption.monospaced())
-                        .textSelection(.enabled)
-                    Spacer()
-                    Button("Add to Ghostty Config…") { reviewGhosttySelection() }
-                }
-                SettingsCaption(localized: "Ghostty uses these themes once its config selects them.")
-            case let .overridden(path):
-                HStack(alignment: .firstTextBaseline) {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Another Ghostty config sets a different theme").font(.caption)
-                            Text(verbatim: path).font(.caption.monospaced()).foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    }
-                    Spacer()
-                    Button("Fix Ghostty Config…") { reviewGhosttySelection() }
-                }
-            case let .unreadable(path):
+            ghosttyStatus
+        case .kitty:
+            SettingsCaption(
+                localized: "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark."
+            )
+        case .neovim:
+            neovimActivation
+        }
+    }
+
+    @ViewBuilder
+    private var ghosttyStatus: some View {
+        switch page.ghosttyStatus {
+        case .selected:
+            EmptyView()
+        case .notSelected:
+            HStack {
+                Text(verbatim: AppThemeBuiltIn.ghosttyThemeLine)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                Spacer()
+                Button("Add to Ghostty Config…") { reviewGhosttySelection() }
+            }
+            SettingsCaption(localized: "Ghostty uses these themes once its config selects them.")
+        case let .overridden(path):
+            HStack(alignment: .firstTextBaseline) {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("OmniWM can’t read this Ghostty config, so it can’t tell which theme Ghostty uses")
-                            .font(.caption)
+                        Text("Another Ghostty config sets a different theme").font(.caption)
                         Text(verbatim: path).font(.caption.monospaced()).foregroundStyle(.secondary)
                     }
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 }
+                Spacer()
+                Button("Fix Ghostty Config…") { reviewGhosttySelection() }
             }
-        case .kitty:
-            SettingsCaption(
-                localized: "kitty 0.38 or newer loads these files by itself and switches them with macOS light and dark."
-            )
-        case .herdr:
-            Toggle("Also reload saved herdr machines", isOn: herdrMachinesBinding)
-            SettingsCaption(
-                localized: "A herdr client attached to another machine draws with this terminal’s colors, so OmniWM reloads every enabled saved machine after the terminal."
-            )
-        case .neovim:
-            neovimActivation
+        case let .unreadable(path):
+            Label {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("OmniWM can’t read this Ghostty config, so it can’t tell which theme Ghostty uses")
+                        .font(.caption)
+                    Text(verbatim: path).font(.caption.monospaced()).foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
         }
     }
 
@@ -214,9 +217,6 @@ struct AppThemingSettingsPage: View {
         switch app {
         case .ghostty: String(localized: "Light and dark themes · reloads Ghostty 1.2 or newer with SIGUSR2")
         case .kitty: String(localized: "Automatic light and dark themes · reloads kitty with SIGUSR1")
-        case .herdr: String(
-                localized: "The [theme.custom] table of herdr’s config · reloads herdr through its socket API"
-            )
         case .neovim: String(
                 localized: "A base16 module for the current appearance · reloads Neovim with SIGUSR1"
             )
@@ -269,13 +269,6 @@ struct AppThemingSettingsPage: View {
             set: { settings.appTheming.values.terminalColors = $0 }
         )
     }
-
-    private var herdrMachinesBinding: Binding<Bool> {
-        Binding(
-            get: { settings.appTheming.values.herdr.reloadSavedMachines },
-            set: { settings.appTheming.values.herdr.reloadSavedMachines = $0 }
-        )
-    }
 }
 
 extension AppThemingSettingsPage {
@@ -325,7 +318,7 @@ extension AppThemingSettingsPage {
         if let app = AppThemeBuiltIn(rawValue: targetID) {
             reviewConflict(preview.target(for: app))
         } else if let custom = settings.appTheming.values.custom.first(where: { $0.targetID == targetID }) {
-            reviewConflict(preview.target(for: custom))
+            reviewConflict(custom.target)
         }
     }
 
@@ -355,7 +348,17 @@ extension AppThemingSettingsPage {
     private func refreshGhosttySelection() {
         let preview = preview
         let targets = AppThemeBuiltIn.allCases.map(preview.target(for:))
-            + settings.appTheming.values.custom.map(preview.target(for:))
+            + settings.appTheming.values.custom.map(\.target)
         page.refresh(controller.appThemeEngine, targets: targets)
+    }
+}
+
+extension AppThemeBuiltIn {
+    fileprivate var enabledField: SettingsFieldID {
+        switch self {
+        case .ghostty: SettingsFieldID.appThemingGhosttyEnabled
+        case .kitty: SettingsFieldID.appThemingKittyEnabled
+        case .neovim: SettingsFieldID.appThemingNeovimEnabled
+        }
     }
 }

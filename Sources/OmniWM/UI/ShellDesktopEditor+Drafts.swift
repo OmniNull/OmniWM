@@ -125,6 +125,9 @@ extension ShellDesktopEditor {
             await reload()
             if drafts[key]?.id == draft.id { clearDraft(key) }
             return true
+        } catch is CancellationError {
+            if drafts[key]?.id == draft.id { clearDraft(key) }
+            return false
         } catch {
             if drafts[key]?.id == draft.id {
                 draft.saving = false

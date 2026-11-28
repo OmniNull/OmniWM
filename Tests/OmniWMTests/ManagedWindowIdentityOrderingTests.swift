@@ -420,6 +420,197 @@ final class ManagedWindowIdentityOrderingTests: XCTestCase {
         assertCanonical(fixture, token: fixture.successor)
     }
 
+    func testLiveReplacementAppliesNewMinimizedStateBeforeFinalization() async throws {
+        let fixture = try await makeFixture(suffix: 8)
+        defer { fixture.stop() }
+        let replacement = fixture.predecessor
+        let windowId = UInt32(replacement.windowId)
+        let handler = fixture.handler
+        handler.windowSubscriptionProvider = { _ in true }
+        handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in true }
+        handler.rebindMinimizationProvider = { _ in nil }
+        handler.managedWindowIdentityRebindFinalizationProvider = { _, target in
+            XCTAssertTrue(fixture.manager.isWindowSuppressedByMacOS(target.token))
+            return true
+        }
+        let candidate = AXEventHandler.PreparedCreate(
+            windowId: windowId, token: replacement, axRef: try XCTUnwrap(fixture.refs[replacement]),
+            ruleEffects: .none, admissionHints: .none, appFullscreen: false, isMinimized: true,
+            replacementMetadata: fixture.metadata,
+            structuralReplacementMatch: .init(
+                token: fixture.original, workspaceId: fixture.workspaceId, source: .liveInvisible
+            )
+        )
+        handler.retainPreparedWindowSubscription(windowId)
+
+        XCTAssertTrue(handler.completeLiveStructuralReplacementCreate(candidate))
+        XCTAssertTrue(handler.retryAdmissionAfterFrameChange(windowId: windowId))
+        try await waitUntilSettled(replacement, fixture: fixture)
+
+        XCTAssertNil(fixture.manager.entry(for: fixture.original))
+        XCTAssertTrue(fixture.manager.handle(for: replacement) === fixture.handle)
+        XCTAssertTrue(fixture.manager.isWindowSuppressedByMacOS(replacement))
+        XCTAssertTrue(fixture.controller.axManager.isWindowNativeSuppressed(replacement))
+    }
+
+    func testLiveReplacementRefreshesMinimizationWhileAwaitingAXRebind() async throws {
+        try await assertLiveReplacementRefreshesMinimizedState(
+            fixture: makeFixture(suffix: 10), initiallyMinimized: false, deliversNotification: true
+        )
+    }
+
+    func testLiveReplacementRefreshesRestoreWhileAwaitingAXRebindWithoutNotification() async throws {
+        try await assertLiveReplacementRefreshesMinimizedState(
+            fixture: makeFixture(suffix: 11), initiallyMinimized: true, deliversNotification: false
+        )
+    }
+
+    private func assertLiveReplacementRefreshesMinimizedState(
+        fixture: Fixture, initiallyMinimized: Bool, deliversNotification: Bool
+    ) async throws {
+        let acknowledgement = IdentityOrderingGate()
+        defer {
+            acknowledgement.release()
+            fixture.stop()
+        }
+        let replacement = fixture.predecessor
+        let windowId = UInt32(replacement.windowId)
+        let axRef = try XCTUnwrap(fixture.refs[replacement])
+        let handler = fixture.handler
+        let expectedMinimized = !initiallyMinimized
+        var currentMinimized = initiallyMinimized
+        handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in
+            await acknowledgement.wait()
+            return true
+        }
+        handler.rebindMinimizationProvider = { [weak manager = fixture.manager] window in
+            XCTAssertEqual(window, axRef)
+            XCTAssertNil(manager?.entry(for: replacement))
+            return WindowMinimizationObservation(isMinimized: currentMinimized, sequence: 2)
+        }
+        handler.managedWindowIdentityRebindFinalizationProvider = { _, target in
+            XCTAssertEqual(fixture.manager.entry(for: target.token)?.observedState.isMinimized, expectedMinimized)
+            return true
+        }
+        let candidate = AXEventHandler.PreparedCreate(
+            windowId: windowId, token: replacement, axRef: axRef,
+            ruleEffects: .none, admissionHints: .none, appFullscreen: false, isMinimized: initiallyMinimized,
+            replacementMetadata: fixture.metadata,
+            structuralReplacementMatch: .init(
+                token: fixture.original, workspaceId: fixture.workspaceId, source: .liveInvisible
+            )
+        )
+        handler.retainPreparedWindowSubscription(windowId)
+        XCTAssertTrue(handler.completeLiveStructuralReplacementCreate(candidate))
+        XCTAssertTrue(handler.retryAdmissionAfterFrameChange(windowId: windowId))
+        await fulfillment(of: [acknowledgement.reached], timeout: failureBound)
+        XCTAssertNil(fixture.manager.entry(for: replacement))
+
+        currentMinimized = expectedMinimized
+        if deliversNotification {
+            handler.handleWindowMinimized(pid: replacement.pid, axRef: axRef, minimized: currentMinimized, sequence: 1)
+        }
+        acknowledgement.release()
+        try await waitUntilSettled(replacement, fixture: fixture)
+
+        XCTAssertTrue(fixture.manager.handle(for: replacement) === fixture.handle)
+        XCTAssertEqual(fixture.manager.entry(for: replacement)?.observedState.isMinimized, expectedMinimized)
+        XCTAssertEqual(fixture.controller.axManager.isWindowNativeSuppressed(replacement), expectedMinimized)
+    }
+
+    func testLiveReplacementUsesNewestMinimizationObservation() async throws {
+        let scenarios: [(sampleSequence: UInt64, expectedMinimized: Bool)] = [(1, true), (3, false)]
+        for (index, scenario) in scenarios.enumerated() {
+            let fixture = try await makeFixture(suffix: 12 + index)
+            let read = IdentityOrderingGate()
+            defer {
+                read.release()
+                fixture.stop()
+            }
+            let replacement = fixture.predecessor
+            let axRef = try XCTUnwrap(fixture.refs[replacement])
+            let handler = fixture.handler
+            handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in true }
+            handler.managedWindowIdentityRebindFinalizationProvider = { _, _ in true }
+            handler.rebindMinimizationProvider = { _ in
+                await read.wait()
+                return WindowMinimizationObservation(isMinimized: false, sequence: scenario.sampleSequence)
+            }
+            try enqueue(replacement, from: fixture.original, fixture: fixture)
+            await fulfillment(of: [read.reached], timeout: failureBound)
+            XCTAssertNil(fixture.manager.entry(for: replacement))
+            handler.handleWindowMinimized(pid: replacement.pid, axRef: axRef, minimized: true, sequence: 2)
+            read.release()
+            try await waitUntilSettled(replacement, fixture: fixture)
+            XCTAssertEqual(
+                fixture.manager.entry(for: replacement)?.observedState.isMinimized,
+                scenario.expectedMinimized
+            )
+            XCTAssertEqual(
+                fixture.controller.axManager.isWindowNativeSuppressed(replacement),
+                scenario.expectedMinimized
+            )
+        }
+    }
+
+    func testCancelledRebindCannotCommitAfterMinimizationRead() async throws {
+        let fixture = try await makeFixture(suffix: 14)
+        let read = IdentityOrderingGate()
+        defer {
+            read.release()
+            fixture.stop()
+        }
+        let replacement = fixture.predecessor
+        let handler = fixture.handler
+        handler.managedWindowIdentityRebindAcknowledgementProvider = { _, _ in true }
+        handler.managedWindowIdentityRebindFinalizationProvider = { _, _ in
+            XCTFail("A cancelled rebind must not reach finalization")
+            return false
+        }
+        handler.rebindMinimizationProvider = { _ in
+            await read.wait()
+            return WindowMinimizationObservation(isMinimized: true, sequence: 1)
+        }
+        try enqueue(replacement, from: fixture.original, fixture: fixture)
+        await fulfillment(of: [read.reached], timeout: failureBound)
+        let task = try rebindTask(replacement, fixture: fixture)
+        task.cancel()
+        read.release()
+        await task.value
+        assertCanonical(fixture, token: fixture.original)
+        XCTAssertNil(fixture.manager.entry(for: replacement))
+    }
+
+    func testMatchedCloseOfMinimizedWindowClearsSuppressionOnReplacement() async throws {
+        let fixture = try await makeFixture(suffix: 9)
+        defer { fixture.stop() }
+        fixture.controller.hasStartedServices = false
+        let replacement = fixture.predecessor
+        let windowId = UInt32(replacement.windowId)
+        let handler = fixture.handler
+        handler.windowSubscriptionProvider = { _ in true }
+        XCTAssertTrue(handler.updateWindowMinimizedState(true, token: fixture.original, requestRefresh: false))
+        handler.enqueueManagedReplacementDestroy(
+            .init(token: fixture.original, replacementMetadata: fixture.metadata, evidence: .windowClosed)
+        )
+        let candidate = AXEventHandler.PreparedCreate(
+            windowId: windowId, token: replacement, axRef: try XCTUnwrap(fixture.refs[replacement]),
+            ruleEffects: .none, admissionHints: .none, appFullscreen: false, isMinimized: false,
+            replacementMetadata: fixture.metadata,
+            structuralReplacementMatch: .init(
+                token: fixture.original, workspaceId: fixture.workspaceId, source: .pendingDestroy
+            )
+        )
+        handler.retainPreparedWindowSubscription(windowId)
+        handler.enqueueManagedReplacementCreate(candidate)
+        await handler.awaitPendingManagedReplacementBursts()
+
+        XCTAssertNil(fixture.manager.entry(for: fixture.original))
+        XCTAssertTrue(fixture.manager.handle(for: replacement) === fixture.handle)
+        XCTAssertFalse(fixture.manager.isWindowSuppressedByMacOS(replacement))
+        XCTAssertFalse(fixture.controller.axManager.isWindowNativeSuppressed(replacement))
+    }
+
     private func makeFixture(suffix: Int) async throws -> Fixture {
         let controller = WindowAdmissionTestSupport.controller(prefix: "ManagedIdentityOrdering")
         let manager = controller.workspaceManager

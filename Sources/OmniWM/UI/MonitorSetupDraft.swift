@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
 import OmniWMIPC
 
 struct MonitorSetupDraft {
@@ -28,6 +29,7 @@ struct MonitorSetupDraft {
         case monitorConfigurationChanged
     }
 
+    let arrangementID: MonitorArrangement.ID?
     private(set) var monitorIDs: Set<Monitor.ID>
     private(set) var cells: [Monitor.ID: Cell]
     var mouseWarpEnabled: Bool
@@ -55,14 +57,14 @@ struct MonitorSetupDraft {
 
         let initialLayout: [MonitorRoutingSettings]
         if routingMode == .custom,
-           let customLayout = MonitorRouting.completeLayout(
-               MonitorRouting.layout(for: monitors, in: arrangements),
-               for: monitors
-           )
+           let index = MonitorRouting.arrangementIndex(for: monitors, in: arrangements),
+           let customLayout = MonitorRouting.completeLayout(arrangements[index].monitors, for: monitors)
         {
             initialLayout = customLayout
+            arrangementID = arrangements[index].id
         } else {
             initialLayout = MonitorRouting.seedLayout(from: monitors)
+            arrangementID = nil
         }
 
         var initialCells: [Monitor.ID: Cell] = [:]

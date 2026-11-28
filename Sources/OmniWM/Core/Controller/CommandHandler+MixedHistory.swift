@@ -4,7 +4,58 @@
 import Foundation
 
 extension CommandHandler {
-    func mixedTransferSelection(
+    enum LayoutChangeCoverage {
+        case ownWorkspace
+        case everyNiriWorkspace
+    }
+
+    static func layoutChangeCoverage(of command: HotkeyCommand) -> LayoutChangeCoverage? {
+        switch command {
+        case .move,
+             .moveColumn,
+             .windowMovement:
+            .ownWorkspace
+        case let .column(action):
+            switch action {
+            case .moveToFirst,
+                 .moveToLast,
+                 .moveToIndex,
+                 .toggleTabbed: .ownWorkspace
+            case .moveToWorkspace,
+                 .moveToWorkspaceUp,
+                 .moveToWorkspaceDown: .everyNiriWorkspace
+            }
+        case let .workspace(action):
+            switch action {
+            case .moveTo,
+                 .moveToOnMonitor,
+                 .moveUp,
+                 .moveDown,
+                 .moveToMonitor,
+                 .moveToSlot: .everyNiriWorkspace
+            default: nil
+            }
+        case let .sizing(action):
+            action != .undo && action != .redo ? .ownWorkspace : nil
+        default:
+            nil
+        }
+    }
+
+    static func layoutChangeStart(
+        recording command: HotkeyCommand,
+        controller: WMController
+    ) -> NiriLayoutChangeStart? {
+        switch Self.layoutChangeCoverage(of: command) {
+        case .ownWorkspace: controller.niriLayoutHandler.activeLayoutChangeStart()
+        case .everyNiriWorkspace:
+            controller.niriLayoutHandler
+                .layoutChangeStartCoveringEveryNiriWorkspace(in: controller.activeWorkspace()?.id)
+        case nil: nil
+        }
+    }
+
+    static func mixedTransferSelection(
         for command: HotkeyCommand,
         controller: WMController
     ) -> (token: WindowToken, source: WorkspaceDescriptor.ID)? {
@@ -14,6 +65,7 @@ extension CommandHandler {
         case let .workspace(action):
             switch action {
             case .moveTo,
+                 .moveToOnMonitor,
                  .moveUp,
                  .moveDown,
                  .moveToMonitor,
@@ -29,16 +81,16 @@ extension CommandHandler {
         return (token, source)
     }
 
-    func finishLayoutChange(
+    static func finishLayoutChange(
         _ start: borrowing NiriLayoutChangeStart?,
         transfer: (token: WindowToken, source: WorkspaceDescriptor.ID)?,
         controller: WMController
     ) {
-        guard !completedMixedTransfer(transfer, controller: controller) else { return }
+        guard start != nil, !completedMixedTransfer(transfer, controller: controller) else { return }
         controller.niriLayoutHandler.recordLayoutChange(since: start)
     }
 
-    private func completedMixedTransfer(
+    private static func completedMixedTransfer(
         _ before: (token: WindowToken, source: WorkspaceDescriptor.ID)?,
         controller: WMController
     ) -> Bool {

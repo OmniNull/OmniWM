@@ -26,7 +26,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
         let disabled = NSMenuItem(title: "Disabled", action: nil, keyEquivalent: "")
         disabled.isEnabled = false
         var loadCount = 0
-        let controller = MenuAnywhereController { _, _, _ in
+        let controller = MenuAnywhereController { _, _, _, _ in
             loadCount += 1
             return .loaded([enabled, disabled])
         }
@@ -50,7 +50,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
 
     func testAuthoritativeEmptyCommitsDisabledStatusOnce() {
         var loadCount = 0
-        let controller = MenuAnywhereController { _, _, _ in
+        let controller = MenuAnywhereController { _, _, _, _ in
             loadCount += 1
             return .loaded([])
         }
@@ -70,7 +70,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
     func testUnavailableCommitsStatusAndFreshMenuCanRecover() {
         let recovered = NSMenuItem(title: "Recovered", action: nil, keyEquivalent: "")
         var loadCount = 0
-        let controller = MenuAnywhereController { _, _, _ in
+        let controller = MenuAnywhereController { _, _, _, _ in
             loadCount += 1
             return loadCount == 1 ? .unavailable : .loaded([recovered])
         }
@@ -94,7 +94,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
 
     func testLiteralLoadingTitleIsNotTreatedAsPlaceholder() {
         var loadCount = 0
-        let controller = MenuAnywhereController { _, _, _ in
+        let controller = MenuAnywhereController { _, _, _, _ in
             loadCount += 1
             return .unavailable
         }
@@ -112,7 +112,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
 
     func testRootlessMenuDoesNotLoad() {
         var loadCount = 0
-        let controller = MenuAnywhereController { _, _, _ in
+        let controller = MenuAnywhereController { _, _, _, _ in
             loadCount += 1
             return .unavailable
         }
@@ -151,7 +151,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
                 XCTAssertNotNil(item.target)
                 XCTAssertNotNil(item.action)
             },
-            submenuLoader: { _, _, _ in
+            submenuLoader: { _, _, _, _ in
                 XCTFail("Root contents must load before native tracking")
                 return .unavailable
             }
@@ -205,7 +205,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
                 opened += 1
                 return nil
             },
-            submenuLoader: { _, _, _ in
+            submenuLoader: { _, _, _, _ in
                 XCTFail("The application owns this submenu")
                 return .unavailable
             }
@@ -229,7 +229,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
                 menuLoader: { _, _, _, _ in .loaded([item]) },
                 menuPresenter: { _, _ in XCTAssertTrue(item.submenu === submenu) },
                 usesNativeSubmenus: { _ in usesNativeSubmenus },
-                submenuLoader: { _, _, _ in .unavailable }
+                submenuLoader: { _, _, _, _ in .unavailable }
             )
 
             controller.showNativeMenu(
@@ -257,7 +257,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
                     XCTAssertEqual(menu.items.first?.title, title)
                     XCTAssertFalse(menu.items.first?.isEnabled ?? true)
                 },
-                submenuLoader: { _, _, _ in .unavailable }
+                submenuLoader: { _, _, _, _ in .unavailable }
             )
 
             controller.showNativeMenu(
@@ -297,7 +297,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
                     case .right: XCTAssertGreaterThanOrEqual(frame.minX, anchor.maxX + PopupAttachment.gap)
                     }
                 },
-                submenuLoader: { _, _, _ in .unavailable }
+                submenuLoader: { _, _, _, _ in .unavailable }
             )
 
             controller.showNativeMenu(
@@ -334,7 +334,7 @@ final class MenuAnywhereControllerTests: XCTestCase {
                 XCTAssertEqual(rootLoads, 1)
             },
             makeMenu: { menu },
-            submenuLoader: { _, _, _ in
+            submenuLoader: { _, _, _, _ in
                 submenuLoads += 1
                 return .unavailable
             }

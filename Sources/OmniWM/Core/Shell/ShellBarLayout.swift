@@ -24,8 +24,12 @@ struct ShellBarLayout: Equatable, Sendable {
         }
     }
 
-    struct Unreadable: Error, Equatable {
+    struct Unreadable: LocalizedError, Equatable {
         let problem: String
+        var helperFiles: Set<URL> = []
+        var errorDescription: String? {
+            problem
+        }
     }
 
     var leading: [String]
@@ -41,7 +45,7 @@ struct ShellBarLayout: Equatable, Sendable {
             ShellConfig.load(profile: profile, shellDirectory: shellDirectory, problems: &problems)
         } else { ShellConfig.load(shellDirectory: shellDirectory, problems: &problems) }
         guard let config = loaded else {
-            return .failure(Unreadable(problem: problems.last ?? "shell.toml"))
+            return .failure(Unreadable(problem: problems.last ?? "shell.luau"))
         }
         return .success(ShellBarLayout(config: config, shellDirectory: shellDirectory))
     }
@@ -52,7 +56,7 @@ struct ShellBarLayout: Equatable, Sendable {
         trailing = config.trailing
         widgets = Self.available(config: config, shellDirectory: shellDirectory)
         profile = config.profile
-        customized = ShellProfiles.hasTopLevel(Self.keys(of: config.profile), in: shellDirectory)
+        customized = config.barLayoutCustomized
     }
 
     init(
@@ -86,7 +90,7 @@ struct ShellBarLayout: Equatable, Sendable {
 
     static func reset(shellDirectory: URL) throws {
         let profile = ShellConfig.resolve(shellDirectory: shellDirectory).profile
-        _ = try ShellProfiles.setTopLevel(keys(of: profile).map { ($0, nil) }, in: shellDirectory)
+        _ = try ShellProfiles.setNodes(keys(of: profile).map { ($0, nil) }, in: shellDirectory)
     }
 
     @discardableResult
@@ -96,16 +100,16 @@ struct ShellBarLayout: Equatable, Sendable {
             ShellConfig.load(profile: profile, shellDirectory: shellDirectory, problems: &problems)
         } else { ShellConfig.load(shellDirectory: shellDirectory, problems: &problems) }
         guard let config = loaded, profile.map({ $0 == config.profile }) != false else {
-            throw Unreadable(problem: problems.last ?? "shell.toml")
+            throw Unreadable(problem: problems.last ?? "shell.luau")
         }
-        var entries = [(
+        var entries: [([String], SettingsLuauValue?)] = [(
             ShellProfiles.key("workspaceBar", of: config.profile) + ["systemStatsButton"],
-            Optional(enabled ? "true" : "false")
+            .boolean(enabled)
         )]
         if enabled, let widget = config.systemStatsWidget, !config.hasSystemStatsButtonPlace {
             entries.append((ShellProfiles.key("trailing", of: config.profile), Self.list(config.trailing + [widget])))
         }
-        return try ShellProfiles.setTopLevel(entries, in: shellDirectory)
+        return try ShellProfiles.setNodes(entries, in: shellDirectory)
     }
 
     @discardableResult
@@ -118,9 +122,9 @@ struct ShellBarLayout: Equatable, Sendable {
         let loaded = if let profile {
             ShellConfig.load(profile: profile, shellDirectory: shellDirectory, problems: &problems)
         } else { ShellConfig.load(shellDirectory: shellDirectory, problems: &problems) }
-        guard let config = loaded else { throw Unreadable(problem: problems.last ?? "shell.toml") }
+        guard let config = loaded else { throw Unreadable(problem: problems.last ?? "shell.luau") }
         guard let order = change(config), order != config.priority else { return false }
-        return try ShellProfiles.setTopLevel(
+        return try ShellProfiles.setNodes(
             [(ShellProfiles.key("priority", of: config.profile), list(order))],
             in: shellDirectory
         )
@@ -248,7 +252,7 @@ struct ShellBarLayout: Equatable, Sendable {
     }
 
     func save(shellDirectory: URL) throws {
-        _ = try ShellProfiles.setTopLevel(
+        _ = try ShellProfiles.setNodes(
             ShellLane.allCases.map { (ShellProfiles.key($0.rawValue, of: profile), Self.list(names(in: $0))) },
             in: shellDirectory
         )
@@ -262,8 +266,8 @@ struct ShellBarLayout: Equatable, Sendable {
         }
     }
 
-    private static func list(_ names: [String]) -> String {
-        "[" + names.map(ShellTOMLText.quoted).joined(separator: ", ") + "]"
+    private static func list(_ names: [String]) -> SettingsLuauValue {
+        .list(names.map(SettingsLuauValue.string))
     }
 
     static let internalWidgets: Set = [

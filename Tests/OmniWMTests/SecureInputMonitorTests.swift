@@ -251,6 +251,25 @@ final class SecureInputMonitorTests: XCTestCase {
         XCTAssertFalse(controller.secureInputIndicator.isIndicated)
     }
 
+    func testDisablingAutomaticExplanationStillAllowsManualPresentation() {
+        let controller = makeController()
+        controllersToStop.append(controller)
+        controller.settings.showSecureInputExplanation = false
+        let recorder = Recorder()
+        recorder.isSecure = true
+        configure(controller.secureInputMonitor, recorder)
+        controller.serviceLifecycleManager.startSecureInputMonitor()
+
+        XCTAssertTrue(controller.isSecureInputIndicated)
+        XCTAssertTrue(controller.secureInputIndicator.isIndicated)
+        XCTAssertNil(controller.secureInputIndicator.explanationTask)
+        XCTAssertFalse(controller.secureInputIndicator.isExplanationVisible)
+
+        controller.showSecureInputExplanation()
+
+        XCTAssertTrue(controller.secureInputIndicator.isExplanationVisible)
+    }
+
     private func makeMonitor(_ recorder: Recorder) -> SecureInputMonitor {
         configure(SecureInputMonitor(), recorder)
     }

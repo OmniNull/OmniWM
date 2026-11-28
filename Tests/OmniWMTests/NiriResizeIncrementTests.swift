@@ -3,7 +3,9 @@
 
 import CoreGraphics
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
+import OmniWMScriptHost
 import XCTest
 
 @MainActor
@@ -39,6 +41,102 @@ final class NiriResizeIncrementTests: XCTestCase {
         )
     }
 
+    func testScriptBindingsExecuteTheirDeclaredResizeAfterVMDestruction() async throws {
+        let fixture = try makeFixture()
+        let controller = fixture.controller
+        controller.settings.hotkeyBindings = []
+        controller.settings.ipcEnabled = false
+        controller.settings.workspaceBar.enabled = false
+        let directory = controller.settings.settingsFileURL.deletingLastPathComponent()
+        let fileURL = directory.appendingPathComponent("init.luau")
+        let increments = [("Control+Option+J", 4), ("Control+Option+K", 12)]
+        let source = increments.map { chord, percent in
+            #"wm.keymap.set("\#(chord)", wm.cmd.setContainerPrimarySpan("+\#(percent)%"))"#
+        }.joined(separator: "\n")
+        try ("local wm = omniwm\n" + source).write(to: fileURL, atomically: true, encoding: .utf8)
+        defer {
+            controller.stopConfigScript()
+            controller.layoutRefreshController.resetState()
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+        let published = expectation(description: "Native resize bindings published")
+        controller.startConfigScript(at: fileURL)
+        let config = try XCTUnwrap(controller.configScript)
+        config.onReloadProcessed = { published.fulfill() }
+        await fulfillment(of: [published], timeout: failureBound)
+        config.onReloadProcessed = nil
+        XCTAssertNil(config.diagnostic)
+        XCTAssertEqual(omni_config_live_vm_count(), 0)
+
+        let guiRows = try increments.map { chord, percent in
+            try HotkeyBinding(
+                id: chord,
+                command: .sizing(.setContainerPrimarySpan(.adjustProportion(CGFloat(percent)))),
+                binding: XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord))
+            )
+        }
+        let plan = HotkeyCenter.registrationPlan(for: controller.hotkeys.configuration.bindings)
+        XCTAssertEqual(plan, HotkeyCenter.registrationPlan(for: guiRows))
+        guard case var .proportion(expectedWidth) = fixture.column.width else {
+            return XCTFail("Fixture must start with a proportional column")
+        }
+        for (chord, percent) in increments {
+            let binding = try XCTUnwrap(KeySymbolMapper.fromHumanReadable(chord))
+            let registration = try XCTUnwrap(plan.registrations.first { $0.binding == binding })
+            XCTAssertEqual(controller.commandHandler.performCommand(registration.command), .executed)
+            expectedWidth += CGFloat(percent) / 100
+            assertSpan(fixture, primary: true, expected: expectedWidth)
+        }
+        XCTAssertEqual(omni_config_live_vm_count(), 0)
+    }
+
+    func testFunctionShortcutResizesForTheAppCapturedAtPress() async throws {
+        let textEdit = "com.apple.TextEdit"
+        let textEditPercent = 12
+        let otherPercent = 4
+        let source = """
+        local wm = omniwm
+        local textEdit = wm.cmd.setContainerPrimarySpan("+\(textEditPercent)%")
+        local other = wm.cmd.setContainerPrimarySpan("+\(otherPercent)%")
+        wm.keymap.set("Control+Option+I", function(ctx)
+            wm.dispatch(if ctx.bundleId == "\(textEdit)" then textEdit else other)
+        end)
+        """
+        for (bundleId, expectedPercent) in [(textEdit, textEditPercent), ("test.other-app", otherPercent)] {
+            let fixture = try makeFixture()
+            let controller = fixture.controller
+            defer {
+                controller.stopConfigScript()
+                controller.layoutRefreshController.resetState()
+            }
+            let workspace = try XCTUnwrap(controller.activeWorkspace())
+            let token = fixture.window.token
+            _ = controller.workspaceManager.setManagedFocus(token, in: workspace.id)
+            _ = controller.appInfoCache.info(for: token.pid) { _ in
+                AppInfoCache.AppInfo(name: bundleId, bundleId: bundleId, icon: nil, activationPolicy: .regular)
+            }
+            controller.settings.hotkeyBindings = []
+            let file = controller.settings.settingsFileURL.deletingLastPathComponent()
+                .appendingPathComponent("init.luau")
+            let script = ConfigScriptController(fileURL: file, settings: controller.settings) { _ in }
+            controller.configScript = script
+            let mask = controller.settings.hyperKeyModifiers.carbonMask
+            let evaluation = try await ConfigScriptLoader().evaluate(Data(source.utf8), hyperMask: mask)
+            XCTAssertTrue(script.apply(ConfigScriptLoad(versions: [:], result: .success(evaluation)), hyperMask: mask))
+            guard case let .proportion(initialWidth) = fixture.column.width else {
+                return XCTFail("Fixture must start with a proportional column")
+            }
+            let command = try XCTUnwrap(script.effectiveBindings.first?.command)
+            XCTAssertEqual(
+                controller.commandHandler.handleHotkeyInvocation(HotkeyInvocation(command: command)),
+                .executed
+            )
+            await script.callbackQueue?.waitUntilParked()
+            XCTAssertNil(script.diagnostic)
+            assertSpan(fixture, primary: true, expected: initialWidth + CGFloat(expectedPercent) / 100)
+        }
+    }
+
     func testLiteralIPCResizeKeepsItsAmount() throws {
         let requests: [(IPCSizingCommand, Bool)] = [
             (.setContainerPrimarySpan(change: .adjustProportion(10)), true),
@@ -50,7 +148,7 @@ final class NiriResizeIncrementTests: XCTestCase {
             defer { fixture.controller.layoutRefreshController.resetState() }
             fixture.controller.settings.niri.resizeStepPercent = 7
             let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "resize-test")
-            XCTAssertEqual(router.handle(.sizing(request)), .executed)
+            XCTAssertEqual(router.handle(.init(.sizing(request))), .executed)
             assertSpan(fixture, primary: primary, expected: primary ? 0.6 : 300 + fixture.secondarySpan * 0.1)
         }
     }
@@ -80,7 +178,7 @@ final class NiriResizeIncrementTests: XCTestCase {
             for request in requests {
                 let command = HotkeyCommand(ipc: request)
                 XCTAssertEqual(command.layoutCompatibility, .niri)
-                XCTAssertEqual(router.handle(.sizing(request)), .ignoredLayoutMismatch)
+                XCTAssertEqual(router.handle(.init(.sizing(request))), .ignoredLayoutMismatch)
             }
         }
     }

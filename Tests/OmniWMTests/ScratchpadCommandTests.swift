@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 @testable import OmniWMCtl
 import OmniWMIPC
 import XCTest
@@ -27,10 +28,10 @@ final class ScratchpadCommandTests: XCTestCase {
 
     func testCommandJSONRoundTripCarriesIndex() throws {
         let cases: [(IPCCommandRequest, IPCCommandName)] = [
-            (.scratchpad(.assign(index: 2)), .scratchpad(.assign)),
-            (.scratchpad(.toggle(index: 10)), .scratchpad(.toggle)),
-            (.scratchpad(.assign(index: 4)), .scratchpad(.assign)),
-            (.scratchpad(.toggle(index: 4)), .scratchpad(.toggle))
+            (.init(.scratchpad(.assign(index: 2))), .scratchpad(.assign)),
+            (.init(.scratchpad(.toggle(index: 10))), .scratchpad(.toggle)),
+            (.init(.scratchpad(.assign(index: 4))), .scratchpad(.assign)),
+            (.init(.scratchpad(.toggle(index: 4))), .scratchpad(.toggle))
         ]
         for (request, expectedName) in cases {
             XCTAssertEqual(request.name, expectedName)
@@ -47,7 +48,7 @@ final class ScratchpadCommandTests: XCTestCase {
         XCTAssertEqual(descriptor.arguments.map(\.kind), [.scratchpadIndex])
         XCTAssertEqual(
             try IPCCommandRequest(name: descriptor.name, argumentValues: [.integer(3)]),
-            .scratchpad(.toggle(index: 3))
+            .init(.scratchpad(.toggle(index: 3)))
         )
         XCTAssertThrowsError(try IPCCommandRequest(name: descriptor.name, argumentValues: []))
     }
@@ -59,7 +60,7 @@ final class ScratchpadCommandTests: XCTestCase {
         guard case let .command(request) = parsed.request.payload else {
             return XCTFail("expected a command payload")
         }
-        XCTAssertEqual(request, .scratchpad(.toggle(index: 7)))
+        XCTAssertEqual(request, .init(.scratchpad(.toggle(index: 7))))
 
         XCTAssertThrowsError(
             try CLIParser.parse(arguments: ["omniwmctl", "command", "scratchpad", "toggle", "11"])
@@ -74,18 +75,18 @@ final class ScratchpadCommandTests: XCTestCase {
         let controller = WMController(settings: makeSettingsStore())
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.scratchpad(.toggle(index: 11))), .invalidArguments)
-        XCTAssertEqual(router.handle(.scratchpad(.assign(index: 0))), .invalidArguments)
+        XCTAssertEqual(router.handle(.init(.scratchpad(.toggle(index: 11)))), .invalidArguments)
+        XCTAssertEqual(router.handle(.init(.scratchpad(.assign(index: 0)))), .invalidArguments)
     }
 
-    func testLabelsRoundTripThroughTOML() throws {
+    func testLabelsRoundTripThroughLuau() throws {
         XCTAssertTrue(SettingsExport.defaults().scratchpads.labels.isEmpty)
 
         var export = SettingsExport.defaults()
         export.scratchpads.labels = ["3": "COMMS"]
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("COMMS"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).scratchpads.labels, ["3": "COMMS"])
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).scratchpads.labels, ["3": "COMMS"])
     }
 
     @MainActor

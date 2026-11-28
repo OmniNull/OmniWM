@@ -62,7 +62,6 @@ extension NiriLayoutHandler {
         let allowEdgeWrap = !ctx.controller.settings.focus.moveCrossesMonitorAtEdge
         let stacksIntoColumn = ctx.controller.settings.niri.moveWindowStacksIntoColumn
         let movesAcrossContainers = direction.primaryStep(for: ctx.orientation) != nil
-        let usesPredictedAnimation = ctx.orientation == .vertical || !movesAcrossContainers
         if !stacksIntoColumn, movesAcrossContainers,
            let column = ctx.engine.findColumn(containing: ctx.windowNode, in: ctx.wsId),
            ctx.engine.projectedWindows(in: column, workspaceId: ctx.wsId).count == 1,
@@ -92,22 +91,20 @@ extension NiriLayoutHandler {
             return nil
         }
 
-        if usesPredictedAnimation {
-            ctx.preparePredictedAnimation(
-                state: state,
-                oldFrames: oldFrames,
-                yContainmentFrame: ctx.orientation == .vertical
-                    ? ctx.monitor.frame
-                    : nil
+        let yContainmentFrame = ctx.orientation == .vertical ? ctx.monitor.frame : nil
+        if !movesAcrossContainers {
+            return NiriStructuralMutation(
+                operation: .windowMovedInColumn(token: ctx.windowNode.token),
+                stackSwap: (oldFrames, yContainmentFrame)
             )
+        }
+
+        if ctx.orientation == .vertical {
+            ctx.preparePredictedAnimation(state: state, oldFrames: oldFrames, yContainmentFrame: yContainmentFrame)
         } else {
             ctx.preparePredictedSizeAnimation(state: state, oldFrames: oldFrames)
         }
-        return NiriStructuralMutation(
-            operation: movesAcrossContainers
-                ? .windowConsumedOrExpelled(token: ctx.windowNode.token)
-                : .windowMovedInColumn(token: ctx.windowNode.token)
-        )
+        return NiriStructuralMutation(operation: .windowConsumedOrExpelled(token: ctx.windowNode.token))
     }
 
     private func adjacentColumnIsTabbed(
@@ -139,7 +136,7 @@ extension NiriLayoutHandler {
     ) -> StructuralMutationOutcome {
         guard let step = direction.secondaryStep(for: .horizontal) else { return .unchanged }
         var edgeOutcome = WindowMoveOutcome.blocked
-        let outcome = performStructuralMutation(handle: handle) { ctx, state in
+        let outcome = performStructuralMutation(handle: handle) { ctx, _ in
             edgeOutcome = windowMoveOutcomeAtEdge(
                 for: ctx.windowNode,
                 direction: direction,
@@ -155,12 +152,9 @@ extension NiriLayoutHandler {
             ) else {
                 return nil
             }
-            ctx.preparePredictedAnimation(
-                state: state,
-                oldFrames: oldFrames
-            )
             return NiriStructuralMutation(
-                operation: .windowMovedInColumn(token: ctx.windowNode.token)
+                operation: .windowMovedInColumn(token: ctx.windowNode.token),
+                stackSwap: (oldFrames, nil)
             )
         }
 

@@ -20,7 +20,7 @@ import XCTest
                         let configuration = fixture.controller.workspaceBarManager.shellConfiguration
                         try await prepareIslandFixture(fixture, state: state)
                         let original = try Data(contentsOf: configuration.shellDirectory
-                            .appendingPathComponent("shell.toml"))
+                            .appendingPathComponent("shell.luau"))
                         let navigation = SettingsNavigationModel()
                         navigation.proceed(to: SettingsRoute(
                             section: .styles, tab: state == .bar ? nil : "island",
@@ -48,7 +48,7 @@ import XCTest
                             )
                         }
                         XCTAssertEqual(
-                            try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml")),
+                            try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau")),
                             original
                         )
                         XCTAssertNil(fixture.controller.workspaceBarManager.shellHost)
@@ -168,20 +168,20 @@ import XCTest
             guard state == .focusRibbon || state.fixtureCaption != nil else { return }
             _ = try await configuration.selectProfile("default")
             guard state.fixtureCaption != nil else { return }
-            let source = configuration.shellDirectory.appendingPathComponent("default/shell.toml")
+            let source = configuration.shellDirectory.appendingPathComponent("default/shell.luau")
             let original = try String(contentsOf: source, encoding: .utf8)
             if state == .absent {
-                try Data(ShellTOMLText.settingNodes([(["island"], nil)], in: original).utf8).write(to: source)
+                try Data(ShellLuauFixture.editing([(["island"], nil)], in: original).utf8).write(to: source)
             } else {
                 let folder = configuration.shellDirectory.appendingPathComponent("default/widgets/fixture-island")
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 try Data("function render(ctx) return ui.text{text='Style island',size=18} end".utf8)
                     .write(to: folder.appendingPathComponent("init.luau"))
                 if state == .unavailable {
-                    try Data("[options.bad]\ntype = 'invalid'".utf8)
-                        .write(to: folder.appendingPathComponent("settings.toml"))
+                    try Data("return { options = { bad = { type = \"invalid\" } } }".utf8)
+                        .write(to: folder.appendingPathComponent("settings.luau"))
                 }
-                try Data(ShellTOMLText.settingNodes(
+                try Data(ShellLuauFixture.editing(
                     [(["island", "root"], .string("fixture-island"))], in: original
                 ).utf8).write(to: source)
             }

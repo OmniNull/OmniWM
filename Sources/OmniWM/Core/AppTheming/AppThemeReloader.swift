@@ -2,40 +2,19 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import os
 
 struct AppThemeReloadOutcome: Equatable, Sendable {
     var succeeded: Bool
     var message: String
 }
 
-struct AppThemeHerdrReply: Decodable {
-    struct Result: Decodable {
-        let status: String?
-        let diagnostics: [String]?
-    }
-
-    struct Failure: Decodable {
-        let message: String?
-    }
-
-    let result: Result?
-    let error: Failure?
-}
-
 struct AppThemeReloader: Sendable {
-    static let messageLimit = 200
-    static let machineListTimeout: TimeInterval = 3
-    static let machineReloadTimeout: TimeInterval = 5
-
     let environment: AppThemeEnvironment
-    var isCurrent: @Sendable () -> Bool = { true }
 
     func reload(_ action: AppThemeReloadAction, newFiles: Bool = false) -> AppThemeReloadOutcome {
         switch action {
         case .ghostty: reloadGhostty()
         case .kitty: reloadKitty(newFiles: newFiles)
-        case let .herdr(savedMachines): reloadHerdr(savedMachines: savedMachines)
         case .neovim: reloadNeovim()
         }
     }
@@ -122,101 +101,5 @@ struct AppThemeReloader: Sendable {
 
     private func failure(_ summary: String, error: Int32) -> AppThemeReloadOutcome {
         AppThemeReloadOutcome(succeeded: false, message: summary + ": " + String(cString: strerror(error)))
-    }
-
-    private func reloadHerdr(savedMachines: Bool) -> AppThemeReloadOutcome {
-        let socket = AppThemeHerdrSocket.path(variables: environment.variables, home: environment.home)
-        var outcome = Self.herdrOutcome(environment.herdr(socket, "server.reload_config"))
-        guard savedMachines, isCurrent() else { return outcome }
-        if let herdr = environment.executable("herdr") {
-            if let remote = reloadSavedMachines(herdr) {
-                outcome.succeeded = outcome.succeeded && remote.succeeded
-                outcome.message += " · " + remote.message
-            }
-        } else {
-            outcome.succeeded = false
-            outcome.message += " · " + String(
-                localized: "saved machines need herdr in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin"
-            )
-        }
-        return outcome
-    }
-
-    static func herdrOutcome(_ reply: AppThemeSocketReply) -> AppThemeReloadOutcome {
-        let summary = String(localized: "herdr didn’t reload")
-        switch reply {
-        case .notRunning:
-            return AppThemeReloadOutcome(
-                succeeded: true,
-                message: String(localized: "herdr isn’t running; it uses the new colors when it starts")
-            )
-        case let .failed(problem):
-            return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + problem)
-        case let .line(text):
-            guard let reply = try? JSONDecoder().decode(AppThemeHerdrReply.self, from: Data(text.utf8)) else {
-                return AppThemeReloadOutcome(
-                    succeeded: false,
-                    message: summary + ": " + String(text.prefix(messageLimit))
-                )
-            }
-            if let error = reply.error {
-                return AppThemeReloadOutcome(succeeded: false, message: summary + ": " + (error.message ?? ""))
-            }
-            let details = (reply.result?.diagnostics ?? []).joined(separator: "; ")
-            switch reply.result?.status {
-            case "applied":
-                return AppThemeReloadOutcome(succeeded: true, message: String(localized: "Reloaded herdr"))
-            case "partial":
-                return AppThemeReloadOutcome(
-                    succeeded: true,
-                    message: String(localized: "Reloaded herdr with warnings") + ": " + details
-                )
-            default:
-                return AppThemeReloadOutcome(
-                    succeeded: false,
-                    message: String(localized: "herdr couldn’t apply its config") + ": " + details
-                )
-            }
-        }
-    }
-
-    private func reloadSavedMachines(_ herdr: String) -> AppThemeReloadOutcome? {
-        let listing = environment.run(herdr, ["machine", "list", "--json"], Self.machineListTimeout)
-        guard listing.succeeded, let labels = try? Self.enabledMachines(in: listing.output) else {
-            return AppThemeReloadOutcome(
-                succeeded: false,
-                message: String(localized: "saved machines couldn’t be listed")
-            )
-        }
-        guard !labels.isEmpty, isCurrent() else { return nil }
-        let successes = OSAllocatedUnfairLock(initialState: 0)
-        DispatchQueue.concurrentPerform(iterations: labels.count) { index in
-            guard isCurrent() else { return }
-            let result = environment.run(
-                herdr,
-                ["--machine", labels[index], "server", "reload-config"],
-                Self.machineReloadTimeout
-            )
-            if result.succeeded { successes.withLock { $0 += 1 } }
-        }
-        let reloaded = successes.withLock { $0 }
-        return AppThemeReloadOutcome(
-            succeeded: reloaded == labels.count,
-            message: String(localized: "\(reloaded) of \(labels.count) saved machines reloaded")
-        )
-    }
-
-    private static func enabledMachines(in json: String) throws -> [String] {
-        struct Machine: Decodable {
-            let label: String?
-            let enabled: Bool?
-        }
-        let machines = try JSONDecoder().decode([Machine].self, from: Data(json.utf8))
-        return machines.compactMap { machine in
-            guard machine.enabled == true, let label = machine.label, !label.isEmpty, !label.hasPrefix("-") else {
-                return nil
-            }
-            return label
-        }
     }
 }

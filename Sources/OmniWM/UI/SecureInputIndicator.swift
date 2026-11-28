@@ -13,6 +13,14 @@ final class SecureInputIndicatorController {
     static let explanationDelay: Duration = .seconds(10)
 
     var openHotkeysSettings: () -> Void = {}
+    var showsExplanationAutomatically = true {
+        didSet {
+            if !showsExplanationAutomatically {
+                cancelScheduledExplanation()
+            }
+        }
+    }
+
     private(set) var isIndicated = false
     private(set) var explanationTask: Task<Void, Never>?
     private var generation = 0
@@ -88,6 +96,7 @@ final class SecureInputIndicatorController {
     }
 
     private func scheduleExplanation() {
+        guard showsExplanationAutomatically else { return }
         let scheduledGeneration = generation
         let sleep = sleep
         explanationTask = Task { @MainActor [weak self] in

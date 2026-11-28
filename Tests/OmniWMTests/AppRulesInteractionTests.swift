@@ -8,6 +8,38 @@ import SwiftUI
 import Vision
 import XCTest
 
+@MainActor
+final class AppRulesSidebarRowsTests: XCTestCase {
+    func testSourceSearchKeepsScriptRowsSeparateFromEditableRules() {
+        let base = AppRule(bundleId: "com.apple.TextEdit", layout: .tile)
+        let script = ConfigScriptRule(
+            rule: AppRule(id: base.id, bundleId: "com.apple.calculator", layout: .float),
+            source: "profiles/work.luau", line: 12
+        )
+        let second = ConfigScriptRule(
+            rule: AppRule(bundleId: "com.apple.finder", layout: .tile), source: "init.luau", line: 5
+        )
+        let scripts = [script, second]
+        let all = AppRulesSidebarRows(rules: [base], scriptRules: scripts, search: "")
+        XCTAssertEqual(all.rules, [base])
+        XCTAssertEqual(all.scriptRules, scripts)
+        XCTAssertEqual(all.configuredIDs, [base.id])
+
+        let location = "\(script.source):\(script.line)"
+        for query in [location, "WORK.LUAU", script.rule.displayLabel, "float"] {
+            let found = AppRulesSidebarRows(rules: [base], scriptRules: scripts, search: query)
+            XCTAssertTrue(found.rules.isEmpty)
+            XCTAssertEqual(found.scriptRules, [script])
+            XCTAssertEqual(found.scriptRules.first?.sourceLocation, location)
+            XCTAssertTrue(found.configuredIDs.contains(script.rule.id))
+        }
+        let scriptOnly = AppRulesSidebarRows(rules: [], scriptRules: scripts, search: second.source)
+        XCTAssertTrue(scriptOnly.rules.isEmpty)
+        XCTAssertEqual(scriptOnly.scriptRules, [second])
+        XCTAssertTrue(scriptOnly.configuredIDs.isEmpty)
+    }
+}
+
 #if OMNIWM_LIVE_CHECKS
 
     @MainActor

@@ -41,6 +41,7 @@ extension WorkspaceManager {
 
     @discardableResult
     private func removeTrackedWindow(_ entry: WindowState) -> WindowState {
+        let workspaceName = scriptWindowCloseObserver == nil ? nil : workspaceCatalog.name(for: entry.workspaceId)
         let previousFocus = focusSessionSnapshot
         let removesNativeFullscreenFocusOwner = activeNativeFullscreenFocusOwnerToken == entry.token
         recordReconcileEvent(
@@ -61,6 +62,12 @@ extension WorkspaceManager {
             notifySessionStateChanged()
         }
         drainPendingRuntimeMonitorOverrideClears()
+        if scriptWindowCloseObserver != nil {
+            publishClosedWindow(
+                ConfigScriptWindowIdentity(entry),
+                name: workspaceName ?? workspaceCatalog.name(for: entry.workspaceId)
+            )
+        }
         onWindowRemoved?(entry)
         return entry
     }

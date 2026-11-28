@@ -35,6 +35,7 @@ struct SettingsValueText: View {
 }
 
 struct SettingsSliderRow: View {
+    var field: SettingsFieldMark?
     let label: String
     @Binding var value: Double
     let range: ClosedRange<Double>
@@ -47,19 +48,20 @@ struct SettingsSliderRow: View {
     var body: some View {
         LabeledContent(label) {
             HStack {
-                Slider(value: $value, in: range, step: step) {
-                    Text(label)
-                }
-                .labelsHidden()
-                .accessibilityLabel(label)
-                .accessibilityValue(valueText)
-
-                SettingsValueText(text: valueText, width: valueWidth)
+                SettingsValueSlider(
+                    label: label,
+                    value: $value,
+                    range: range,
+                    step: step,
+                    valueText: valueText,
+                    width: valueWidth
+                )
                 if let resetAction {
                     ResetIconButton(title: resetHelp, action: resetAction)
                 }
             }
         }
+        .settingsField(field)
     }
 }
 
@@ -95,7 +97,8 @@ struct SettingsNumberStepperRow: View {
 struct MonitorScopeSection: View {
     @Binding var selectedMonitor: Monitor.ID?
     let monitors: [Monitor]
-    let hasOverrides: (Monitor) -> Bool
+    let field: SettingsFieldID
+    let overrideID: (Monitor) -> String?
     let reset: (Monitor) -> Void
 
     var body: some View {
@@ -120,17 +123,19 @@ struct MonitorScopeSection: View {
             if let monitorId = selectedMonitor,
                let monitor = monitors.first(where: { $0.id == monitorId })
             {
+                let row = overrideID(monitor)
                 LabeledContent("Overrides") {
                     HStack {
-                        Text(hasOverrides(monitor) ? String(localized: "Custom") :
+                        Text(row != nil ? String(localized: "Custom") :
                             String(localized: "Using global defaults"))
                             .foregroundStyle(.secondary)
                         Button("Reset Display Overrides") {
                             reset(monitor)
                         }
-                        .disabled(!hasOverrides(monitor))
+                        .disabled(row == nil)
                     }
                 }
+                .settingsField(field, row: row)
             }
         }
     }
@@ -175,6 +180,7 @@ struct OverrideStatus: View {
 }
 
 struct OverridableToggle: View {
+    var field: SettingsFieldMark?
     let label: String
     let value: Bool?
     let globalValue: Bool
@@ -204,10 +210,12 @@ struct OverridableToggle: View {
         } label: {
             Text(label)
         }
+        .settingsField(field)
     }
 }
 
 struct OverridablePicker<T: Hashable & Identifiable>: View {
+    var field: SettingsFieldMark?
     let label: String
     let value: T?
     let globalValue: T
@@ -241,10 +249,12 @@ struct OverridablePicker<T: Hashable & Identifiable>: View {
                 OverrideStatus(label: label, isOverridden: isOverridden, onReset: onReset)
             }
         }
+        .settingsField(field)
     }
 }
 
 struct OverridableSlider: View {
+    var field: SettingsFieldMark?
     let label: String
     let value: Double?
     let globalValue: Double
@@ -266,19 +276,12 @@ struct OverridableSlider: View {
         LabeledContent(label) {
             HStack {
                 let displayValue = formatter(effectiveValue)
-                Slider(value: Binding(
-                    get: { effectiveValue },
-                    set: { onChange($0) }
-                ), in: range, step: step) {
-                    Text(label)
-                }
-                .labelsHidden()
-                .accessibilityLabel(label)
-                .accessibilityValue(displayValue)
-
-                SettingsValueText(text: displayValue, width: 48)
+                SettingsValueSlider(label: label, value: Binding(
+                    get: { effectiveValue }, set: { onChange($0) }
+                ), range: range, step: step, valueText: displayValue, width: 48, formatDraft: formatter)
                 OverrideStatus(label: label, isOverridden: isOverridden, onReset: onReset)
             }
         }
+        .settingsField(field)
     }
 }

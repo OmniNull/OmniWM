@@ -213,7 +213,7 @@ extension NiriLayoutEngine {
     }
 
     func applyPersistedWindowState(_ state: PersistedNiriWindowState, to window: NiriWindow) {
-        window.sizingMode = state.sizingMode
+        setSizingMode(state.sizingMode, for: window)
         window.height = state.height
         window.savedHeight = state.savedHeight
         window.windowWidth = state.windowWidth

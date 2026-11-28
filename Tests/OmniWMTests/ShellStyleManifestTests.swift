@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class ShellStyleManifestTests: XCTestCase {
@@ -91,7 +90,7 @@ final class ShellStyleManifestTests: XCTestCase {
             ("name", required.merging(["name": "3"]) { $1 }),
             ("version", required.merging(["version": "\"one\""]) { $1 }),
             ("title", required.filter { $0.key != "title" }),
-            ("previews", required.merging(["previews": "[\"../escape.png\"]"]) { $1 })
+            ("previews", required.merging(["previews": "{ \"../escape.png\" }"]) { $1 })
         ]
         for (problem, entries) in cases {
             try write(entries)
@@ -104,20 +103,22 @@ final class ShellStyleManifestTests: XCTestCase {
     func testBarEffectsDescribeAtMostOneNumberControlPerShaderValue() throws {
         let number = "{ type = \"number\", title = \"Value\", min = 0, max = 1 }"
         func effect(_ count: Int, option: String) -> String {
-            "\n[barEffect]\ntitle = \"Effect\"\nvalues = [\(Array(repeating: option, count: count).joined(separator: ", "))]\n"
+            "barEffect = { title = \"Effect\", values = { \(Array(repeating: option, count: count).joined(separator: ", ")) } },"
         }
         try write(required, extra: effect(ShellBarShader.valueCount, option: number))
         let barEffect = try XCTUnwrap(try ShellStyleManifest.load(in: folder)?.barEffect)
         XCTAssertEqual(barEffect.values.count, ShellBarShader.valueCount)
         XCTAssertTrue(barEffect.values.allSatisfy { $0.kind == .number && $0.minimum != nil && $0.maximum != nil })
         let toggle = "{ type = \"boolean\", title = \"Value\" }"
-        for extra in [
-            effect(ShellBarShader.valueCount + 1, option: number),
-            effect(0, option: number),
-            effect(1, option: toggle)
+        let limit = "barEffect.values must list 1 to \(ShellBarShader.valueCount) options"
+        for (extra, reason) in [
+            (effect(ShellBarShader.valueCount + 1, option: number), limit),
+            (effect(0, option: number), limit),
+            (effect(1, option: toggle), "barEffect.values[1] must be a number option"),
+            (effect(1, option: "{ type = 'number', step = false }"), "barEffect.values[1]: invalid step")
         ] {
             try write(required, extra: extra)
-            XCTAssertNotNil(ShellStyleManifest.problem(in: folder), extra)
+            XCTAssertEqual(ShellStyleManifest.problem(in: folder), "\(ShellStyleManifest.fileName): \(reason)")
         }
     }
 
@@ -125,8 +126,8 @@ final class ShellStyleManifestTests: XCTestCase {
         XCTAssertEqual(ShellDefaults.sync(into: shell), [])
         try write(required.merging(["api": "\(ShellStyleManifest.api + 1)"]) { $1 })
         XCTAssertThrowsError(try ShellProfiles.select(profile, in: shell))
-        try "profile = \"\(profile)\"\n".write(
-            to: shell.appendingPathComponent("shell.toml"),
+        try "return { profile = \"\(profile)\" }\n".write(
+            to: shell.appendingPathComponent("shell.luau"),
             atomically: true,
             encoding: .utf8
         )
@@ -146,9 +147,7 @@ final class ShellStyleManifestTests: XCTestCase {
             let source = try ShellStyleFixture.source(style)
             let manifest = try XCTUnwrap(ShellStyleManifest.load(in: source), style)
             XCTAssertEqual(manifest.name, style)
-            let declared = try TOMLDecoder().decode(
-                [String: TOMLNode].self, from: Data(contentsOf: source.appendingPathComponent("shell.toml"))
-            )
+            let declared = try ShellLuauFixture.table(at: source.appendingPathComponent("shell.luau"))
             XCTAssertEqual(manifest.barEffect != nil, declared["barShader"] != nil, style)
             let tables = (try? FileManager.default.contentsOfDirectory(
                 at: source.appendingPathComponent(ShellStrings.folder), includingPropertiesForKeys: nil
@@ -168,8 +167,8 @@ final class ShellStyleManifestTests: XCTestCase {
         try write(required)
         let strings = folder.appendingPathComponent(ShellStrings.folder, isDirectory: true)
         try FileManager.default.createDirectory(at: strings, withIntermediateDirectories: true)
-        try "\"\(title)\" = \"Sonde\"\n\"\(summary)\" = \"Ein Probestil.\"\n".write(
-            to: strings.appendingPathComponent("\(ShellStrings.appLocalization).toml"), atomically: true,
+        try "return { [\"\(title)\"] = \"Sonde\", [\"\(summary)\"] = \"Ein Probestil.\" }".write(
+            to: strings.appendingPathComponent("\(ShellStrings.appLocalization).luau"), atomically: true,
             encoding: .utf8
         )
         let plain = "handmade"
@@ -187,8 +186,8 @@ final class ShellStyleManifestTests: XCTestCase {
     }
 
     private func write(_ entries: [String: String], extra: String = "") throws {
-        try (entries.sorted { $0.key < $1.key }.map { "\($0.key) = \($0.value)" }
-            .joined(separator: "\n") + "\n" + extra)
+        let fields = entries.sorted { $0.key < $1.key }.map { "\($0.key) = \($0.value)," }
+        try ("return {\n" + fields.joined(separator: "\n") + "\n" + extra + "\n}")
             .write(to: folder.appendingPathComponent(ShellStyleManifest.fileName), atomically: true, encoding: .utf8)
     }
 }

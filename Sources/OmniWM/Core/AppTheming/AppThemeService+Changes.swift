@@ -5,7 +5,7 @@ import Foundation
 
 extension AppThemeService {
     var preview: AppThemePreview {
-        AppThemePreview(engine: engine, values: settings.values, dark: isDark) { [weak self] in self?.palette }
+        AppThemePreview(engine: engine, dark: isDark) { [weak self] in self?.palette }
     }
 
     func target(for app: AppThemeBuiltIn) -> AppThemeTarget {

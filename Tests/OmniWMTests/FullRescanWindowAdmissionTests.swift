@@ -79,13 +79,13 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         let bundleId = "com.microsoft.VSCode"
         var settings = SettingsExport.defaults()
         settings.appRules = [AppRule(bundleId: bundleId, assignToWorkspace: "32")]
-        let original = String(decoding: try SettingsTOMLCodec.encode(settings), as: UTF8.self)
+        let original = String(decoding: try SettingsLuauDocument.initialSource(settings), as: UTF8.self)
         let workspaceAssignment = #"assignToWorkspace = "32""#
         let configured = original.replacingOccurrences(
             of: workspaceAssignment,
-            with: workspaceAssignment + "\nassignToWorkspaceForAllWindows = true"
+            with: workspaceAssignment + ",\nassignToWorkspaceForAllWindows = true"
         )
-        let rules = try SettingsTOMLCodec.decode(Data(configured.utf8)).appRules
+        let rules = try SettingsLuauFixture.decode(Data(configured.utf8)).appRules
         controller.windowRuleEngine.rebuild(rules: rules)
 
         let frame = CGRect(
@@ -775,7 +775,7 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
         let retryState = try XCTUnwrap(
             controller.axEventHandler.admissionRetryStateByWindowId[UInt32(windowId)]
         )
-        guard case let .identityRebind(oldWindow, newWindow, _, _, _) = retryState.trigger else {
+        guard case let .identityRebind(oldWindow, newWindow, _, _, _, _) = retryState.trigger else {
             return XCTFail("Expected an identity-rebind retry")
         }
         XCTAssertEqual(oldWindow.token, oldToken)
@@ -858,7 +858,8 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
             newWindow,
             managedReplacementMetadata,
             admissionHints,
-            sizeConstraints
+            sizeConstraints,
+            _
         ) = retainedState.trigger else {
             return XCTFail("Expected the identity-rebind retry to retain ownership")
         }
@@ -1215,7 +1216,8 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
             newWindow,
             managedReplacementMetadata,
             admissionHints,
-            sizeConstraints
+            sizeConstraints,
+            _
         ) = retryState.trigger else {
             return XCTFail("Expected the reverse Ghostty identity rebind retry")
         }
@@ -1293,6 +1295,52 @@ final class FullRescanWindowAdmissionTests: XCTestCase {
             controller.axEventHandler.admissionRetryStateByWindowId[UInt32(restoredToken.windowId)]
         )
         XCTAssertEqual(controller.workspaceManager.invariantViolationCountsDump(), "clean")
+    }
+
+    func testLiveCreateKeepsMinimizedSameAppWindowTracked() throws {
+        let controller = WindowAdmissionTestSupport.controller()
+        defer { controller.layoutRefreshController.resetState() }
+        let manager = controller.workspaceManager
+        let monitor = Monitor(
+            id: .init(displayId: 469_800), displayId: 469_800,
+            frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 860),
+            hasNotch: false, name: "Live Create"
+        )
+        manager.applyMonitorConfigurationChange([monitor])
+        let workspaceId = try XCTUnwrap(manager.workspaceId(for: "1", createIfMissing: true))
+        _ = manager.focusWorkspace(id: workspaceId)
+        let original = WindowToken(pid: 469_800, windowId: 469_801)
+        let created = WindowToken(pid: original.pid, windowId: 469_802)
+        let bundleId = replacementBundleId(original.pid)
+        let frame = CGRect(x: 120, y: 80, width: 720, height: 520)
+        let facts = replacementFacts(token: created, bundleId: bundleId, frame: frame)
+        let createdInfo = try XCTUnwrap(facts.windowServer)
+        let originalInfo = replacementWindowInfo(token: original, frame: frame)
+        manager.addWindow(
+            WindowAdmissionTestSupport.axRef(for: original), pid: original.pid, windowId: original.windowId,
+            to: workspaceId, isMinimized: true,
+            managedReplacementMetadata: replacementMetadata(bundleId: bundleId, workspaceId: workspaceId, frame: frame)
+        )
+        let handler = controller.axEventHandler
+        handler.visibleWindowInfoProvider = { [createdInfo] }
+        handler.windowInfoProvider = { $0 == originalInfo.id ? originalInfo : nil }
+        handler.windowSubscriptionProvider = { _ in true }
+        let evaluation = controller.evaluateWindowDisposition(
+            token: created, evidence: .init(facts: facts.ax, sizeConstraints: .unconstrained),
+            appFullscreen: false, windowInfo: createdInfo,
+            admissionGeometry: .init(isSizeSettable: true, frame: ScreenCoordinateSpace.toAppKit(rect: frame))
+        )
+        controller.windowDispositionEvaluationForTests = { _ in evaluation }
+
+        handler.prepareAndTrackCreatedWindow(
+            windowId: createdInfo.id, windowInfo: createdInfo,
+            fallbackAXRef: WindowAdmissionTestSupport.axRef(for: created)
+        )
+
+        XCTAssertEqual(Set(manager.entries(forPid: original.pid).map(\.token)), [original, created])
+        XCTAssertTrue(manager.isWindowSuppressedByMacOS(original))
+        XCTAssertFalse(manager.isWindowSuppressedByMacOS(created))
     }
 
     func testDeferredCreatePreservesOnlyUniqueStructuralReplacement() throws {

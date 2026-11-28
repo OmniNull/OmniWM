@@ -5,6 +5,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -374,10 +375,10 @@ final class DwindleCommandRoutingTests: XCTestCase {
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
         let root = try XCTUnwrap(fixture.engine.root(for: fixture.sourceWorkspaceId))
 
-        XCTAssertEqual(router.handle(.dwindle(.resize(axis: .horizontal, operation: .grow))), .executed)
+        XCTAssertEqual(router.handle(.init(.dwindle(.resize(axis: .horizontal, operation: .grow)))), .executed)
         XCTAssertEqual(root.splitRatio ?? 0, 1.1)
 
-        XCTAssertEqual(router.handle(.dwindle(.resize(axis: .horizontal, operation: .shrink))), .executed)
+        XCTAssertEqual(router.handle(.init(.dwindle(.resize(axis: .horizontal, operation: .shrink)))), .executed)
         XCTAssertEqual(root.splitRatio ?? 0, 1.0)
     }
 
@@ -413,7 +414,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-        let result = router.handle(.dwindle(.moveToRoot))
+        let result = router.handle(.init(.dwindle(.moveToRoot)))
 
         XCTAssertEqual(result, .noChange)
         XCTAssertEqual(root.children.map(\.id), children)
@@ -436,12 +437,12 @@ final class DwindleCommandRoutingTests: XCTestCase {
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
         let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.dwindle(.moveToRoot)), .executed)
+        XCTAssertEqual(router.handle(.init(.dwindle(.moveToRoot))), .executed)
         XCTAssertTrue(nested.parent === root)
         XCTAssertEqual(fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.reason, .layoutCommand)
         fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
 
-        XCTAssertEqual(router.handle(.dwindle(.moveToRoot)), .noChange)
+        XCTAssertEqual(router.handle(.init(.dwindle(.moveToRoot))), .noChange)
         XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
     }
 
@@ -453,7 +454,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
             fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
             let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-            XCTAssertEqual(router.handle(.dwindle(command)), .noChange)
+            XCTAssertEqual(router.handle(.init(.dwindle(command))), .noChange)
             XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
 
             _ = addSourceTile(to: fixture, windowId: 31_211)
@@ -462,7 +463,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
             let children = root.children.map(\.id)
             fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
 
-            XCTAssertEqual(router.handle(.dwindle(command)), .executed)
+            XCTAssertEqual(router.handle(.init(.dwindle(command))), .executed)
             if command == .toggleSplit {
                 XCTAssertEqual(root.splitOrientation, orientation.perpendicular)
                 XCTAssertEqual(root.children.map(\.id), children)
@@ -495,7 +496,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
             fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
             let router = IPCCommandRouter(controller: fixture.controller, sessionToken: "test")
 
-            XCTAssertEqual(router.handle(.dwindle(command)), .executed)
+            XCTAssertEqual(router.handle(.init(.dwindle(command))), .executed)
             XCTAssertGreaterThan(try XCTUnwrap(root.splitRatio), before)
             XCTAssertEqual(
                 fixture.controller.layoutRefreshController.layoutState.pendingRefresh?.reason,
@@ -512,7 +513,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
             let limit = root.splitRatio
             fixture.controller.layoutRefreshController.layoutState.pendingRefresh = nil
 
-            XCTAssertEqual(router.handle(.dwindle(command)), .noChange)
+            XCTAssertEqual(router.handle(.init(.dwindle(command))), .noChange)
             XCTAssertEqual(root.splitRatio, limit)
             XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
         }
@@ -534,7 +535,7 @@ final class DwindleCommandRoutingTests: XCTestCase {
         ]
 
         for (command, expected, direction) in cases {
-            XCTAssertEqual(router.handle(.dwindle(command)), expected)
+            XCTAssertEqual(router.handle(.init(.dwindle(command))), expected)
             XCTAssertEqual(state.preselection, direction)
             XCTAssertNil(fixture.controller.layoutRefreshController.layoutState.pendingRefresh)
         }

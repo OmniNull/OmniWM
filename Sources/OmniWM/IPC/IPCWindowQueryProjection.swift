@@ -35,7 +35,10 @@ struct IPCWindowQueryProjection {
     func result() -> IPCWindowsQueryResult {
         let includesColumnIndex = IPCQuerySelection.include("column-index", in: fields)
         let includesFocusRank = IPCQuerySelection.include("focus-rank", in: fields)
-        let focusRankByToken = includesFocusRank || sort == .mru ? focusRanks() : [:]
+        var focusRanks: [WindowToken: Int] = [:]
+        if includesFocusRank || sort == .mru {
+            controller.workspaceManager.indexWindowFocusRanks(into: &focusRanks)
+        }
         let ranked = IPCQuerySelection.orderedWorkspaces(controller: controller).flatMap { workspace in
             let topology = controller.workspaceManager.layoutTopology(for: workspace.id)
             let columnIndexByToken = includesColumnIndex
@@ -49,7 +52,7 @@ struct IPCWindowQueryProjection {
                 matchesWindowQuery(entry)
             }
             .map { entry in
-                let focusRank = focusRankByToken[entry.token]
+                let focusRank = focusRanks[entry.token]
                 return (focusRank, windowSnapshot(
                     from: entry,
                     isFullscreen: topology.isFullscreen(entry.token),
@@ -70,11 +73,6 @@ struct IPCWindowQueryProjection {
         return IPCWindowsQueryResult(windows: ordered)
     }
 
-    private func focusRanks() -> [WindowToken: Int] {
-        let history = controller.workspaceManager.focusSessionSnapshot.windowFocusHistory
-        return Dictionary(history.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
-    }
-
     private func windowSnapshot(
         from entry: WindowState,
         isFullscreen: Bool,
@@ -88,7 +86,7 @@ struct IPCWindowQueryProjection {
         let hiddenState = controller.workspaceManager.hiddenState(for: entry.token)
         let isAppHidden = controller.workspaceManager.isAppHidden(pid: entry.pid)
         let scratchpadIndex = controller.workspaceManager.scratchpadIndex(for: entry.token)
-        let isVisible = isWindowVisible(entry, hiddenState: hiddenState, isAppHidden: isAppHidden)
+        let isVisible = isWindowVisible(entry, isAppHidden: isAppHidden)
 
         return IPCWindowQuerySnapshot(
             id: IPCQuerySelection.include("id", in: fields) ? IPCWindowOpaqueID.encode(
@@ -173,11 +171,9 @@ struct IPCWindowQueryProjection {
         }
 
         if selectors.visible == true {
-            let hiddenState = controller.workspaceManager.hiddenState(for: entry.token)
             let isAppHidden = controller.workspaceManager.isAppHidden(pid: entry.pid)
             if !isWindowVisible(
                 entry,
-                hiddenState: hiddenState,
                 isAppHidden: isAppHidden
             ) {
                 return false
@@ -211,13 +207,12 @@ struct IPCWindowQueryProjection {
 
     private func isWindowVisible(
         _ entry: WindowState,
-        hiddenState: HiddenState?,
         isAppHidden: Bool
     ) -> Bool {
-        guard visibleWorkspaceIds.contains(entry.workspaceId),
-              hiddenState == nil,
-              !isAppHidden,
-              !entry.observedState.isNativeSuppressed
+        guard entry.isModelVisible(
+            workspaceShown: visibleWorkspaceIds.contains(entry.workspaceId),
+            appHidden: isAppHidden
+        )
         else {
             return false
         }

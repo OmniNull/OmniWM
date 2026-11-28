@@ -153,7 +153,7 @@ final class QuakeSettingsOwnerContractTests: XCTestCase {
     }
 
     private func saved(_ settings: SettingsStore) throws -> SettingsExport {
-        try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
     }
 
     private func makeSettings(directory: URL, autosaveEnabled: Bool = true) -> SettingsStore {

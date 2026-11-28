@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 

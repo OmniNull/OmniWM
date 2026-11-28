@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import OmniWMAutomation
 import OmniWMIPC
 
 extension ActionCatalog {
@@ -147,6 +148,20 @@ extension ActionCatalog {
             action(id: "toggleSplit", command: .dwindle(.toggleSplit), category: .layout, binding: .unassigned),
             action(id: "swapSplit", command: .dwindle(.swapSplit), category: .layout, binding: .unassigned)
         ])
+    }
+
+    static func appendVisibleContainerBindings(_ specs: inout [ActionSpec]) {
+        for count in IPCVisibleContainerCounts.range {
+            specs.append(
+                action(
+                    id: "setVisibleContainers.\(count)",
+                    command: .sizing(.setVisibleContainers(count)),
+                    category: .layout,
+                    binding: .unassigned,
+                    keywords: ["visible containers", "columns", "count"]
+                )
+            )
+        }
     }
 
     static func appendLayoutHistoryBindings(_ specs: inout [ActionSpec]) {

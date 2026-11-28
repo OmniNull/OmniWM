@@ -17,7 +17,7 @@ enum ShellStyleFixture {
         guard FileManager.default.fileExists(atPath: folder.path) else { return [] }
         return try FileManager.default.contentsOfDirectory(
             at: folder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
-        ).filter { $0.pathExtension == "toml" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        ).filter { $0.pathExtension == "luau" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     static func themes() throws -> [(profile: String, source: URL)] {

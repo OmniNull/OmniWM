@@ -30,7 +30,13 @@ final class SettingsConfigNoticeController {
     }
 
     func refresh() {
-        let nextIssue = Self.issue(for: settings.configNotice, fileURL: settings.settingsFileURL)
+        let nextIssue = SettingsConfigDiagnostics.issues(
+            directoryURL: settings.settingsFileURL.deletingLastPathComponent(),
+            notice: settings.configNotice,
+            scriptLoadError: settings.configScriptLoadError,
+            scriptCallbackError: settings.configScriptCallbackError,
+            scriptShortcutConflict: settings.configScriptShortcutConflicts?.message
+        ).first
         guard nextIssue != issue else { return }
         issue = nextIssue
         fileStatus = nil
@@ -61,33 +67,25 @@ final class SettingsConfigNoticeController {
         self.surface = nil
     }
 
-    func openSettingsFile() {
-        do {
-            fileStatus = try SettingsFileWorkflow.perform(.open, settings: settings, openFile: openFile)
-        } catch {
-            fileStatus = .error(error.localizedDescription)
-        }
-        if let issue { render(issue) }
-    }
-
-    private static func issue(for notice: SettingsConfigNotice?, fileURL: URL) -> DiagnosticsIssue? {
-        guard let notice else { return nil }
-        let kind: DiagnosticsIssue.Kind
-        if case let .invalidRejected(reason) = notice {
-            kind = .settingsInvalidRejected(reason: reason)
-        } else if let reason = notice.blockingReason {
-            kind = .settingsPersistenceBlocked(reason: reason, backupURL: nil)
+    func openIssueFile() {
+        guard let issue else { return }
+        if issue.isScriptConfigIssue, let url = issue.configFileURL {
+            fileStatus = openFile(url) ? nil : .error(CocoaError(.fileNoSuchFile).localizedDescription)
         } else {
-            return nil
+            do {
+                fileStatus = try SettingsFileWorkflow.perform(.open, settings: settings, openFile: openFile)
+            } catch {
+                fileStatus = .error(error.localizedDescription)
+            }
         }
-        return DiagnosticsIssue(kind: kind, configFileURL: fileURL)
+        render(issue)
     }
 
     private func content(_ issue: DiagnosticsIssue) -> SettingsConfigNoticeView {
         SettingsConfigNoticeView(
             issue: issue,
             fileStatus: fileStatus,
-            openFile: { [weak self] in self?.openSettingsFile() },
+            openFile: { [weak self] in self?.openIssueFile() },
             dismiss: { [weak self] in self?.dismiss() }
         )
     }
@@ -166,7 +164,11 @@ private struct SettingsConfigNoticeView: View {
                     .lineLimit(2)
             }
             HStack {
-                Button("Edit Settings File", action: openFile)
+                if issue.isScriptConfigIssue {
+                    Button("Edit init.luau", action: openFile)
+                } else {
+                    Button("Edit Settings File", action: openFile)
+                }
                 Spacer()
                 Button("Dismiss", action: dismiss)
             }

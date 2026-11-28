@@ -253,69 +253,105 @@ class LocalizationTests(unittest.TestCase):
             widgets = Path(temporary)
             (widgets / "widget-weather.luau").write_text('ui.text{ text = omniwm.l10n("Wind %@", speed) }')
             strings = {"Wind %@": {"localizations": {"en": unit("Wind %@")}}}
-            localization.validate_shell_usage(strings, (widgets,))
+            localization.validate_shell_usage(strings, (widgets,), {})
             with self.assertRaisesRegex(ValueError, "keys no widget uses"):
-                localization.validate_shell_usage({**strings, "Rain": {}}, (widgets,))
+                localization.validate_shell_usage({**strings, "Rain": {}}, (widgets,), {})
             with self.assertRaisesRegex(ValueError, "use missing keys"):
-                localization.validate_shell_usage({}, (widgets,))
+                localization.validate_shell_usage({}, (widgets,), {})
             plural = {"variations": {"plural": {"one": unit("%lld"), "other": unit("%lld")}}}
             with self.assertRaisesRegex(ValueError, "plural variations"):
-                localization.validate_shell_usage({"Wind %@": {"localizations": {"en": plural}}}, (widgets,))
+                localization.validate_shell_usage({"Wind %@": {"localizations": {"en": plural}}}, (widgets,), {})
 
     def test_style_tables_need_english_for_used_keys_and_matching_formats(self):
         with tempfile.TemporaryDirectory() as temporary:
-            styles = Path(temporary)
-            style = styles / "probe"
+            style = Path(temporary) / "probe"
             strings = style / "strings"
             strings.mkdir(parents=True)
             (style / "widget.luau").write_text(
                 'ui.text{ text = omniwm.l10n("Wind %@", speed) .. omniwm.l10n("Shared") }'
             )
-            (style / "style.toml").write_text('title = "Probe"\nsummary = "A probe."\n')
+            manifest = style / "style.luau"
+            manifest.touch()
             shell = {"Shared": {}}
-            english = strings / "en.toml"
-            english.write_text('"Wind %@" = "Wind %@"\n')
-            translation = strings / "de.toml"
-            translation.write_text('"Wind %@" = "Wind %@"\n')
-            localization.validate_style_strings(styles, shell)
-            translation.write_text('"Wind %@" = "Wind %lld"\n')
+            english = strings / "en.luau"
+            translation = strings / "de.luau"
+            metadata = {
+                manifest: {"title": "Probe", "summary": "A probe."},
+                english: {"Wind %@": "Wind %@"},
+                translation: {"Wind %@": "Wind %@"},
+            }
+            localization.validate_style_strings((style,), shell, metadata)
+            metadata[translation] = {"Wind %@": "Wind %lld"}
             with self.assertRaisesRegex(ValueError, "format differs"):
-                localization.validate_style_strings(styles, shell)
-            for unused in ('"Rain" = "Regen"\n', '"Probe" = "Sonde"\n'):
-                translation.write_text(unused)
+                localization.validate_style_strings((style,), shell, metadata)
+            for unused in ({"Rain": "Regen"}, {"Probe": "Sonde"}):
+                metadata[translation] = unused
                 with self.assertRaisesRegex(ValueError, "does not use"):
-                    localization.validate_style_strings(styles, shell)
-            (style / "widgets/converter").mkdir(parents=True)
-            (style / "widgets/converter/component.toml").write_text(
-                'title = "Image converter"\n[options.mode]\ntype = "choice"\ntitle = "Mode"\nchoices = ["ftop"]\n'
-            )
-            english.write_text('"Wind %@" = "Wind %@"\n"Mode" = "Mode"\n')
-            translation.write_text('"Image converter" = "Bildkonverter"\n"ftop" = "Oben"\n')
-            localization.validate_style_strings(styles, shell)
-            translation.unlink()
-            english.write_text('"Wind %@" = "Wind %lld"\n"Mode" = "Mode"\n')
+                    localization.validate_style_strings((style,), shell, metadata)
+            component = style / "widgets/converter/component.manifest.luau"
+            component.parent.mkdir(parents=True)
+            component.touch()
+            metadata[component] = {
+                "title": "Image converter", "options": {"mode": {"type": "choice", "title": "Mode", "choices": ["ftop"]}},
+            }
+            metadata[english]["Mode"] = "Mode"
+            metadata[translation] = {"Image converter": "Bildkonverter", "ftop": "Oben"}
+            localization.validate_style_strings((style,), shell, metadata)
+            del metadata[translation]
+            metadata[english]["Wind %@"] = "Wind %lld"
             with self.assertRaisesRegex(ValueError, "differs from key format"):
-                localization.validate_style_strings(styles, shell)
-            english.write_text('"Wind %@" = "Wind %@"\n')
+                localization.validate_style_strings((style,), shell, metadata)
+            metadata[english] = {"Wind %@": "Wind %@"}
             with self.assertRaisesRegex(ValueError, "missing keys"):
-                localization.validate_style_strings(styles, shell)
+                localization.validate_style_strings((style,), shell, metadata)
 
     def test_shell_catalog_tracks_titles_from_both_widget_manifests(self):
         with tempfile.TemporaryDirectory() as temporary:
-            widgets = Path(temporary)
-            (widgets / "settings.toml").write_text(
-                '[options.date]\ntype = "boolean"\ntitle = "Show date"\n[options.label]\ntype = "string"\n'
-            )
-            (widgets / "component.toml").write_text(
-                '[options.width]\ntype = "number"\ntitle = "展开宽度"\n', encoding="utf-8"
-            )
+            root = Path(temporary)
+            widget = root / "widgets/probe"
+            widget.mkdir(parents=True)
+            metadata = {
+                widget / "settings.luau": {"options": {"date": {"type": "boolean", "title": "Show date"},
+                                                       "label": {"type": "string"}}},
+                widget / "component.manifest.luau": {"options": {"width": {"type": "number", "title": "展开宽度"}}},
+            }
+            for file in metadata:
+                file.touch()
             titles = ("Show date", "展开宽度", "label")
             for missing in titles:
                 with self.subTest(missing=missing):
                     strings = {key: {} for key in titles if key != missing}
                     with self.assertRaisesRegex(ValueError, missing):
-                        localization.validate_shell_usage(strings, (widgets,))
-            localization.validate_shell_usage(dict.fromkeys(titles, {}), (widgets,))
+                        localization.validate_shell_usage(strings, (root,), metadata)
+            localization.validate_shell_usage(dict.fromkeys(titles, {}), (root,), metadata)
+
+    def test_metadata_reader_batches_literal_documents_and_preserves_same_named_executable_modules(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            style = Path(temporary)
+            files = (
+                style / "style.luau",
+                style / "widgets/clock/settings.luau",
+                style / "widgets/clock/component.manifest.luau",
+                style / "strings/de.luau",
+            )
+            embedded = 'omniwm.l10n("within metadata")'
+            metadata = {file: {"description": embedded} for file in files}
+            for file in files:
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text(f"""return {{ description = '{embedded}' }}""")
+            library = style / "lib/clock/settings.luau"
+            library.parent.mkdir(parents=True)
+            library.write_text('return omniwm.l10n("Library key")')
+            nodes = {str(file): table for file, table in metadata.items()}
+            with patch.object(localization.subprocess, "run") as run:
+                run.return_value.stdout = json.dumps(nodes)
+                result = localization.read_shell_metadata((style,))
+            self.assertEqual(run.call_count, 1)
+            command = run.call_args.args[0]
+            self.assertEqual(command[0], str(localization.swiftly_bin() / "swift"))
+            self.assertEqual(command[command.index("omniwm-metadata") + 1:], sorted(nodes))
+            self.assertEqual(result, metadata)
+            self.assertEqual(localization.shell_keys(style, result), ({"Library key"}, {"Library key"}))
 
     def test_packaging_places_locales_in_main_app_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:

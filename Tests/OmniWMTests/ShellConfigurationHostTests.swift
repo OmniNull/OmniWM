@@ -118,25 +118,28 @@ final class ShellConfigurationHostTests: XCTestCase {
             host.outbox = outbox
             host.started = true
             try write(script, path: "widgets/lake/init.luau")
-            try write("", path: "look/shell.toml")
-            try write("", path: "default/shell.toml")
+            try write("return {}", path: "look/shell.luau")
+            try write("return {}", path: "default/shell.luau")
             try write("""
-            [options.amount]
-            type = "number"
-            default = 1
-            min = 0
-            max = 1000
-            """, path: "widgets/lake/settings.toml")
-            var initial = "profile = 'look'\n[profiles.look]\nleading = ['lake']\n[profiles.look.island]\nroot = 'lake'\n"
-            if rootEnabled {
-                initial = try ShellIslandLayout.persisted(
-                    .components(components),
-                    profile: "look",
-                    root: "lake",
-                    in: initial
-                )
+            return {
+                options = { amount = { type = "number", default = 1, min = 0, max = 1000 } },
             }
-            try write(initial, path: "shell.toml")
+            """, path: "widgets/lake/settings.luau")
+            var initial = """
+            return {
+                profile = "look",
+                profiles = { look = { leading = { "lake" }, island = { root = "lake" } } },
+            }
+
+            """
+            if rootEnabled {
+                initial = try ShellLuauFixture.editing([ShellIslandLayout.entry(
+                    for: .components(components),
+                    profile: "look",
+                    root: "lake"
+                )], in: initial)
+            }
+            try write(initial, path: "shell.luau")
         }
 
         func component(_ widget: String, uses: [String] = []) throws {
@@ -147,14 +150,12 @@ final class ShellConfigurationHostTests: XCTestCase {
             """, path: "widgets/\(widget)/component.luau")
             let dependencies = uses.map { "'\($0)'" }.joined(separator: ",")
             try write("""
-            views = ['compact']
-            uses = [\(dependencies)]
-            [options.width]
-            type = 'number'
-            default = 12
-            min = 1
-            max = 100
-            """, path: "widgets/\(widget)/component.toml")
+            return {
+                views = { "compact" },
+                uses = { \(dependencies) },
+                options = { width = { type = "number", default = 12, min = 1, max = 100 } },
+            }
+            """, path: "widgets/\(widget)/component.manifest.luau")
         }
 
         func write(_ text: String, path: String) throws {
@@ -278,7 +279,10 @@ final class ShellConfigurationHostTests: XCTestCase {
         XCTAssertEqual(fixture.host.configurationWorkCount, 1)
         let reloaded = expectation(description: "former root loads as a standalone widget")
         fixture.sink.watch(22, expectation: reloaded)
-        try fixture.write("profile = 'look'\n[profiles.look]\nleading = ['lake']\n", path: "shell.toml")
+        try fixture.write(
+            "return { profile = \"look\", profiles = { look = { leading = { \"lake\" } } } }\n",
+            path: "shell.luau"
+        )
         fixture.host.reloadConfig()
         await fulfillment(of: [reloaded], timeout: failureBound)
         XCTAssertNil(fixture.host.config.island)
@@ -321,7 +325,7 @@ final class ShellConfigurationHostTests: XCTestCase {
         }
         try fixture.component("box")
         try await fixture.load()
-        let before = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
+        let before = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau"))
         fixture.sink.beforeDelivery = { batch in
             guard batch["lake"]?.configurationRequests.isEmpty == false else { return }
             fixture.host.config.island?.root = "replacement"
@@ -333,7 +337,7 @@ final class ShellConfigurationHostTests: XCTestCase {
         fixture.trigger()
         await fulfillment(of: [rejected], timeout: failureBound)
         XCTAssertTrue(fixture.host.config.island?.components.isEmpty == true)
-        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml")), before)
+        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau")), before)
         XCTAssertEqual(fixture.host.configurationWorkCount, 0)
         await fixture.close()
     }
@@ -507,10 +511,19 @@ final class ShellConfigurationHostTests: XCTestCase {
                 switched.fulfill()
             }
         }
-        let top = "profile = 'look'\n[profiles.look]\nleading = ['lake','replacement']\n[profiles.look.island]\nroot = 'replacement'\n"
+        let top = """
+        return {
+            profile = "look",
+            profiles = { look = { leading = { "lake", "replacement" }, island = { root = "replacement" } } },
+        }
+
+        """
         try fixture.write(
-            ShellIslandLayout.persisted(.components([component]), profile: "look", root: "replacement", in: top),
-            path: "shell.toml"
+            ShellLuauFixture.editing(
+                [ShellIslandLayout.entry(for: .components([component]), profile: "look", root: "replacement")],
+                in: top
+            ),
+            path: "shell.luau"
         )
         fixture.host.reloadConfig()
         await fulfillment(of: [switched], timeout: failureBound)
@@ -542,7 +555,7 @@ final class ShellConfigurationHostTests: XCTestCase {
         }
         try fixture.component("box")
         try await fixture.load()
-        let before = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml"))
+        let before = try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau"))
         try fixture.component("box", uses: ["missing"])
         let writes = Mutex(0)
         fixture.host.configurationWriter = ShellIslandConfigWriter(
@@ -558,7 +571,7 @@ final class ShellConfigurationHostTests: XCTestCase {
         fixture.trigger()
         await fulfillment(of: [rejected], timeout: failureBound)
         XCTAssertTrue(fixture.host.config.island?.components.isEmpty == true)
-        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.toml")), before)
+        XCTAssertEqual(try Data(contentsOf: fixture.shell.appendingPathComponent("shell.luau")), before)
         XCTAssertEqual(writes.withLock { $0 }, 0)
         XCTAssertEqual(fixture.state.generation, 7)
         XCTAssertEqual(fixture.host.configurationWorkCount, 0)
@@ -730,7 +743,10 @@ final class ShellConfigurationHostTests: XCTestCase {
         fixture.sink.watch(12, expectation: ready)
         try await fixture.load()
         await fulfillment(of: [ready], timeout: failureBound)
-        try fixture.write("[options.amount]\ntype = 'unsupported'", path: "widgets/lake/settings.toml")
+        try fixture.write(
+            "return { options = { amount = { type = \"unsupported\" } } }",
+            path: "widgets/lake/settings.luau"
+        )
         let cleared = expectation(description: "failed refresh clears old metadata")
         fixture.sink.watch(2, expectation: cleared)
         fixture.host.refreshConfigurationCatalog()

@@ -2,10 +2,9 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 struct ShellStyleManifest: Equatable, Sendable {
-    static let fileName = "style.toml"
+    static let fileName = "style.luau"
     static let format = 1
     static let api = 1
     private static let release = #"\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z"#
@@ -32,13 +31,8 @@ struct ShellStyleManifest: Equatable, Sendable {
     }
 
     static func parse(_ data: Data, appVersion: ReleaseVersion? = Bundle.main.releaseVersion) throws -> Self {
-        let table: [String: TOMLNode]
-        do {
-            table = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
-        } catch {
-            throw failure(error.localizedDescription)
-        }
-        return try Self(table, appVersion: appVersion)
+        let fields = try ShellLiteralMetadata.fields(data, filename: fileName)
+        return try Self(fields, appVersion: appVersion)
     }
 
     static func problem(in folder: URL) -> String? {
@@ -50,17 +44,19 @@ struct ShellStyleManifest: Equatable, Sendable {
         }
     }
 
-    static func table(at file: URL, name: String) throws -> [String: TOMLNode]? {
+    static func table(at file: URL, name: String) throws -> [String: SettingsLuauValue]? {
+        let data: Data
         do {
-            guard let data = try SettingsFileAccess.existingData(at: file) else { return nil }
-            guard data.count <= ShellWidgetSourceLoader.sourceLimit else { throw CocoaError(.fileReadTooLarge) }
-            return try TOMLDecoder().decode([String: TOMLNode].self, from: data)
+            guard let contents = try SettingsFileAccess.existingData(at: file) else { return nil }
+            guard contents.count <= ShellWidgetSourceLoader.sourceLimit else { throw CocoaError(.fileReadTooLarge) }
+            data = contents
         } catch {
             throw ShellScriptFailure(kind: .compile, message: "\(name): \(error.localizedDescription)")
         }
+        return try ShellLiteralMetadata.fields(data, filename: name)
     }
 
-    init(_ table: [String: TOMLNode], appVersion: ReleaseVersion?) throws {
+    init(_ table: [String: SettingsLuauValue], appVersion: ReleaseVersion?) throws {
         let format = try Self.integer(table["format"], key: "format")
         guard format == Self.format else {
             throw Self
@@ -103,29 +99,29 @@ struct ShellStyleManifest: Equatable, Sendable {
         ShellScriptFailure(kind: .compile, message: "\(fileName): \(problem)")
     }
 
-    private static func integer(_ node: TOMLNode?, key: String) throws -> Int {
+    private static func integer(_ node: SettingsLuauValue?, key: String) throws -> Int {
         guard case let .integer(value)? = node, let integer = Int(exactly: value) else {
             throw failure("\(key) must be an integer")
         }
         return integer
     }
 
-    private static func string(_ node: TOMLNode?, key: String) throws -> String {
+    private static func string(_ node: SettingsLuauValue?, key: String) throws -> String {
         guard let value = try optionalString(node, key: key), !value.isEmpty else {
             throw failure("\(key) must be a nonempty string")
         }
         return value
     }
 
-    private static func optionalString(_ node: TOMLNode?, key: String) throws -> String? {
+    private static func optionalString(_ node: SettingsLuauValue?, key: String) throws -> String? {
         guard let node else { return nil }
         guard case let .string(value) = node else { throw failure("\(key) must be a string") }
         return value
     }
 
-    private static func strings(_ node: TOMLNode?, key: String) throws -> [String] {
+    private static func strings(_ node: SettingsLuauValue?, key: String) throws -> [String] {
         guard let node else { return [] }
-        guard case let .array(values) = node else { throw failure("\(key) must be a list of strings") }
+        guard let values = node.shellArray else { throw failure("\(key) must be a list of strings") }
         return try values.map { value in
             guard case let .string(string) = value else { throw failure("\(key) must be a list of strings") }
             return string
@@ -134,28 +130,31 @@ struct ShellStyleManifest: Equatable, Sendable {
 }
 
 struct ShellBarEffect: Equatable, Sendable {
-    private static let place = "[barEffect]"
-
     let title: String
     let values: [ShellComponentOption]
 
-    init(_ node: TOMLNode) throws {
-        guard case let .table(table) = node else { throw ShellStyleManifest.failure("\(Self.place) must be a table") }
+    init(_ node: SettingsLuauValue) throws {
+        guard case let .record(table) = node else { throw ShellStyleManifest.failure("barEffect must be a table") }
         if let key = table.keys.sorted().first(where: { !["title", "values"].contains($0) }) {
-            throw ShellStyleManifest.failure("\(Self.place) has unknown key \(key)")
+            throw ShellStyleManifest.failure("\(SettingsLuauValue.fieldPath(key, in: "barEffect")) is an unknown key")
         }
         guard case let .string(title)? = table["title"], !title.isEmpty else {
-            throw ShellStyleManifest.failure("\(Self.place) title must be a nonempty string")
+            throw ShellStyleManifest.failure("barEffect.title must be a nonempty string")
         }
-        guard case let .array(entries)? = table["values"], (1 ... ShellBarShader.valueCount).contains(entries.count)
+        guard let entries = table["values"]?.shellArray, (1 ... ShellBarShader.valueCount).contains(entries.count)
         else {
-            throw ShellStyleManifest.failure("\(Self.place) values must list 1 to \(ShellBarShader.valueCount) options")
+            throw ShellStyleManifest.failure("barEffect.values must list 1 to \(ShellBarShader.valueCount) options")
         }
         self.title = title
         values = try entries.enumerated().map { index, entry in
-            let option = try ShellComponentCatalog.option(entry, key: "\(index)", widget: Self.place)
+            let path = "barEffect.values[\(index + 1)]"
+            let option = try ShellComponentCatalog.option(
+                entry,
+                key: "\(index)",
+                place: "\(ShellStyleManifest.fileName): \(path)"
+            )
             guard option.kind == .number else {
-                throw ShellStyleManifest.failure("\(Self.place) values must be number options")
+                throw ShellStyleManifest.failure("\(path) must be a number option")
             }
             return option
         }

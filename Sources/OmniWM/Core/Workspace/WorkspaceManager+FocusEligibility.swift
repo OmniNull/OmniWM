@@ -22,9 +22,7 @@ extension WorkspaceManager {
         in workspaceId: WorkspaceDescriptor.ID,
         mode: TrackedWindowMode
     ) -> WindowToken? {
-        guard let token,
-              let entry = entry(for: token),
-              isFocusResolutionEligible(entry, in: workspaceId, mode: mode)
+        guard let token, withEntry(token, { isFocusResolutionEligible($0, in: workspaceId, mode: mode) }) == true
         else {
             return nil
         }
@@ -32,7 +30,7 @@ extension WorkspaceManager {
     }
 
     func isFocusResolutionEligible(
-        _ entry: WindowState,
+        _ entry: borrowing WindowState,
         in workspaceId: WorkspaceDescriptor.ID,
         mode: TrackedWindowMode
     ) -> Bool {

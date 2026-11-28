@@ -96,20 +96,21 @@ struct ShellTheme: Equatable {
         self.dark = dark
     }
 
-    init(toml: [String: TOMLNode], name: String, problems: inout [String]) {
+    init(values: [String: SettingsLuauValue], name: String, problems: inout [String]) {
         self = .native
         for (appearance, colors, derived) in [
             ("light", \ShellTheme.light, \ShellTheme.derivedLight),
             ("dark", \ShellTheme.dark, \ShellTheme.derivedDark)
         ] {
-            guard case let .table(entries)? = toml[appearance] else { continue }
+            guard case let .record(entries)? = values[appearance] else { continue }
             for (key, value) in entries {
                 guard let role = ShellRole(name: key),
                       case let .string(text) = value,
                       let color = NSColor(shellHex: text)
                 else {
+                    let path = SettingsLuauValue.fieldPath(key, in: appearance)
                     ShellConfig.report(
-                        "Theme \(name): [\(appearance)] \(key) must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\"",
+                        "Theme \(name): \(path) must be a role name set to \"#RRGGBB\" or \"#RRGGBBAA\"",
                         &problems
                     )
                     continue

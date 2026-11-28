@@ -143,7 +143,7 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
             let (controller, manager) = self.makeManager(
                 service: service,
                 monitor: display,
-                shellConfig: "leading = [\"scratchpads\"]\ntrailing = []\n"
+                shellConfig: "return { leading = { \"scratchpads\" }, trailing = {} }\n"
             )
             defer {
                 controller.hasStartedServices = false
@@ -165,12 +165,12 @@ final class WorkspaceBarNotificationBadgeIntegrationTests: XCTestCase {
     private func makeManager(
         service: WorkspaceBarBadgeService,
         monitor: Monitor? = nil,
-        shellConfig: String = "leading = []\ntrailing = []\n"
+        shellConfig: String = "return { leading = {}, trailing = {} }\n"
     ) -> (WMController, WorkspaceBarManager) {
         let controller = WindowAdmissionTestSupport.controller(prefix: "WorkspaceBarNotificationBadgeIntegration")
         let shell = ShellWidgetHost.shellDirectory(in: controller.settings.settingsFileURL.deletingLastPathComponent())
         try? FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try? Data(shellConfig.utf8).write(to: shell.appendingPathComponent("shell.toml"))
+        try? Data(shellConfig.utf8).write(to: shell.appendingPathComponent("shell.luau"))
         controller.settings.workspaceBar.enabled = true
         controller.settings.workspaceBar.hoverPreviewsEnabled = false
         controller.settings.workspaceBar.notificationBadges = .text

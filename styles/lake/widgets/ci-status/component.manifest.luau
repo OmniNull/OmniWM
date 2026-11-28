@@ -1,0 +1,25 @@
+return {
+    title = "CI status",
+    icon = "checkmark.circle",
+    views = { "compact", "expanded" },
+    capabilities = {
+        network = { "api.github.com" },
+        purpose = "Shows public repository workflow status.",
+    },
+    options = {
+        repo = {
+            type = "string",
+            title = "Repository (owner/name)",
+            default = "OmniNull/OmniWM",
+            maxLength = 140,
+        },
+        interval = {
+            type = "number",
+            title = "Poll interval (seconds)",
+            default = 60,
+            min = 15,
+            max = 3600,
+            step = 1,
+        },
+    },
+}

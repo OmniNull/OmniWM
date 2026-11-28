@@ -3,7 +3,6 @@
 
 import AppKit
 import Foundation
-import OmniWMIPC
 import OmniWMScriptHost
 
 extension ShellWidgetHost {
@@ -15,46 +14,6 @@ extension ShellWidgetHost {
         let roots = [config.island?.root].compactMap(\.self).filter { widgets[$0]?.declaration.hasTrigger == true }
         return Set(config.drawers.map(\.id) + widgets.values.filter(\.declaration.hasPopout).map(\.name) + roots)
             .sorted()
-    }
-
-    var widgetReport: IPCShellWidgetsQueryResult {
-        IPCShellWidgetsQueryResult(
-            profile: config.profile,
-            widgets: widgets.values.sorted { $0.name < $1.name }.map { state in
-                let failure = state.lastFailure ?? state.fallback
-                return IPCShellWidget(
-                    name: state.name,
-                    source: state.sourceURL.path,
-                    state: state.lastFailure != nil ? "failed" : state.package == nil ? "loading"
-                        : state.fallback != nil ? "fallback" : "loaded",
-                    error: failure?.message,
-                    placements: placements(of: state)
-                )
-            },
-            problems: configProblems
-        )
-    }
-
-    private func placements(of state: WidgetState) -> [String] {
-        [
-            config.barLane(of: state.name)?.rawValue,
-            config.hiddenBarWidget == state.name ? "hidden bar" : nil,
-            config.systemStatsWidget == state.name ? "system stats" : nil,
-            config.island?.root == state.name ? "island" : nil
-        ].compactMap(\.self) + config.drawers.filter { $0.widgets.contains(state.name) }.map { "drawer \($0.id)" }
-    }
-
-    func publishToggleNames(forceWidgetReport: Bool = false) {
-        let names = toggleNames
-        if names != publishedToggleNames {
-            publishedToggleNames = names
-            onToggleNamesChange?()
-        }
-        let report = widgetReport
-        if report != publishedReport || forceWidgetReport {
-            publishedReport = report
-            onWidgetsChange?()
-        }
     }
 
     func trigger(_ widget: String, name: String, value: String?) -> Bool {

@@ -2,9 +2,10 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import TOML
 
 struct ShellRootSettings: Equatable, Sendable {
+    static let fileName = "settings.luau"
+
     let widget: String
     let options: [String: ShellComponentOption]
     let network: [String]
@@ -17,19 +18,19 @@ struct ShellRootSettings: Equatable, Sendable {
             throw ShellComponentCatalog.Failure("Invalid root widget name \(widget)")
         }
         guard let folder = directories.lazy.map({ $0.appendingPathComponent("widgets/\(widget)") }).first(where: {
-            FileManager.default.fileExists(atPath: $0.appendingPathComponent("settings.toml").path)
+            FileManager.default.fileExists(atPath: $0.appendingPathComponent(fileName).path)
         }) else { return nil }
         return try load(widget, folder: folder)
     }
 
     static func load(_ widget: String, folder: URL) throws -> ShellRootSettings {
-        let data = try SettingsFileAccess.readContents(at: folder.appendingPathComponent("settings.toml")).data
+        let data = try SettingsFileAccess.readContents(at: folder.appendingPathComponent(fileName)).data
         guard data.count <= 256 * 1024 else {
-            throw ShellComponentCatalog.Failure("\(widget)/settings.toml is larger than 256 KiB")
+            throw ShellComponentCatalog.Failure("\(widget)/\(fileName) is larger than 256 KiB")
         }
-        let table = try TOMLDecoder().decode([String: TOMLNode].self, from: data)
+        let table = try ShellLiteralMetadata.fields(data, filename: "\(widget)/\(fileName)")
         if let key = table.keys.sorted().first(where: { $0 != "options" && $0 != "capabilities" }) {
-            throw ShellComponentCatalog.Failure("\(widget)/settings.toml: unknown key \(key)")
+            throw ShellComponentCatalog.Failure("\(widget)/\(fileName): unknown key \(key)")
         }
         let capabilities = try ShellComponentCatalog.rootCapabilities(table["capabilities"], place: widget)
         return try ShellRootSettings(
@@ -71,7 +72,7 @@ extension ShellComponentCatalog {
             for folder in ShellConfig.widgetFolders(in: directory) {
                 let name = folder.lastPathComponent
                 guard validName(name),
-                      FileManager.default.fileExists(atPath: folder.appendingPathComponent("component.toml").path)
+                      FileManager.default.fileExists(atPath: folder.appendingPathComponent(manifestName).path)
                 else { continue }
                 if sources[name] == nil, sources.count >= rootModuleLimit {
                     throw Failure("Installed component catalog exceeds \(rootModuleLimit) packages")

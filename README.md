@@ -746,7 +746,7 @@ OmniWM is a free, open-source, Developer ID-signed and Apple-notarized tiling wi
 
 - Optional [window switcher](website/src/content/docs/features/window-switcher.md) with previews and separate Command-Tab / Option-Tab workspace scopes
 - Ghostty-powered quake/sticky terminal
-- Optional [app theming](website/src/content/docs/features/app-theming.md) that colors Ghostty, kitty, herdr, Neovim and your own templates from the palette in light and dark
+- Optional [app theming](website/src/content/docs/features/app-theming.md) that colors Ghostty, kitty, Neovim and your own templates from the palette in light and dark
 - Native macOS window-tab support
 - Local IPC and `omniwmctl` automation
 - Scratchpads and sticky windows for any app
@@ -785,7 +785,7 @@ OmniWM checks for new releases once a day and never installs anything on its own
 3. Windows tile into Niri scrolling containers; switch a workspace to Dwindle BSP with `Toggle Workspace Layout`
 4. `Option + 1-9` switches workspaces and `Option + Shift + 1-9` moves the focused window; the rest is in [Keyboard Shortcuts](https://omniwm.app/guides/keyboard-shortcuts/)
 
-Settings live in `~/.config/omniwm/settings.toml` and reload when you save it. More in the [full quick start](https://omniwm.app/guides/quick-start/).
+Settings live in `~/.config/omniwm/settings.luau` and reload when you save it. More in the [full quick start](https://omniwm.app/guides/quick-start/).
 
 ## Documentation
 

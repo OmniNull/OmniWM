@@ -3,6 +3,7 @@
 
 import Carbon
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 enum HotkeyVisibility: String {
@@ -189,8 +190,10 @@ enum ActionCatalog {
         appendContainerSpanBindings(&specs)
         appendSpanAdjustmentBindings(&specs)
         appendSplitStructureBindings(&specs)
+        appendVisibleContainerBindings(&specs)
         appendAxisResizeBindings(&specs)
         appendFocusedResizeBindings(&specs)
+        appendDirectionalResizeBindings(&specs)
         appendPreselectionBindings(&specs)
         specs.append(contentsOf: IPCMediaCommand.allCases.map { $0.actionSpec() })
         specs.append(contentsOf: IPCKeyboardModeCommand.allCases.map { $0.actionSpec() })
@@ -232,7 +235,11 @@ enum ActionCatalog {
         case .moveColumn(.up),
              .moveColumn(.down):
             .dwindle
-        case .focus,
+        case .configFunction,
+             .namedKeyMode,
+             .runProgram,
+             .showNotice,
+             .focus,
              .move,
              .moveColumn(.left),
              .moveColumn(.right),
@@ -240,11 +247,13 @@ enum ActionCatalog {
              .fullscreen,
              .openCommandPalette,
              .openCommandPaletteMode,
+             .windowSwitcher,
              .raiseAllFloatingWindows,
              .toggleFloatingFocus,
              .rescueOffscreenWindows,
              .windowState,
              .openMenuAnywhere,
+             .openSettings,
              .windowMark,
              .presentation,
              .media,
@@ -273,6 +282,10 @@ enum ActionCatalog {
 
     private static func titleResource(for command: HotkeyCommand) -> LocalizedStringResource {
         switch command {
+        case .configFunction,
+             .namedKeyMode,
+             .runProgram,
+             .showNotice: LocalizedStringResource("Script Shortcuts", bundle: .omniWM)
         case let .focus(direction): focusTitle(direction)
         case let .move(direction): moveTitle(direction)
         case let .monitorFocus(command): command.actionDisplayName()
@@ -282,6 +295,7 @@ enum ActionCatalog {
                 "command.palette.toggle", defaultValue: "Toggle Command Palette", table: "Commands", bundle: .omniWM
             )
         case let .openCommandPaletteMode(mode): mode.actionDisplayName()
+        case .windowSwitcher: LocalizedStringResource("Window Switcher", bundle: .omniWM)
         case .raiseAllFloatingWindows: LocalizedStringResource(
                 "command.floating.raiseAll", defaultValue: "Raise All Floating Windows", table: "Commands",
                 bundle: .omniWM
@@ -298,6 +312,7 @@ enum ActionCatalog {
         case .openMenuAnywhere: LocalizedStringResource(
                 "command.menu.openAnywhere", defaultValue: "Open Menu Anywhere", table: "Commands", bundle: .omniWM
             )
+        case .openSettings: openSettingsTitle
         case let .windowMark(action): action.actionDisplayName()
         case let .presentation(command): command.actionDisplayName()
         case let .media(command): command.actionDisplayName()
@@ -307,10 +322,7 @@ enum ActionCatalog {
             )
         case .shellAppOpen: shellAppExampleTitle
         case .shellAppNewWindow: shellAppNewWindowExampleTitle
-        case let .openApp(bundleID): LocalizedStringResource(
-                "command.app.open", defaultValue: "Open \(appDisplayName(bundleID: bundleID))", table: "Commands",
-                bundle: .omniWM
-            )
+        case let .openApp(bundleID): openAppTitle(bundleID: bundleID)
         case let .focusNavigation(action): action.actionDisplayName()
         case let .windowMovement(action): action.actionDisplayName()
         case let .column(action): action.actionDisplayName()

@@ -17,15 +17,21 @@ An enabled full-width bar requests macOS menu-bar auto-hide unless its position 
 
 **Settings > Styles & Widgets > Bar** edits them for the selected style: drag to reorder, select **Add Widget…** to choose a group, and select a widget for its options or **Remove from Bar**. Under **Priority**, drag widgets into the order they keep their place on a crowded bar. **Use Style Layout…** restores all three groups and the style's priority together. Right-click a widget on the bar to move it, take it off the bar or open these settings; when the widget uses right-click itself, Option + right-click opens the same menu. Your own widgets in `widgets/` are listed there to add.
 
-```toml
-# In ~/.config/omniwm/shell/shell.toml, for the default profile:
-profiles.default.leading = ["omniwm", "workspaces", "scratchpads"]
-profiles.default.center = ["clock"]
-profiles.default.trailing = ["volume", "system-stats"]
-profiles.default.priority = ["workspaces", "clock", "volume", "omniwm", "system-stats"]
+```lua
+-- In ~/.config/omniwm/shell/shell.luau, for the default profile:
+return {
+    profiles = {
+        default = {
+            leading = { "omniwm", "workspaces", "scratchpads" },
+            center = { "clock" },
+            trailing = { "volume", "system-stats" },
+            priority = { "workspaces", "clock", "volume", "omniwm", "system-stats" },
+        },
+    },
+}
 ```
 
-Use the active profile’s name instead of `default`. In that profile folder’s own `shell.toml`, omit `profiles.<name>.`. Profile settings and precedence are explained in [Profiles and palettes](/omnishell/configuration/profiles-palettes/#profile-settings).
+Use the active profile’s name instead of `default`. In that profile folder’s own `shell.luau`, omit `profiles.<name>.`. Profile settings and precedence are explained in [Profiles and palettes](/omnishell/configuration/profiles-palettes/#profile-settings).
 
 ## Widget options
 
@@ -33,7 +39,7 @@ Use the active profile’s name instead of `default`. In that profile folder’s
 
 With **Transparent Background** and **Show Item Backgrounds** both on, the default widgets draw their own capsules and palette popouts.
 
-Select a widget to change supported choices visually. Options follow the actual widget implementation in the selected style; a style that does not use an option does not show it. World Clock provides a location list, and Weather provides city or coordinates, units, and refresh interval. The default widgets also read these values from `profiles.<profile>.widgets.<name>` in `shell.toml`:
+Select a widget to change supported choices visually. Options follow the actual widget implementation in the selected style; a style that does not use an option does not show it. World Clock provides a location list, and Weather provides city or coordinates, units, and refresh interval. The default widgets also read these values from `profiles.<profile>.widgets.<name>` in `shell.luau`:
 
 | Widget | Settings |
 |---|---|
@@ -49,7 +55,7 @@ The Control Center’s **Displays** tab adjusts brightness for each display wher
 
 `hiddenBarWidget` and `systemStatsWidget` name the widgets that draw the Hidden Bar drawer and the System Stats popout. The profile supplies defaults; GUI changes are saved as that profile’s overrides. Workspace Bar’s master enable switch, excluded apps and icon overrides stay global. Enabling **System Stats Button** also places the configured stats widget on the bar if it was removed.
 
-For your own widgets, place `settings.toml` beside the effective `init.luau` to declare **Options** controls. Values arrive in `ctx.data.settings`. See the [widget tutorial](/omnishell/guides/first-widget/) and [settings schema reference](/omnishell/reference/components-configuration/).
+For your own widgets, place `settings.luau` beside the effective `init.luau` to declare **Options** controls. Values arrive in `ctx.data.settings`. See the [widget tutorial](/omnishell/guides/first-widget/) and [settings schema reference](/omnishell/reference/components-configuration/).
 
 ## Popouts
 
@@ -61,17 +67,26 @@ Use stable element keys for interactive controls. The [UI elements](/omnishell/r
 
 Configure drawers under **Settings > Styles & Widgets > Drawers**: add a drawer, choose its edge and widgets, arrange them, and adjust hover, close, hover area, and background behavior. **Configure Shortcut…** opens the registered Toggle action; enable the bar or island first if the drawer has not been loaded.
 
-A `[drawer.<id>]` stacks the popouts of its widgets in one panel on a screen edge, like a control center. Open it with `shell toggle <id>`, from a click, with **Settings > Keyboard Shortcuts > Toggle \<id\>**, or by moving the pointer to that edge when `hover = true`. Only one drawer or popout is open at a time. `width = 900` limits the hover to that stretch of the edge's middle, and `reach = 10` lets the pointer open it from up to 10 points away from the edge. `close = "leave"` closes it as soon as the pointer leaves it; opened by a click or hotkey, it stays until the pointer has been inside and left. `chrome = false` drops the panel's own background, padding and slide, so the widget draws the whole panel flush against the edge, beside the bar, with room to overshoot.
+A `drawer.<id>` stacks the popouts of its widgets in one panel on a screen edge, like a control center. Open it with `shell toggle <id>`, from a click, with **Settings > Keyboard Shortcuts > Toggle \<id\>**, or by moving the pointer to that edge when `hover = true`. Only one drawer or popout is open at a time. `width = 900` limits the hover to that stretch of the edge's middle, and `reach = 10` lets the pointer open it from up to 10 points away from the edge. `close = "leave"` closes it as soon as the pointer leaves it; opened by a click or hotkey, it stays until the pointer has been inside and left. `chrome = false` drops the panel's own background, padding and slide, so the widget draws the whole panel flush against the edge, beside the bar, with room to overshoot.
 
-```toml
-# In ~/.config/omniwm/shell/shell.toml:
-[profiles.default.drawer.controls]
-edge = "right"
-widgets = ["volume", "media", "calendar"]
-hover = true
+```lua
+-- In ~/.config/omniwm/shell/shell.luau:
+return {
+    profiles = {
+        default = {
+            drawer = {
+                controls = {
+                    edge = "right",
+                    widgets = { "volume", "media", "calendar" },
+                    hover = true,
+                },
+            },
+        },
+    },
+}
 ```
 
-In a profile folder’s `shell.toml`, use `[drawer.controls]`. A drawer widget supplies `popout(ctx)`, so the same custom menu can run as a bar popout and inside a drawer without a second implementation. Use distinct drawer and widget names: `shell toggle` resolves a matching drawer first.
+In a profile folder’s `shell.luau`, use `drawer.controls`. A drawer widget supplies `popout(ctx)`, so the same custom menu can run as a bar popout and inside a drawer without a second implementation. Use distinct drawer and widget names: `shell toggle` resolves a matching drawer first.
 
 `present = "island"` hands the drawer to the island root instead of opening a panel, so the island can draw it in its own glass and let its pieces melt into it. It opens and closes on the same hover, toggle, shortcut and `close` rules. While it is open, `ctx.data.island.drawer` holds its id on that display, and `widgets` may be left out. With `close = "leave"`, it stays open while the pointer is over the island's own content and closes after the pointer leaves both the island and the edge, never while a button is held.
 

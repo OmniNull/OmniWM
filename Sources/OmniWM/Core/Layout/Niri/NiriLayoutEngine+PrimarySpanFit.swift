@@ -271,14 +271,23 @@ extension NiriLayoutEngine {
 
 extension NiriLayoutEngine {
     func rawProjectedPrimarySpan(
-        for projectedColumn: NiriProjectedColumn,
+        for projectedColumn: borrowing NiriProjectedColumn,
         workingFrame: CGRect,
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) -> CGFloat {
-        let column = projectedColumn.column
+        rawProjectedPrimarySpan(
+            of: projectedColumn.column, windows: projectedColumn.windows.span,
+            geometry: NiriSizingGeometry(workingFrame: workingFrame, gaps: gap, orientation: orientation)
+        )
+    }
 
-        let availableSpace = orientation == .horizontal ? workingFrame.width : workingFrame.height
+    func rawProjectedPrimarySpan(
+        of column: borrowing NiriContainer, windows: borrowing Span<NiriWindow>, geometry: NiriSizingGeometry
+    ) -> CGFloat {
+        let orientation = geometry.orientation
+        let availableSpace = orientation == .horizontal ? geometry.workingFrame.width : geometry.workingFrame.height
+        let gap = geometry.gaps
         let spec: ProportionalSize
         let isFull: Bool
         switch orientation {
@@ -298,33 +307,70 @@ extension NiriLayoutEngine {
             fixed
         }
 
-        return constrainedProjectedPrimarySpan(
-            rawSpan,
-            for: projectedColumn,
-            workingFrame: workingFrame,
-            gap: gap,
-            orientation: orientation
-        )
+        return constrainedProjectedPrimarySpan(rawSpan, of: column, windows: windows, geometry: geometry)
+    }
+
+    func projectedPrimaryBounds(
+        of windows: borrowing [NiriWindow], orientation: Monitor.Orientation, contentInset: CGFloat
+    ) -> (min: CGFloat, max: CGFloat?) {
+        projectedPrimaryBounds(of: windows.span, orientation: orientation, contentInset: contentInset)
+    }
+
+    private func projectedPrimaryBounds(
+        of windows: borrowing Span<NiriWindow>,
+        orientation: Monitor.Orientation,
+        contentInset: CGFloat
+    ) -> (min: CGFloat, max: CGFloat?) {
+        var minimum: CGFloat = 1
+        var maximum: CGFloat?
+        for index in windows.indices {
+            let constraints = windows[index].constraints.normalized()
+            switch orientation {
+            case .horizontal:
+                if windows[index].deferredMinimumOrientation != .horizontal {
+                    minimum = max(minimum, constraints.minSize.width)
+                }
+                if constraints.hasMaxWidth {
+                    maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
+                }
+            case .vertical:
+                if windows[index].deferredMinimumOrientation != .vertical {
+                    minimum = max(minimum, constraints.minSize.height)
+                }
+                if constraints.hasMaxHeight {
+                    maximum = min(maximum ?? constraints.maxSize.height, constraints.maxSize.height)
+                }
+            }
+        }
+        return (minimum + contentInset, maximum.map { max($0, minimum) + contentInset })
     }
 
     func constrainedProjectedPrimarySpan(
         _ span: CGFloat,
-        for projectedColumn: NiriProjectedColumn,
+        for projectedColumn: borrowing NiriProjectedColumn,
         workingFrame: CGRect,
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) -> CGFloat {
-        let windows = projectedColumn.windows
-        let availableSpace = orientation == .horizontal ? workingFrame.width : workingFrame.height
-        let contentInset = orientation == .horizontal && windows.count > 1
-            ? tabContentInset(for: projectedColumn.column)
-            : 0
+        constrainedProjectedPrimarySpan(
+            span, of: projectedColumn.column, windows: projectedColumn.windows.span,
+            geometry: NiriSizingGeometry(workingFrame: workingFrame, gaps: gap, orientation: orientation)
+        )
+    }
+
+    private func constrainedProjectedPrimarySpan(
+        _ span: CGFloat, of column: borrowing NiriContainer,
+        windows: borrowing Span<NiriWindow>, geometry: NiriSizingGeometry
+    ) -> CGFloat {
+        let orientation = geometry.orientation
+        let availableSpace = orientation == .horizontal ? geometry.workingFrame.width : geometry.workingFrame.height
+        let contentInset = orientation == .horizontal && windows.count > 1 ? tabContentInset(for: column) : 0
         let bounds = projectedPrimaryBounds(of: windows, orientation: orientation, contentInset: contentInset)
         let clamped = NiriContainer.packedPrimarySpan(
             max(span, bounds.min),
             windows: windows,
             orientation: orientation,
-            limit: availableSpace - gap * 2,
+            limit: availableSpace - geometry.gaps * 2,
             contentInset: contentInset
         )
         return bounds.max.map { min(clamped, $0) } ?? clamped

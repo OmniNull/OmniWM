@@ -32,31 +32,38 @@ struct ShellAppAuthoringFixture {
 
     var manifest: String {
         """
-        title = "\(title)"
-        icon = "square.and.pencil"
-        views = ["\(view)", "confirm", "preferences"]
-        [window]
-        view = "\(view)"
-        width = \(preferred.width)
-        height = \(preferred.height)
-        minWidth = \(minimum.width)
-        minHeight = \(minimum.height)
-        [window.children.confirm]
-        kind = "sheet"
-        view = "confirm"
-        title = "Confirm fixture"
-        width = \(childPreferred.width)
-        height = \(childPreferred.height)
-        minWidth = \(childMinimum.width)
-        minHeight = \(childMinimum.height)
-        [window.children.preferences]
-        kind = "utility"
-        view = "preferences"
-        title = "Preferences fixture"
-        width = \(childPreferred.width)
-        height = \(childPreferred.height)
-        minWidth = \(childMinimum.width)
-        minHeight = \(childMinimum.height)
+        return {
+            title = "\(title)",
+            icon = "square.and.pencil",
+            views = { "\(view)", "confirm", "preferences" },
+            window = {
+                view = "\(view)",
+                width = \(preferred.width),
+                height = \(preferred.height),
+                minWidth = \(minimum.width),
+                minHeight = \(minimum.height),
+                children = {
+                    confirm = {
+                        kind = "sheet",
+                        view = "confirm",
+                        title = "Confirm fixture",
+                        width = \(childPreferred.width),
+                        height = \(childPreferred.height),
+                        minWidth = \(childMinimum.width),
+                        minHeight = \(childMinimum.height),
+                    },
+                    preferences = {
+                        kind = "utility",
+                        view = "preferences",
+                        title = "Preferences fixture",
+                        width = \(childPreferred.width),
+                        height = \(childPreferred.height),
+                        minWidth = \(childMinimum.width),
+                        minHeight = \(childMinimum.height),
+                    },
+                },
+            },
+        }
         """
     }
 
@@ -73,7 +80,7 @@ struct ShellAppAuthoringFixture {
 
     func write(manifest: String? = nil, source: String? = nil) throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try writeFile(manifest ?? self.manifest, path: "component.toml")
+        try writeFile(manifest ?? self.manifest, path: "component.manifest.luau")
         try writeFile(source ?? self.source, path: "init.luau")
         try writeFile("return 'Local module fixture'", path: "lib/label.luau")
     }

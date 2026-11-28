@@ -228,7 +228,6 @@ private final class WorkspaceBarPreviewTile: NSView {
         setAccessibilityLabel(String(localized: "\(window.appName), \(window.title)"))
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
     }

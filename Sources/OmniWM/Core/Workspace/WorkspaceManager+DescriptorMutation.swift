@@ -3,6 +3,7 @@
 
 import AppKit
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 import QuartzCore
 
@@ -28,6 +29,7 @@ extension WorkspaceManager {
         invalidateWorkspaceProjectionCaches()
         noteInvalidation(workspaceId: workspace.id, domains: [.workspace, .layout, .focus])
         settings.reconcileDynamicHotkeys()
+        withCatalogObserver(.creation) { $0.workspaceCreated(workspace, in: self) }
         return workspace.id
     }
 }

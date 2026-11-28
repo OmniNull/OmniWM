@@ -97,6 +97,13 @@ final class HostedSheetTests: XCTestCase {
             fixture.controller.commandHandler.performCommand(.scratchpad(.assign(ScratchpadIndex.range.lowerBound))),
             .attachedWindow
         )
+        let floating = fixture.world.floatingState(for: sheet.token)
+        let move = FloatingFrameFields(x: parentFrame.minX, y: parentFrame.minY, width: nil, height: nil)
+        XCTAssertEqual(
+            fixture.controller.performWindowAction(.setFloatingFrame(move), on: sheet.token),
+            .attachedWindow
+        )
+        XCTAssertEqual(fixture.world.floatingState(for: sheet.token), floating)
         XCTAssertEqual(fixture.controller.workspaceNavigationHandler.moveWindow(
             handle: WindowHandle(id: sheet.token), toWorkspaceId: fixture.sourceOther
         ), .unchanged)

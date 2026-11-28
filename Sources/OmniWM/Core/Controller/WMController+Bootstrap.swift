@@ -23,7 +23,7 @@ extension WMController {
         hotkeys.onCommand = { [weak self] invocation in
             guard let self else { return }
             if !eventIntake.enqueue(.hotkeyInvocation(invocation)) {
-                _ = commandHandler.handleHotkeyInvocation(invocation)
+                _ = CommandHandler.handleHotkeyInvocation(invocation, controller: self)
             }
         }
         hotkeys.onKeyboardModeChange = { [weak self] kind in
@@ -62,12 +62,19 @@ extension WMController {
 
     func configureSurfaceCallbacks() {
         configureAppTheming()
+        settings.focus.onEdgeNavigationEnabledChange = { [weak self] in
+            self?.surfaceReconciler.noteWorldChanged()
+        }
         traceCaptureCoordinator.onStateChange = { [weak self] in
             self?.syncScopeValidationWithRecording()
             self?.statusBarController?.handleTraceCaptureStateChange()
         }
         secureInputIndicator.openHotkeysSettings = { [weak self] in
             self?.statusBarController?.openSettings(section: .hotkeys)
+        }
+        secureInputIndicator.showsExplanationAutomatically = settings.showSecureInputExplanation
+        settings.onShowSecureInputExplanationChanged = { [weak self] enabled in
+            self?.secureInputIndicator.showsExplanationAutomatically = enabled
         }
         tabRailManager.ringOrderedAbove = { [weak self] in self?.surfaceReconciler.ringWindowId(orderedAbove: $0) }
         tabRailManager.onDrag = { [weak self] drag in
@@ -196,13 +203,44 @@ extension WMController {
         }
     }
 
-    func updateHotkeyBindings(_ bindings: [HotkeyBinding], force: Bool = false) {
-        let enabledBindings = bindings.filter { settings.isCommandFeatureEnabled($0.command) }
+    func startConfigScript(at fileURL: URL) {
+        guard configScript == nil else { return }
+        let script = ConfigScriptController(
+            fileURL: fileURL,
+            settings: settings,
+            loader: configScriptLoader,
+            wmController: self
+        ) { [weak self] resolution in
+            guard let self else { return }
+            updateHotkeyBindings(settings.hotkeyBindings, scriptResolution: resolution)
+        }
+        script.onDiagnosticChanged = { [weak self] diagnostic in self?.configScriptDiagnostic = diagnostic }
+        script.onRulesChanged = { [weak self] in self?.updateAppRules() }
+        configScript = script
+        script.start()
+    }
+
+    func stopConfigScript() {
+        configScript?.stop()
+        configScript = nil
+    }
+
+    func updateHotkeyBindings(
+        _ bindings: [HotkeyBinding],
+        force: Bool = false,
+        scriptResolution: ConfigScriptShortcutResolution? = nil
+    ) {
+        let resolved = scriptResolution ?? configScript?.resolveBindings(for: bindings)
+        let enabledBindings = resolved?.bindings ?? bindings.filter { settings.isCommandFeatureEnabled($0.command) }
         hotkeys.updateBindings(
             enabledBindings,
             systemHyperTrigger: settings.systemHyperTrigger,
+            namedModes: resolved?.namedModes,
             force: force
         )
+        if scriptResolution == nil {
+            configScript?.publishDiagnostics(overrides: resolved?.overrides)
+        }
         refreshHotkeyFailureSnapshots()
         refreshDiagnosticsIssues()
         refreshKeyboardModeIndicator()

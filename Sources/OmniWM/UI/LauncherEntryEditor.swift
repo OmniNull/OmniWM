@@ -8,14 +8,27 @@ import UniformTypeIdentifiers
 struct LauncherEntryEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State var entry: LauncherEntry
+    @State private var argumentSources: [Int?]
     let runOnly: Bool
     var configuration = LauncherConfiguration()
-    let save: (LauncherEntry) -> Void
+    let save: (LauncherEntry, [Int?]) -> Void
     let run: (LauncherEntry) -> Void
     @State private var showsAdvanced = false
     @State private var inheritedShellName: String?
     @State private var lastRunName: String?
     @State private var execution = LauncherExecution.shared
+
+    init(
+        entry: LauncherEntry, runOnly: Bool, configuration: LauncherConfiguration = LauncherConfiguration(),
+        save: @escaping (LauncherEntry, [Int?]) -> Void, run: @escaping (LauncherEntry) -> Void
+    ) {
+        _entry = State(initialValue: entry)
+        _argumentSources = State(initialValue: entry.arguments.indices.map(Optional.some))
+        self.runOnly = runOnly
+        self.configuration = configuration
+        self.save = save
+        self.run = run
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -31,6 +44,7 @@ struct LauncherEntryEditor: View {
                         TextField("Name", text: $entry.name, prompt: Text("Name in Launcher"))
                             .accessibilityIdentifier("launcher-entry-name")
                     }
+                    .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "name")
                     if entry.kind == .command {
                         field("Command") {
                             TextField(
@@ -45,6 +59,7 @@ struct LauncherEntryEditor: View {
                             .autocorrectionDisabled()
                             .accessibilityIdentifier("launcher-entry-command")
                         }
+                        .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "command")
                     } else {
                         pathField(
                             entry.kind == .application ? "Application" : "File", path: $entry.path,
@@ -52,6 +67,7 @@ struct LauncherEntryEditor: View {
                                 .kind == .application ? "Choose an application" : "Path to a script or executable",
                             application: entry.kind == .application, autoName: true
                         )
+                        .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "path")
                     }
                     if entry.kind != .application { executionFields }
                     DisclosureGroup("Advanced Options", isExpanded: $showsAdvanced) {
@@ -99,16 +115,25 @@ struct LauncherEntryEditor: View {
                             ),
                             prompt: Text("Argument value")
                         )
-                        Button("Remove") { entry.arguments.remove(at: index) }
+                        Button("Remove") {
+                            entry.arguments.remove(at: index)
+                            argumentSources.remove(at: index)
+                        }
                     }
                 }
-                Button("Add Argument") { entry.arguments.append("") }
+                Button("Add Argument") {
+                    entry.arguments.append("")
+                    argumentSources.append(nil)
+                }
             }
+            .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "arguments")
             if entry.kind == .script {
                 pathField("Interpreter (optional)", path: $entry.interpreter, prompt: "Use the script’s shebang")
+                    .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "interpreter")
             }
         }
         pathField("Working Folder", path: $entry.workingDirectory, prompt: "Home folder", directory: true)
+            .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "workingDirectory")
         HStack(alignment: .top, spacing: 16) {
             field("Run In") {
                 Picker("Run In", selection: $entry.terminal) {
@@ -119,6 +144,7 @@ struct LauncherEntryEditor: View {
                     }
                 }
             }
+            .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "terminal")
             field(entry.kind == .command ? "Command Shell" : "Environment Shell") {
                 Picker("Shell", selection: $entry.shell) {
                     ForEach(LauncherShell.allCases, id: \.self) { shell in
@@ -130,6 +156,7 @@ struct LauncherEntryEditor: View {
                 }
                 .onChange(of: entry.shell) { _, _ in entry.shellExecutable = "" }
             }
+            .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "shell", "shellExecutable")
         }
         .pickerStyle(.menu)
     }
@@ -143,12 +170,15 @@ struct LauncherEntryEditor: View {
                     }
                     .pickerStyle(.menu)
                 }
+                .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "kind")
             }
             field("Search Keywords") {
                 TextField("Search Keywords", text: $entry.keywords, prompt: Text("Optional search terms"))
             }
+            .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "keywords")
             if entry.kind != .application {
                 pathField("Custom Shell Executable", path: $entry.shellExecutable, prompt: "Use the selected shell")
+                    .settingsField(.launcherEntries, row: entry.id.uuidString, leaf: "shellExecutable")
             }
         }
     }
@@ -185,12 +215,13 @@ struct LauncherEntryEditor: View {
 
     private var saveButton: some View {
         Button(runOnly ? "Save Entry" : "Save") {
-            save(entry)
+            save(entry, argumentSources)
             dismiss()
         }
         .disabled(!valid)
         .keyboardShortcut(runOnly ? nil : .defaultAction)
         .accessibilityIdentifier("launcher-entry-save")
+        .settingsField(.launcherEntries, row: entry.id.uuidString)
     }
 
     private func field<Content: View>(

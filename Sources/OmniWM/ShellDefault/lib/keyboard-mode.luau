@@ -13,6 +13,9 @@ local function metrics(style: BarStyle, size: number)
         label, help = omniwm.l10n("Paused"), omniwm.l10n("OmniWM shortcuts are paused.")
     elseif mode == "prefix" then
         label, help = omniwm.l10n("Prefix"), omniwm.l10n("Prefix: the next key runs an OmniWM command. Escape cancels.")
+    elseif mode == "named" then
+        label = omniwm.l10n("Key Mode")
+        help = omniwm.l10n("Key mode: its keys run their commands until you press Escape.")
     else
         label = omniwm.l10n("Window Mode")
         help = omniwm.l10n("Window mode: keys run OmniWM commands until you press Escape.")

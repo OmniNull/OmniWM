@@ -129,15 +129,33 @@ class NiriContainer: NiriNode {
 
     static func packedPrimarySpan(
         _ span: CGFloat,
-        windows: [NiriWindow],
+        windows: borrowing [NiriWindow],
         orientation: Monitor.Orientation,
         limit: CGFloat,
         contentInset: CGFloat
     ) -> CGFloat {
-        windows.reduce(span) { packed, window in
-            guard let hint = window.packingHints.primary(for: orientation) else { return packed }
-            return max(packed, hint.packed(span - contentInset, limit: limit - contentInset) + contentInset)
+        packedPrimarySpan(
+            span,
+            windows: windows.span,
+            orientation: orientation,
+            limit: limit,
+            contentInset: contentInset
+        )
+    }
+
+    static func packedPrimarySpan(
+        _ span: CGFloat,
+        windows: borrowing Span<NiriWindow>,
+        orientation: Monitor.Orientation,
+        limit: CGFloat,
+        contentInset: CGFloat
+    ) -> CGFloat {
+        var packed = span
+        for index in windows.indices {
+            guard let hint = windows[index].packingHints.primary(for: orientation) else { continue }
+            packed = max(packed, hint.packed(span - contentInset, limit: limit - contentInset) + contentInset)
         }
+        return packed
     }
 
     func invalidateCachedPrimarySpans() {

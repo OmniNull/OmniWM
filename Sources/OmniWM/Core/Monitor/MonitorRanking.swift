@@ -6,21 +6,42 @@ import Foundation
 enum MonitorRanking {
     static func roleOrder(ranking: [OutputId], sortedMonitors: [Monitor]) -> [Monitor] {
         var ordered: [Monitor] = []
-        for entry in ranking {
-            guard let monitor = resolve(entry, in: sortedMonitors),
-                  !ordered.contains(where: { $0.id == monitor.id })
-            else { continue }
-            ordered.append(monitor)
-        }
-        for monitor in defaultOrder(sortedMonitors) where !ordered.contains(where: { $0.id == monitor.id }) {
-            ordered.append(monitor)
+        visitRoleCandidates(ranking: ranking, sortedMonitors: sortedMonitors) { monitor in
+            if !ordered.contains(where: { $0.id == monitor.id }) { ordered.append(monitor) }
+            return false
         }
         return ordered
     }
 
-    static func defaultOrder(_ sortedMonitors: [Monitor]) -> [Monitor] {
-        guard let main = sortedMonitors.first(where: \.isMain) else { return sortedMonitors }
-        return [main] + sortedMonitors.filter { $0.id != main.id }
+    static func monitor(atRole index: Int, ranking: [OutputId], sortedMonitors: [Monitor]) -> Monitor? {
+        var earlier = InlineArray<3, Monitor.ID?>(repeating: nil)
+        guard earlier.indices.contains(index) else { return nil }
+        var count = 0
+        var result: Monitor?
+        visitRoleCandidates(ranking: ranking, sortedMonitors: sortedMonitors) { monitor in
+            for prior in 0 ..< count where earlier[prior] == monitor.id { return false }
+            if count == index {
+                result = monitor
+                return true
+            }
+            earlier[count] = monitor.id
+            count += 1
+            return false
+        }
+        return result
+    }
+
+    private static func visitRoleCandidates(
+        ranking: [OutputId], sortedMonitors: [Monitor], until done: (Monitor) -> Bool
+    ) {
+        for entry in ranking {
+            if let monitor = resolve(entry, in: sortedMonitors), done(monitor) { return }
+        }
+        let main = sortedMonitors.first(where: \.isMain)
+        if let main, done(main) { return }
+        for monitor in sortedMonitors where monitor.id != main?.id {
+            if done(monitor) { return }
+        }
     }
 
     static func resolve(_ entry: OutputId, in monitors: [Monitor]) -> Monitor? {
@@ -28,8 +49,12 @@ enum MonitorRanking {
             return monitor
         }
         guard entry.displayUUID == nil else { return nil }
-        let byName = monitors.filter { Monitor.namesMatch($0.name, entry.name) }
-        return byName.count == 1 ? byName[0] : nil
+        var match: Monitor?
+        for monitor in monitors where Monitor.namesMatch(monitor.name, entry.name) {
+            if match != nil { return nil }
+            match = monitor
+        }
+        return match
     }
 
     static func effectiveRanks(ranking: [OutputId], monitors: [Monitor]) -> [Int?] {

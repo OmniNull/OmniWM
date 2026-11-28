@@ -23,17 +23,32 @@ final class WorldStore {
     private(set) var epochMarks = InvalidationMarks()
     private var broadcastMarks = InvalidationMarks()
     private var workspaceMarks: [WorkspaceDescriptor.ID: InvalidationMarks] = [:]
-    private var commitDepth = 0
+    private(set) var commitDepth = 0
     private var currentCommitEvent: WMEvent?
 
-    var isEngineMutationSanctioned: Bool {
-        commitDepth > 0
+    var pendingScriptWindowState: ConfigScriptEventObservers?
+    var scriptWindowModeObserver: ConfigScriptEventObservers?
+    var scriptWindowMinimizeObserver: ConfigScriptEventObservers?
+    var scriptWindowMoveObserver: ConfigScriptEventObservers?
+    private var pendingWindowMoves: ConfigScriptWindowMoves?
+
+    func installWindowModeObserver(_ observer: ConfigScriptEventObservers?) {
+        scriptWindowModeObserver = observer
+        model.onModeChange = observer?.noteModeChange(_:was:)
     }
 
-    private func pushEngineSanction() {
-        let sanctioned = isEngineMutationSanctioned
-        niriEngine?.isMutationSanctioned = sanctioned
-        dwindleEngine?.isMutationSanctioned = sanctioned
+    func installWindowMoveObserver(_ observer: ConfigScriptEventObservers?) {
+        scriptWindowMoveObserver = observer
+        guard let catalog = observer?.controller?.workspaceManager.workspaceCatalog else {
+            pendingWindowMoves = nil
+            model.onMembershipChange = nil
+            return
+        }
+        let moves = ConfigScriptWindowMoves()
+        pendingWindowMoves = moves
+        model.onMembershipChange = { [unowned self] change in
+            moves.record(change, depth: commitDepth, primary: currentCommitEvent?.token, catalog: catalog)
+        }
     }
 
     init(validatesScopes: Bool = WorldStore.validatesScopesByDefault, nowProvider: @escaping () -> Date = Date.init) {
@@ -84,13 +99,20 @@ final class WorldStore {
                 ? snapshot()
                 : reducerSnapshot
             completeSnapshot(&committedSnapshot)
-            return trace.recordTransaction(
+            let transaction = trace.recordTransaction(
                 event: event,
                 normalizedEvent: normalizedEvent,
                 resolvedPlan: resolvedPlan,
                 committedSnapshot: committedSnapshot,
                 validateInvariants: isOutermost
             )
+            if let observer = pendingScriptWindowState, !windowExistedBeforeMutation, case .windowAdmitted = event {
+                observer.discardFirstAdmissionChanges(event.token)
+            }
+            if scriptWindowMoveObserver != nil, let moves = pendingWindowMoves {
+                publishMoves(transaction, in: moves, depth: commitDepth, wasTracked: windowExistedBeforeMutation)
+            }
+            return transaction
         }
     }
 
@@ -103,6 +125,10 @@ final class WorldStore {
             commitDepth -= 1
             pushEngineSanction()
             currentCommitEvent = previousCommitEvent
+            if let observer = pendingScriptWindowState, commitDepth == 0 {
+                pendingScriptWindowState = nil
+                observer.publishSettledWindowStates()
+            }
         }
         seq &+= 1
         return body(commitDepth == 1)
@@ -132,18 +158,6 @@ final class WorldStore {
 
     func invalidationMarks(for workspaceId: WorkspaceDescriptor.ID) -> InvalidationMarks {
         broadcastMarks.merged(with: workspaceMarks[workspaceId] ?? InvalidationMarks())
-    }
-
-    func isSeqCurrent(
-        _ plannedSeq: UInt64,
-        for workspaceId: WorkspaceDescriptor.ID,
-        domains: InvalidationDomain
-    ) -> Bool {
-        invalidationMarks(for: workspaceId).isCurrent(plannedSeq, domains: domains)
-    }
-
-    func isSeqEpochCurrent(_ plannedSeq: UInt64, domains: InvalidationDomain) -> Bool {
-        epochMarks.isCurrent(plannedSeq, domains: domains)
     }
 
     func removeInvalidationMarks<S: Sequence>(for workspaceIds: S) where S.Element == WorkspaceDescriptor.ID {
@@ -320,13 +334,21 @@ final class WorldStore {
         spaceTopology.windowSpace.removeValue(forKey: token.windowId)
         reconcileNiriMembership(for: token, keeping: nil, monitors: monitors)
     }
-
-    func assertInCommit(_ operation: StaticString) {
-        assert(commitDepth > 0, "\(operation) must run inside WorldStore.commit")
-    }
 }
 
 extension WorldStore {
+    func configVisibleMonitorID(for workspace: WorkspaceDescriptor.ID) -> Monitor.ID? {
+        ConfigScriptCatalogMonitor.visibleID(for: workspace, in: &monitorSessions)
+    }
+
+    func readConfigWindow<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
+        model.withEntry(token, read)
+    }
+
+    func configWindow(for token: WindowToken, withoutMetadata: Bool = false) -> ConfigScriptWindowIdentity? {
+        model.configWindow(for: token, withoutMetadata: withoutMetadata)
+    }
+
     func appVisibilityGeneration(for pid: pid_t) -> UInt64 {
         appVisibilityGenerationByPID[pid] ?? 0
     }
@@ -444,27 +466,7 @@ extension WorldStore {
         for token: WindowToken,
         monitors: [Monitor]
     ) -> Bool {
-        guard let entry = model.entry(for: token) else { return false }
-        var restoreIntent = StateReducer.restoreIntent(for: entry, monitors: monitors)
-        restoreIntent.niriPlacement = placement
-        if detached {
-            restoreIntent.detachedNiriContainerSizingState = NiriContainerSizingState(
-                width: placement.column.width,
-                presetWidthIndex: placement.column.presetWidthIndex,
-                isFullWidth: placement.column.isFullWidth,
-                savedWidth: placement.column.savedWidth,
-                hasManualSingleWindowWidthOverride: placement.column.hasManualSingleWindowWidthOverride,
-                height: placement.column.height,
-                isFullHeight: placement.column.isFullHeight,
-                savedHeight: placement.column.savedHeight,
-                hasManualSingleWindowHeightOverride: placement.column.hasManualSingleWindowHeightOverride
-            )
-        } else {
-            restoreIntent.detachedNiriContainerSizingState = nil
-        }
-        guard entry.restoreIntent != restoreIntent else { return false }
-        model.setRestoreIntent(restoreIntent, for: token)
-        return true
+        model.storeNiriPlacement(placement, detached: detached, for: token, monitors: monitors)
     }
 
     func installDwindleEngine(_ engine: DwindleLayoutEngine?) {

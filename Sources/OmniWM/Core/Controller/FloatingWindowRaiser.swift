@@ -62,12 +62,12 @@ final class FloatingWindowRaiser {
         let batches: [[RaisableSurface]]
     }
 
-    func raiseAllFloatingWindows() {
-        guard let controller, canRaiseWindows(controller) else { return }
-
-        controller.restoreVisibleWorkspaceInactiveFloatingWindows()
-        guard let plan = makeRaiseAllFloatingPlan() else { return }
+    func raiseAllFloatingWindows() -> ExternalCommandResult {
+        guard let controller, canRaiseWindows(controller) else { return .ignoredDisabled }
+        let restored = controller.restoreVisibleWorkspaceInactiveFloatingWindows()
+        guard let plan = makeRaiseAllFloatingPlan() else { return restored > 0 ? .executed : .noChange }
         raise(plan, controller: controller)
+        return .executed
     }
 
     private func raise(_ plan: FloatingWindowRaisePlan, controller: WMController) {
@@ -100,10 +100,6 @@ final class FloatingWindowRaiser {
         }
         controller.focusWindow(target)
         return .executed
-    }
-
-    func hasRaisableFloatingWindows() -> Bool {
-        makeRaiseAllFloatingPlan() != nil || controller?.hasVisibleWorkspaceInactiveFloatingWindows() == true
     }
 
     private func canRaiseWindows(_ controller: WMController) -> Bool {

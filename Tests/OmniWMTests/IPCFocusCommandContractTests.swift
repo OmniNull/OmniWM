@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+@testable import OmniWMAutomation
 @testable import OmniWMIPC
 import XCTest
 
@@ -12,7 +13,7 @@ final class IPCFocusCommandContractTests: XCTestCase {
         XCTAssertEqual(Self.fixtures.map(\.command.name), IPCFocusCommandName.allCases)
 
         for fixture in Self.fixtures {
-            let command = try IPCFocusCommand(name: fixture.command.name, arguments: .values(fixture.arguments))
+            let command = try IPCFocusCommand(name: fixture.command.name, arguments: .init(values: fixture.arguments))
             XCTAssertEqual(command, fixture.command)
             XCTAssertEqual(command.name.rawValue, fixture.request.name.rawValue)
             let expectedData = try encoder.encode(fixture.request)
@@ -25,8 +26,8 @@ final class IPCFocusCommandContractTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         for direction: IPCDirection in [.left, .right, .up, .down] {
-            let command = try IPCFocusCommand(name: .spatial, arguments: .values([.direction(direction)]))
-            let data = try encoder.encode(IPCCommandRequest.focus(.spatial(direction: direction)))
+            let command = try IPCFocusCommand(name: .spatial, arguments: .init(values: [.direction(direction)]))
+            let data = try encoder.encode(IPCCommandRequest(.focus(.spatial(direction: direction))))
             XCTAssertEqual(try encoder.encode(FocusEnvelope(command: command)), data)
             XCTAssertEqual(try JSONDecoder().decode(FocusEnvelope.self, from: data).command, command)
         }
@@ -34,16 +35,19 @@ final class IPCFocusCommandContractTests: XCTestCase {
             for fixture in [
                 Fixture(
                     command: .column(columnIndex: value),
-                    request: .focus(.column(columnIndex: value)),
+                    request: .init(.focus(.column(columnIndex: value))),
                     arguments: [.integer(value)]
                 ),
                 Fixture(
                     command: .windowInColumn(windowIndex: value),
-                    request: .focus(.windowInColumn(windowIndex: value)),
+                    request: .init(.focus(.windowInColumn(windowIndex: value))),
                     arguments: [.integer(value)]
                 )
             ] {
-                let command = try IPCFocusCommand(name: fixture.command.name, arguments: .values(fixture.arguments))
+                let command = try IPCFocusCommand(
+                    name: fixture.command.name,
+                    arguments: .init(values: fixture.arguments)
+                )
                 let data = try encoder.encode(fixture.request)
                 XCTAssertEqual(try encoder.encode(FocusEnvelope(command: command)), data)
                 XCTAssertEqual(try JSONDecoder().decode(FocusEnvelope.self, from: data).command, command)
@@ -60,7 +64,10 @@ final class IPCFocusCommandContractTests: XCTestCase {
                 XCTAssertEqual(try JSONDecoder().decode(IPCCommandRequest.self, from: data), fixture.request)
             }
             for arguments: [IPCCommandArgumentValue] in [[.integer(1)], [.direction(.left), .integer(2)]] {
-                XCTAssertThrowsError(try IPCFocusCommand(name: fixture.command.name, arguments: .values(arguments))) {
+                XCTAssertThrowsError(try IPCFocusCommand(
+                    name: fixture.command.name,
+                    arguments: .init(values: arguments)
+                )) {
                     XCTAssertEqual($0 as? IPCCommandRequestConstructionError, .invalidArgumentCount)
                 }
             }
@@ -71,7 +78,10 @@ final class IPCFocusCommandContractTests: XCTestCase {
         for fixture in Self.fixtures where !fixture.arguments.isEmpty {
             let wrongType: IPCCommandArgumentValue = fixture.command.name == .spatial ? .integer(1) : .direction(.left)
             for arguments in [[], fixture.arguments + fixture.arguments, [wrongType]] {
-                XCTAssertThrowsError(try IPCFocusCommand(name: fixture.command.name, arguments: .values(arguments))) {
+                XCTAssertThrowsError(try IPCFocusCommand(
+                    name: fixture.command.name,
+                    arguments: .init(values: arguments)
+                )) {
                     XCTAssertEqual($0 as? IPCCommandRequestConstructionError, .invalidArgumentType)
                 }
                 XCTAssertThrowsError(try IPCCommandRequest(name: fixture.request.name, argumentValues: arguments)) {
@@ -158,10 +168,11 @@ final class IPCFocusCommandContractTests: XCTestCase {
         }
 
         init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: IPCCommandArgumentSource.CodingKeys.self)
+            let container = try decoder.container(keyedBy: IPCCommandCodingKeys.self)
             let rawName = try container.decode(String.self, forKey: .name)
             let name = try XCTUnwrap(IPCFocusCommandName(rawValue: rawName))
-            command = try IPCFocusCommand(name: name, arguments: .json(container))
+            let arguments = try container.commandArguments(for: .focus(name))
+            command = try IPCFocusCommand(name: name, arguments: .init(values: arguments))
         }
 
         func encode(to encoder: Encoder) throws {
@@ -179,27 +190,31 @@ final class IPCFocusCommandContractTests: XCTestCase {
     private static let fixtures = [
         Fixture(
             command: .spatial(direction: .left),
-            request: .focus(.spatial(direction: .left)),
+            request: .init(.focus(.spatial(direction: .left))),
             arguments: [.direction(.left)]
         ),
-        Fixture(command: .previous, request: .focus(.previous)),
-        Fixture(command: .downOrLeft, request: .focus(.downOrLeft)),
-        Fixture(command: .upOrRight, request: .focus(.upOrRight)),
+        Fixture(command: .previous, request: .init(.focus(.previous))),
+        Fixture(command: .downOrLeft, request: .init(.focus(.downOrLeft))),
+        Fixture(command: .upOrRight, request: .init(.focus(.upOrRight))),
         Fixture(
             command: .windowInColumn(windowIndex: 2),
-            request: .focus(.windowInColumn(windowIndex: 2)),
+            request: .init(.focus(.windowInColumn(windowIndex: 2))),
             arguments: [.integer(2)]
         ),
-        Fixture(command: .windowTop, request: .focus(.windowTop)),
-        Fixture(command: .windowBottom, request: .focus(.windowBottom)),
-        Fixture(command: .windowDownOrTop, request: .focus(.windowDownOrTop)),
-        Fixture(command: .windowUpOrBottom, request: .focus(.windowUpOrBottom)),
-        Fixture(command: .windowOrWorkspaceDown, request: .focus(.windowOrWorkspaceDown)),
-        Fixture(command: .windowOrWorkspaceUp, request: .focus(.windowOrWorkspaceUp)),
-        Fixture(command: .column(columnIndex: 2), request: .focus(.column(columnIndex: 2)), arguments: [.integer(2)]),
-        Fixture(command: .columnFirst, request: .focus(.columnFirst)),
-        Fixture(command: .columnLast, request: .focus(.columnLast)),
-        Fixture(command: .centerColumn, request: .focus(.centerColumn)),
-        Fixture(command: .centerVisibleColumns, request: .focus(.centerVisibleColumns))
+        Fixture(command: .windowTop, request: .init(.focus(.windowTop))),
+        Fixture(command: .windowBottom, request: .init(.focus(.windowBottom))),
+        Fixture(command: .windowDownOrTop, request: .init(.focus(.windowDownOrTop))),
+        Fixture(command: .windowUpOrBottom, request: .init(.focus(.windowUpOrBottom))),
+        Fixture(command: .windowOrWorkspaceDown, request: .init(.focus(.windowOrWorkspaceDown))),
+        Fixture(command: .windowOrWorkspaceUp, request: .init(.focus(.windowOrWorkspaceUp))),
+        Fixture(
+            command: .column(columnIndex: 2),
+            request: .init(.focus(.column(columnIndex: 2))),
+            arguments: [.integer(2)]
+        ),
+        Fixture(command: .columnFirst, request: .init(.focus(.columnFirst))),
+        Fixture(command: .columnLast, request: .init(.focus(.columnLast))),
+        Fixture(command: .centerColumn, request: .init(.focus(.centerColumn))),
+        Fixture(command: .centerVisibleColumns, request: .init(.focus(.centerVisibleColumns)))
     ]
 }

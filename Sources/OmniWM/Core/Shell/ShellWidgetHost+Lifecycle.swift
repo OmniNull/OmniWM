@@ -20,7 +20,9 @@ extension ShellWidgetHost {
         joinTraceCapture()
         installAuthoringFiles()
         configProblems = []
-        config = ShellConfig.resolve(shellDirectory: shellDirectory, problems: &configProblems)
+        failedConfigHelpers = []
+        var inputs = ShellConfig.SourceFiles(versions: [:])
+        config = ShellConfig.resolve(shellDirectory: shellDirectory, problems: &configProblems, inputs: &inputs)
         onConfigChange?(config)
         refreshPalettes()
         resources.shaders.onChange = { [weak self] in
@@ -44,7 +46,7 @@ extension ShellWidgetHost {
             self?.rescan()
         }
         observeSystem()
-        rescan()
+        rescan(reusing: inputs.versions)
     }
 
     private func observeSystem() {
@@ -181,7 +183,7 @@ extension ShellWidgetHost {
         }
     }
 
-    func rescan(reloadConfiguration: Bool = true) {
+    func rescan(reloadConfiguration: Bool = true, reusing inputs: SettingsFileVersions? = nil) {
         guard started else { return }
         let (found, directories) = discoverPackages()
         syncDiscoveredPackages(found)
@@ -209,7 +211,7 @@ extension ShellWidgetHost {
         }
         shadersChanged(includingAssets: false)
         refreshSlots()
-        if reloadConfiguration { reloadConfig() }
+        if reloadConfiguration, inputs?.isCurrent != true { reloadConfig() }
         refreshConfigurationCatalog()
         publishToggleNames()
     }
@@ -245,7 +247,10 @@ extension ShellWidgetHost {
     }
 
     func watchFiles() {
-        let paths = watchedPaths + resources.shaders.files + resources.images.files + configurationMetadataPaths
+        var paths = watchedPaths + resources.shaders.files + resources.images.files + configurationMetadataPaths
+        if !config.helperFiles.isEmpty || !failedConfigHelpers.isEmpty {
+            paths += ShellConfigurationInputs.helperPaths(config.helperFiles.union(failedConfigHelpers))
+        }
         observation?.sync(paths: paths, recursivePaths: paths)
     }
 
@@ -297,13 +302,13 @@ extension ShellWidgetHost {
             )) ?? []
             return [
                 directory,
-                directory.appendingPathComponent("shell.toml"),
+                directory.appendingPathComponent("shell.luau"),
                 directory.appendingPathComponent("widgets", isDirectory: true),
                 directory.appendingPathComponent("shaders", isDirectory: true),
                 directory.appendingPathComponent("fonts", isDirectory: true),
                 directory.appendingPathComponent(ShellStrings.folder, isDirectory: true),
                 themes
-            ] + files.filter { $0.pathExtension == "toml" }
+            ] + files.filter { $0.pathExtension == "luau" }
         }
     }
 
@@ -327,7 +332,7 @@ extension ShellWidgetHost {
         {
             packages[name] = config.widget(name) ?? ShellConfig.bundledWidget(name)
             if packages[name] == nil, reportedMissing.insert(name).inserted {
-                Log.shell.error("shell.toml names a widget \(name) that is not in any widgets folder")
+                Log.shell.error("shell.luau names a widget \(name) that is not in any widgets folder")
             }
         }
         for (name, trip) in trips {

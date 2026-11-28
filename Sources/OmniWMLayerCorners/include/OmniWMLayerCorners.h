@@ -30,4 +30,8 @@ void omniwm_window_manager_begin_coordinator_capture(void) NS_SWIFT_MAIN_ACTOR;
 void omniwm_window_manager_end_coordinator_capture(void) NS_SWIFT_MAIN_ACTOR;
 BOOL omniwm_window_manager_order(NSWindow *window, NSWindowOrderingMode place, uint32_t otherWindowID) NS_SWIFT_MAIN_ACTOR;
 
+static inline CFArrayRef _Nullable omniwm_copy_on_screen_window_ids(void) CF_RETURNS_RETAINED {
+    return CGWindowListCreate(kCGWindowListOptionOnScreenOnly, kCGNullWindowID);
+}
+
 NS_ASSUME_NONNULL_END

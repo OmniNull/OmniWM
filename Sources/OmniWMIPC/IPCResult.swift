@@ -26,6 +26,7 @@ public enum IPCResultKind: String, Codable, Equatable, Sendable {
     case windowGather = "window-gather"
     case metrics
     case shellWidgets = "shell-widgets"
+    case dwindleTree = "dwindle-tree"
 }
 
 public struct IPCPingResult: Codable, Equatable, Sendable {
@@ -82,6 +83,7 @@ public struct IPCResult: Codable, Equatable, Sendable {
         case windowGather(IPCWindowGatherResult)
         case metrics(IPCMetricsQueryResult)
         case shellWidgets(IPCShellWidgetsQueryResult)
+        case dwindleTree(IPCDwindleTreeQueryResult)
     }
 
     public let kind: IPCResultKind
@@ -180,6 +182,10 @@ public struct IPCResult: Codable, Equatable, Sendable {
         self.init(kind: .metrics, payload: .metrics(metrics))
     }
 
+    public init(dwindleTree: IPCDwindleTreeQueryResult) {
+        self.init(kind: .dwindleTree, payload: .dwindleTree(dwindleTree))
+    }
+
     private enum CodingKeys: String, CodingKey {
         case kind
         case payload
@@ -234,6 +240,8 @@ public struct IPCResult: Codable, Equatable, Sendable {
             payload = .windowGather(try container.decode(IPCWindowGatherResult.self, forKey: .payload))
         case .metrics:
             payload = .metrics(try container.decode(IPCMetricsQueryResult.self, forKey: .payload))
+        case .dwindleTree:
+            payload = .dwindleTree(try container.decode(IPCDwindleTreeQueryResult.self, forKey: .payload))
         }
     }
 
@@ -285,6 +293,8 @@ public struct IPCResult: Codable, Equatable, Sendable {
         case let .windowGather(payload):
             try container.encode(payload, forKey: .payload)
         case let .metrics(payload):
+            try container.encode(payload, forKey: .payload)
+        case let .dwindleTree(payload):
             try container.encode(payload, forKey: .payload)
         }
     }

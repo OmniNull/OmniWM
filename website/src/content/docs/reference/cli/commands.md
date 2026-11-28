@@ -112,6 +112,8 @@ In Dwindle, `focus left/right` remains spatial. `focus up/down` traverses a grou
 | `command switch-workspace anywhere` | `<number>` | shared | Focus a workspace by numeric workspace ID across all monitors |
 | `command switch-workspace slot` | `<number>` | shared | Switch to the workspace at a one-based position in the interaction monitor's ordered workspace list |
 
+With [`workspaceSwitchWrapAround`](/config/settings-reference/#general) set to `false`, `next` and `prev` stop at the ends of the workspace order.
+
 ### Move to Workspace
 
 | Command | Arguments | Layout | Description |
@@ -162,6 +164,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command set-container-primary-span` | `<size-change>` | niri | Set or adjust the focused container primary span |
 | `command set-window-primary-span` | `<size-change>` | niri | Set or adjust the focused window primary span |
 | `command set-window-secondary-span` | `<size-change>` | niri | Set or adjust the focused window secondary span |
+| `command set-visible-containers` | `<number>` | shared | **Unreleased:** available when building from `main`. Set how many Niri columns fit on screen, from 1 to 5, or `0` for Off, as the Visible Containers setting does |
 
 `<size-change>` accepts fixed pixels (`100`), proportions (`50%`), fixed deltas (`+10`), or proportional deltas (`-10%`).
 
@@ -174,6 +177,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command swap-split` | — | dwindle | Swap the active split |
 | `command resize` | `<horizontal\|vertical> <grow\|shrink>` | dwindle | Grow or shrink the selected window along an axis |
 | `command resize-focused` | `<grow\|shrink>` | dwindle | Grow or shrink the focused window |
+| `command resize-direction` | `<left\|right\|up\|down>` | dwindle | Move the focused window's right or bottom border toward a direction, or its opposite border when it has none |
 | `command preselect` | `<left\|right\|up\|down>` | dwindle | Set the preselection direction |
 | `command preselect clear` | — | dwindle | Clear the preselection |
 
@@ -210,6 +214,7 @@ Workspace IDs are global, so `switch-workspace 3` targets workspace `3` wherever
 | `command window-switcher` | `<next\|previous>` | shared | **Unreleased:** available when building from `main`. Open the window switcher in the remembered scope, or move its selection if open; releasing the held modifiers focuses the selection |
 | `command window-switcher` | `<next\|previous> <active-workspace\|visible-workspaces\|all-workspaces>` | shared | **Unreleased:** available when building from `main`. Open the window switcher in a scope, or move its selection if open; releasing the held modifiers focuses the selection |
 | `command open-menu-anywhere` | — | shared | Open the menu surface |
+| `command open-settings` | — | shared | **Unreleased:** available when building from `main`. Open OmniWM Settings, or bring it forward if it's open |
 | `command toggle-workspace-bar` | — | shared | Toggle workspace bar visibility |
 | `command hidden-bar panel` | — | shared | Toggle the panel containing configured hidden menu-bar items |
 | `command toggle-quake-terminal` | — | shared | Toggle the configured Quake terminal |

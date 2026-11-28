@@ -91,18 +91,45 @@ extension NiriLayoutEngine {
             return root(for: workspaceId)?.projectedColumns ?? []
         }
         let columns = columns(in: workspaceId)
-        let liveHomeColumnId = liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
+        let liveHomeColumnId = liveHomeColumnId
         var projected: [NiriProjectedColumn] = []
         projected.reserveCapacity(columns.count)
         for (durableIndex, column) in columns.enumerated() {
-            let windows = column.windowNodes.filter { !excludedTokens.contains($0.token) }
-            if !windows.isEmpty || column.isLiveDropSpace || column.isLiveHomeSpot || column.id == liveHomeColumnId {
+            let nodes = column.windowNodes
+            let windows = Self.containsAny(of: excludedTokens, in: nodes)
+                ? nodes.filter { !excludedTokens.contains($0.token) } : nodes
+            if !windows.isEmpty || holdsLiveSpace(column, home: liveHomeColumnId) {
                 projected.append(
                     NiriProjectedColumn(column: column, windows: windows, durableIndex: durableIndex)
                 )
             }
         }
         return projected
+    }
+
+    private static func containsAny(of tokens: borrowing Set<WindowToken>, in nodes: borrowing [NiriWindow]) -> Bool {
+        let windows = nodes.span
+        for index in windows.indices where tokens.contains(windows[index].token) {
+            return true
+        }
+        return false
+    }
+
+    func hasProjectedColumns(in workspaceId: WorkspaceDescriptor.ID) -> Bool {
+        let excluded = layoutExclusions(in: workspaceId)
+        guard !excluded.isEmpty else { return !columns(in: workspaceId).isEmpty }
+        let home = liveHomeColumnId
+        return columns(in: workspaceId).contains { column in
+            holdsLiveSpace(column, home: home) || column.windowNodes.contains { !excluded.contains($0.token) }
+        }
+    }
+
+    var liveHomeColumnId: NodeId? {
+        liveColumnMove?.homeColumnId ?? liveStackDrop?.homeColumnId
+    }
+
+    func holdsLiveSpace(_ column: NiriContainer, home liveHomeColumnId: NodeId?) -> Bool {
+        column.isLiveDropSpace || column.isLiveHomeSpot || column.id == liveHomeColumnId
     }
 
     func projectedActiveWindow(in projectedColumn: NiriProjectedColumn) -> NiriWindow? {
@@ -224,13 +251,22 @@ extension NiriLayoutEngine {
     }
 
     func projectedPrimarySpan(
-        for projectedColumn: NiriProjectedColumn,
+        for projectedColumn: borrowing NiriProjectedColumn,
         workingFrame: CGRect,
         gap: CGFloat,
         orientation: Monitor.Orientation
     ) -> CGFloat {
-        let column = projectedColumn.column
-        let windows = projectedColumn.windows
+        projectedPrimarySpan(
+            of: projectedColumn.column, windows: projectedColumn.windows.span,
+            geometry: NiriSizingGeometry(workingFrame: workingFrame, gaps: gap, orientation: orientation)
+        )
+    }
+
+    func projectedPrimarySpan(
+        of column: borrowing NiriContainer, windows: borrowing Span<NiriWindow>, geometry: NiriSizingGeometry,
+        fullMembership: Bool? = nil
+    ) -> CGFloat {
+        let orientation = geometry.orientation
         if let liveSlot = column.liveSlotSpan, liveSlot.orientation == orientation {
             return liveSlot.span
         }
@@ -240,47 +276,16 @@ extension NiriLayoutEngine {
         if usesFittedSpan {
             return orientation == .horizontal ? column.cachedWidth : column.cachedHeight
         }
-        if windows.count == column.windowNodes.count,
-           !column.isTabbed || windows.count > 1
-        {
+        let includesAllWindows = if let fullMembership {
+            fullMembership
+        } else {
+            windows.count == column.windowNodes.count
+        }
+        if includesAllWindows, !column.isTabbed || windows.count > 1 {
             return orientation == .horizontal ? column.cachedWidth : column.cachedHeight
         }
 
-        return rawProjectedPrimarySpan(
-            for: projectedColumn,
-            workingFrame: workingFrame,
-            gap: gap,
-            orientation: orientation
-        )
-    }
-
-    func projectedPrimaryBounds(
-        of windows: [NiriWindow],
-        orientation: Monitor.Orientation,
-        contentInset: CGFloat
-    ) -> (min: CGFloat, max: CGFloat?) {
-        var minimum: CGFloat = 1
-        var maximum: CGFloat?
-        for window in windows {
-            let constraints = window.constraints.normalized()
-            switch orientation {
-            case .horizontal:
-                if window.deferredMinimumOrientation != .horizontal {
-                    minimum = max(minimum, constraints.minSize.width)
-                }
-                if constraints.hasMaxWidth {
-                    maximum = min(maximum ?? constraints.maxSize.width, constraints.maxSize.width)
-                }
-            case .vertical:
-                if window.deferredMinimumOrientation != .vertical {
-                    minimum = max(minimum, constraints.minSize.height)
-                }
-                if constraints.hasMaxHeight {
-                    maximum = min(maximum ?? constraints.maxSize.height, constraints.maxSize.height)
-                }
-            }
-        }
-        return (minimum + contentInset, maximum.map { max($0, minimum) + contentInset })
+        return rawProjectedPrimarySpan(of: column, windows: windows, geometry: geometry)
     }
 
     func ensureProjectedSelectionVisible(

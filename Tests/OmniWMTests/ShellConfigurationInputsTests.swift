@@ -14,7 +14,7 @@ final class ShellConfigurationInputsTests: XCTestCase {
         let shell = root.appendingPathComponent("shell")
         let target = root.appendingPathComponent("external")
         let widget = shell.appendingPathComponent("widgets/my-widget")
-        let names = ["settings.toml", "init.luau", "component.toml", "component.luau", "nested/helper.luau"]
+        let names = ["settings.luau", "init.luau", "component.manifest.luau", "component.luau", "nested/helper.luau"]
         for name in names { try write("before", to: name, in: target) }
         try FileManager.default.createSymbolicLink(at: widget, withDestinationURL: target)
 
@@ -32,7 +32,7 @@ final class ShellConfigurationInputsTests: XCTestCase {
 
         for atomic in [false, true] {
             try Data("updated-settings-\(atomic)".utf8).write(
-                to: target.appendingPathComponent("settings.toml"), options: atomic ? .atomic : []
+                to: target.appendingPathComponent("settings.luau"), options: atomic ? .atomic : []
             )
             let settings = try scan(shell)
             XCTAssertNotEqual(previous.metadata, settings.metadata)
@@ -54,7 +54,7 @@ final class ShellConfigurationInputsTests: XCTestCase {
         let collection = root.appendingPathComponent("collection")
         let target = root.appendingPathComponent("external")
         let modules = root.appendingPathComponent("modules")
-        try write("settings", to: "settings.toml", in: target)
+        try write("settings", to: "settings.luau", in: target)
         try write("source", to: "helper.luau", in: modules)
         try write("hidden", to: ".hidden/ignored.luau", in: modules)
         try FileManager.default.createDirectory(at: collection, withIntermediateDirectories: true)
@@ -78,7 +78,7 @@ final class ShellConfigurationInputsTests: XCTestCase {
         XCTAssertEqual(inputs.widgets, ["first", "second"])
         for name in inputs.widgets {
             let widget = shell.appendingPathComponent("widgets/\(name)")
-            XCTAssertNotNil(inputs.metadata[widget.appendingPathComponent("settings.toml").path])
+            XCTAssertNotNil(inputs.metadata[widget.appendingPathComponent("settings.luau").path])
             XCTAssertNotNil(inputs.sources[widget.appendingPathComponent("nested/helper.luau").path])
             XCTAssertTrue(inputs.recursivePaths.contains { $0.path == widget.appendingPathComponent("nested").path })
         }
@@ -131,10 +131,10 @@ final class ShellConfigurationInputsTests: XCTestCase {
         XCTAssertTrue(before.paths.contains { $0.path == dangling.path })
         XCTAssertTrue(before.paths.contains { $0.path == root.path })
         XCTAssertTrue(before.recursivePaths.contains { $0.path == dangling.path })
-        try write("settings", to: "settings.toml", in: target)
+        try write("settings", to: "settings.luau", in: target)
         let after = try scan(shell)
         XCTAssertEqual(after.widgets, ["dangling", "working"])
-        XCTAssertNotNil(after.metadata[dangling.appendingPathComponent("settings.toml").path])
+        XCTAssertNotNil(after.metadata[dangling.appendingPathComponent("settings.luau").path])
     }
 
     func testRetargetedDirectoryLinkReplacesTrackedContent() throws {
@@ -144,9 +144,9 @@ final class ShellConfigurationInputsTests: XCTestCase {
         let first = root.appendingPathComponent("first")
         let second = root.appendingPathComponent("second")
         let widget = shell.appendingPathComponent("widgets/my-widget")
-        try write("first", to: "settings.toml", in: first)
+        try write("first", to: "settings.luau", in: first)
         try write("old", to: "old.luau", in: first)
-        try write("second", to: "settings.toml", in: second)
+        try write("second", to: "settings.luau", in: second)
         try write("new", to: "new.luau", in: second)
         try FileManager.default.createSymbolicLink(at: widget, withDestinationURL: first)
         let before = try scan(shell)
@@ -170,7 +170,11 @@ final class ShellConfigurationInputsTests: XCTestCase {
         let widget = shell.appendingPathComponent("widgets/my-widget")
         _ = try ShellStyleFixture.prepare(into: shell)
         _ = try ShellProfiles.select("lake", in: shell)
-        try write("[options.value]\ntype = 'boolean'\ndefault = true", to: "settings.toml", in: target)
+        try write(
+            "return { options = { value = { type = \"boolean\", default = true } } }",
+            to: "settings.luau",
+            in: target
+        )
         try write("function render(ctx) return ui.box{} end", to: "init.luau", in: target)
         try FileManager.default.createSymbolicLink(at: widget, withDestinationURL: target)
         let coordinator = ShellConfigurationCoordinator(shellDirectory: shell)
@@ -182,7 +186,11 @@ final class ShellConfigurationInputsTests: XCTestCase {
 
         let metadata = expectation(description: "Linked widget settings refresh")
         withObservationTracking { _ = coordinator.revision } onChange: { metadata.fulfill() }
-        try write("[options.value]\ntype = 'number'\ndefault = 5", to: "settings.toml", in: target)
+        try write(
+            "return { options = { value = { type = \"number\", default = 5 } } }",
+            to: "settings.luau",
+            in: target
+        )
         await fulfillment(of: [metadata], timeout: failureBound)
         await coordinator.flush()
         XCTAssertEqual(coordinator.widgetSchemas["my-widget"]?.options["value"]?.kind, .number)

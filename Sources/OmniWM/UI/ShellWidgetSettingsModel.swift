@@ -20,7 +20,10 @@ enum ShellWidgetSettingsModel {
     }
 
     static func values(widget: String, config: ShellConfig) -> [String: ShellComponentValue] {
-        fields(widget: widget, config: config).compactMapValues(\.componentValue)
+        fields(widget: widget, config: config).compactMapValues { value in
+            if case let .object(fields) = value, fields.isEmpty { return .strings([]) }
+            return value.componentValue
+        }
     }
 
     static func clocks(config: ShellConfig) -> [ShellWorldClockEntry] {

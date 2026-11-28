@@ -40,9 +40,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             navigation.request(SettingsRoute(section: section, anchor: anchor))
         }
         if let launcherRequest { navigation.presentLauncherEntry(launcherRequest) }
-        if let appRuleDraft {
-            navigation.presentRuleDraft(appRuleDraft)
-        }
+        if let appRuleDraft { navigation.presentRuleDraft(appRuleDraft) }
 
         if let window = presenter.window,
            controller.shellAppWindowManager.showSettingsWindow(window, shouldClose: closeGuard(for: window))
@@ -57,9 +55,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             minSize: NSSize(width: 760, height: 560),
             configure: { [weak self] window in
                 window.delegate = self
+                controller.workspaceBarManager.shellConfiguration.formulaConfirmation = settings.formulaConfirmation
+                settings.formulaConfirmation.canPresent = { [weak window] in
+                    guard let window else { return false }
+                    return window.isKeyWindow || window.attachedSheet?.isKeyWindow == true
+                }
                 self?.navigation.closeWindow = { [weak window] in window?.close() }
             },
-            onWillClose: { [weak self] in self?.navigation.ruleEditorState.isDirty = false },
+            onWillClose: { [weak self] in
+                settings.formulaConfirmation.canPresent = nil
+                settings.formulaConfirmation.discard()
+                self?.navigation.ruleEditorState.isDirty = false
+            },
             onPresented: { [weak self] window in
                 guard let self else { return }
                 controller.shellAppWindowManager.showSettingsWindow(window, shouldClose: closeGuard(for: window))

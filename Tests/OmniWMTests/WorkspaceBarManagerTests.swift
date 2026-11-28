@@ -29,8 +29,8 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
         let shell = root.appendingPathComponent("config/shell", isDirectory: true)
         try FileManager.default.createDirectory(at: shell, withIntermediateDirectories: true)
-        try Data("profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = []\n".utf8)
-            .write(to: shell.appendingPathComponent("shell.toml"))
+        try Data("return { profiles = { default = { leading = {}, center = {}, trailing = {} } } }\n".utf8)
+            .write(to: shell.appendingPathComponent("shell.luau"))
         controller = WMController(settings: settings)
     }
 
@@ -41,32 +41,79 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
     func testFillBarTakesTheMenuBarAppearanceInsteadOfTheAppAppearance() throws {
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = []\n[profiles.default.workspaceBar]\nfullWidth = false\nnotchMode = \"fillLeftOfNotch\"\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = {
+                        leading = {},
+                        center = {},
+                        trailing = {},
+                        workspaceBar = { fullWidth = false, notchMode = "fillLeftOfNotch" },
+                    },
+                },
+            }
+
+            """
+            .utf8
         )
         .write(to: controller.settings.settingsFileURL.deletingLastPathComponent()
-            .appendingPathComponent("shell/shell.toml"))
+            .appendingPathComponent("shell/shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
 
-        manager.menuBarIsDark = { true }
+        manager.menuBarIsDark = true
         manager.apply([barSurface(itemCount: 1)])
         let fill = controller.settings.workspaceBar.resolved(for: monitor)
         XCTAssertEqual(fill.notchMode, .fillLeftOfNotch)
         let panel = try XCTUnwrap(manager.barsByMonitor[monitor.id]?.primary.panel)
         XCTAssertEqual(panel.appearance?.name, .darkAqua)
-        XCTAssertTrue(manager.usesDarkPalette(fill))
+        XCTAssertTrue(manager.usesDarkPalette(fill, on: monitor))
 
-        manager.menuBarIsDark = { false }
+        manager.menuBarIsDark = false
         manager.refreshMenuBarAppearance()
         XCTAssertEqual(panel.appearance, NSApplication.shared.appearance)
-        XCTAssertFalse(manager.usesDarkPalette(fill))
+        XCTAssertFalse(manager.usesDarkPalette(fill, on: monitor))
+    }
 
-        let island = WorkspaceBarSettings().resolved(for: monitor)
-        XCTAssertNotEqual(island.notchMode, .fillLeftOfNotch)
-        manager.menuBarIsDark = { true }
-        XCTAssertEqual(manager.barAppearance(for: island), NSApplication.shared.appearance)
-        XCTAssertFalse(manager.usesDarkPalette(island))
+    func testOnlyBarsDrawnOnTheVisibleMenuBarTakeItsAppearance() {
+        let previous = NSApplication.shared.appearance
+        NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        defer { NSApplication.shared.appearance = previous }
+        let manager = makeManager()
+        defer { manager.cleanup() }
+        manager.menuBarIsDark = true
+        let bar = controller.settings.workspaceBar
+        func appearance(on monitor: Monitor) -> NSAppearance.Name? {
+            manager.barAppearance(for: bar.resolved(for: monitor), on: monitor)?.name
+        }
+        let external = Monitor(
+            id: .init(displayId: 92_202), displayId: 92_202,
+            frame: CGRect(x: 0, y: 0, width: 3440, height: 1440),
+            visibleFrame: CGRect(x: 0, y: 0, width: 3440, height: 1410),
+            hasNotch: false, name: "External"
+        )
+
+        bar.position = .overlappingMenuBar
+        bar.fullWidth = false
+        bar.notchMode = .off
+        XCTAssertEqual(appearance(on: external), .darkAqua)
+
+        bar.notchMode = .moveBelowMenuBar
+        XCTAssertEqual(appearance(on: external), .darkAqua)
+        XCTAssertEqual(appearance(on: notchedMonitor), .aqua)
+
+        bar.fullWidth = true
+        XCTAssertEqual(appearance(on: external), .aqua)
+
+        bar.fullWidth = false
+        for position in [WorkspaceBarPosition.belowMenuBar, .bottom, .left, .right] {
+            bar.position = position
+            XCTAssertEqual(appearance(on: external), .aqua, "\(position)")
+        }
+
+        bar.position = .overlappingMenuBar
+        manager.menuBarIsDark = false
+        XCTAssertEqual(appearance(on: external), .aqua)
     }
 
     func testFillBarStepsAsideWhileNativeMenuBarItemsExpandOverIt() {
@@ -101,11 +148,23 @@ final class WorkspaceBarManagerTests: XCTestCase {
         try Data("function render(ctx) return ui.box{ w = 10 * #ctx.data.bar.workspaces, h = 10 } end".utf8)
             .write(to: widget.appendingPathComponent("init.luau"))
         try Data(
-            "profiles.default.leading = []\nprofiles.default.center = []\nprofiles.default.trailing = [\"count\"]\n[profiles.default.workspaceBar]\nfullWidth = false\n"
-                .utf8
+            """
+            return {
+                profiles = {
+                    default = {
+                        leading = {},
+                        center = {},
+                        trailing = { "count" },
+                        workspaceBar = { fullWidth = false },
+                    },
+                },
+            }
+
+            """
+            .utf8
         )
         .write(to: widget.deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("shell.toml"))
+            .appendingPathComponent("shell.luau"))
         let manager = makeManager()
         defer { manager.cleanup() }
         func width(after bar: DesiredBarSurface, is expected: CGFloat) async throws -> NSRect? {
@@ -333,14 +392,19 @@ final class WorkspaceBarManagerTests: XCTestCase {
 
     func testFirstApplyAfterTheShellStartsWaitsForBarsProjectedFromItsProfile() throws {
         let shell = controller.settings.settingsFileURL.deletingLastPathComponent()
-            .appendingPathComponent("shell/shell.toml")
+            .appendingPathComponent("shell/shell.luau")
         let profilePosition = WorkspaceBarPosition.left
         try Data("""
-        profiles.default.leading = []
-        profiles.default.center = []
-        profiles.default.trailing = []
-        profiles.default.workspaceBar.position = "\(profilePosition.rawValue)"
-        profiles.default.workspaceBar.fullWidth = true
+        return {
+            profiles = {
+                default = {
+                    leading = {},
+                    center = {},
+                    trailing = {},
+                    workspaceBar = { position = "\(profilePosition.rawValue)", fullWidth = true },
+                },
+            },
+        }
         """.utf8).write(to: shell)
         let manager = makeManager()
         defer { manager.cleanup() }
@@ -1153,6 +1217,15 @@ final class WorkspaceBarManagerTests: XCTestCase {
         )
     }
 
+    private var notchedMonitor: Monitor {
+        Monitor(
+            id: .init(displayId: 92_201), displayId: 92_201,
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 949),
+            hasNotch: true, notchRange: 663.5 ... 848.5, notchHeight: 33, name: "Notched"
+        )
+    }
+
     private var monitor: Monitor {
         Monitor(
             id: .init(displayId: 92_200), displayId: 92_200,
@@ -1195,9 +1268,8 @@ private final class WindowHeightEnforcingView: NSView {
         autoresizingMask = [.width, .height]
     }
 
-    @available(*, unavailable)
     required init?(coder _: NSCoder) {
-        fatalError("init(coder:) is not used")
+        nil
     }
 
     override func layout() {

@@ -23,7 +23,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
   OMNIWM_RELEASE_SIGNING_IDENTITY: "${{ vars.OMNIWM_RELEASE_SIGNING_IDENTITY || 'Developer ID Application: Oliver Nikolic (VF8LDJRGFM)' }}"
   OMNIWM_RELEASE_NOTARIZE_PROFILE: ${{ vars.OMNIWM_RELEASE_NOTARIZE_PROFILE || 'OmniWM-Notarize' }}
   OMNIWM_NOTARIZE_TIMEOUT: 30m

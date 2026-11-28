@@ -147,7 +147,7 @@ final class NiriBottomEdgePictureTests: XCTestCase {
                 viewPositions: sampleTarget ? [position, 0] : [0], revealMargin: 0
             ),
             activeIndex: active ? 0 : 1, viewPosition: 0, selectedNodeId: nil,
-            settledContentFrame: settled ? working : nil
+            isSettled: settled, tuckContentFrame: settled ? working : nil
         )
         var result = LayoutResult(frames: [:], hiddenHandles: [:])
         NiriLayoutEngine().layoutProjectedColumn(

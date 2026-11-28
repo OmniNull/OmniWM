@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 enum IPCCommandIntegerField {
     case workspaceNumber
@@ -9,177 +10,74 @@ enum IPCCommandIntegerField {
     case columnIndex
     case scratchpadIndex
     case windowIndex
+    case visibleContainerCount
 }
 
-enum IPCCommandArgumentSource {
-    enum CodingKeys: String, CodingKey {
-        case name
-        case arguments
-    }
+enum IPCCommandCodingKeys: String, CodingKey {
+    case name
+    case arguments
+}
 
-    case values([IPCCommandArgumentValue])
-    case json(KeyedDecodingContainer<CodingKeys>)
-
-    func requireNoArguments<Value>(_ value: Value) throws -> Value {
-        if case let .values(arguments) = self, !arguments.isEmpty {
-            throw IPCCommandRequestConstructionError.invalidArgumentCount
-        }
-        return value
-    }
-
-    func appID() throws -> String {
-        let value: String
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .appID(appID) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
+extension KeyedDecodingContainer where Key == IPCCommandCodingKeys {
+    func commandArguments(for name: IPCCommandName) throws -> [IPCCommandArgumentValue] {
+        switch try firstArgumentKind(for: name) {
+        case nil: return []
+        case .appID: return try [.appID(decode(IPCAppIDArguments.self, forKey: .arguments).appId)]
+        case .direction: return try [.direction(decode(IPCDirectionArguments.self, forKey: .arguments).direction)]
+        case .layout: return try [.layout(decode(IPCLayoutArguments.self, forKey: .arguments).layout)]
+        case .paletteMode: return try [.paletteMode(decode(IPCPaletteModeArguments.self, forKey: .arguments).mode)]
+        case .switcherDirection:
+            let values = try decode(IPCWindowSwitcherArguments.self, forKey: .arguments)
+            var arguments: [IPCCommandArgumentValue] = [.switcherDirection(values.direction)]
+            if let scope = values.scope {
+                arguments.append(.switcherScope(scope))
             }
-            value = appID
-        case let .json(container):
-            value = try container.decode(IPCAppIDArguments.self, forKey: .arguments).appId
-        }
-        guard !value.isEmpty else { throw IPCCommandRequestConstructionError.invalidArgumentType }
-        return value
-    }
-
-    func direction() throws -> IPCDirection {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .direction(value) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return value
-        case let .json(container):
-            return try container.decode(IPCDirectionArguments.self, forKey: .arguments).direction
+            return arguments
+        case .resizeAxis:
+            let values = try decode(IPCResizeArguments.self, forKey: .arguments)
+            return [.resizeAxis(values.axis), .resizeOperation(values.operation)]
+        case .resizeOperation:
+            return try [.resizeOperation(decode(IPCResizeOperationArguments.self, forKey: .arguments).operation)]
+        case .sizeChange: return try [.sizeChange(decode(IPCSizeChangeArguments.self, forKey: .arguments).change)]
+        case .workspaceNumber: return try workspaceArguments(for: name)
+        case .columnIndex: return try [.integer(decode(IPCColumnIndexArguments.self, forKey: .arguments).columnIndex)]
+        case .windowIndex: return try [.integer(decode(IPCWindowIndexArguments.self, forKey: .arguments).windowIndex)]
+        case .scratchpadIndex:
+            return try [.integer(decode(IPCScratchpadIndexArguments.self, forKey: .arguments).scratchpadIndex)]
+        case .visibleContainerCount:
+            return try [.integer(decode(IPCVisibleContainerCountArguments.self, forKey: .arguments)
+                    .visibleContainerCount)]
+        case .switcherScope: throw IPCCommandRequestConstructionError.invalidArgumentType
         }
     }
 
-    func layout() throws -> IPCWorkspaceLayout {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .layout(value) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return value
-        case let .json(container):
-            return try container.decode(IPCLayoutArguments.self, forKey: .arguments).layout
+    private func firstArgumentKind(for name: IPCCommandName) throws -> IPCCommandArgumentKind? {
+        let forms = IPCCommandForm.all
+        for index in forms.indices where forms[index].name == name {
+            return forms[index].arguments.first
         }
+        throw IPCCommandRequestConstructionError.invalidArgumentType
     }
 
-    func paletteMode() throws -> IPCCommandPaletteMode {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .paletteMode(value) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return value
-        case let .json(container):
-            return try container.decode(IPCPaletteModeArguments.self, forKey: .arguments).mode
-        }
-    }
-
-    func windowSwitcher() throws -> IPCCommandRequest {
-        switch self {
-        case let .values(arguments):
-            guard (1 ... 2).contains(arguments.count), case let .switcherDirection(direction) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            guard arguments.count == 2 else { return .windowSwitcher(direction: direction, scope: nil) }
-            guard case let .switcherScope(scope) = arguments[1] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return .windowSwitcher(direction: direction, scope: scope)
-        case let .json(container):
-            let arguments = try container.decode(IPCWindowSwitcherArguments.self, forKey: .arguments)
-            return .windowSwitcher(direction: arguments.direction, scope: arguments.scope)
-        }
-    }
-
-    func sizeChange() throws -> IPCSizeChange {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .sizeChange(value) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return value
-        case let .json(container):
-            return try container.decode(IPCSizeChangeArguments.self, forKey: .arguments).change
-        }
-    }
-
-    func resizeOperation() throws -> IPCResizeOperation {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .resizeOperation(value) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return value
-        case let .json(container):
-            return try container.decode(IPCResizeOperationArguments.self, forKey: .arguments).operation
-        }
-    }
-
-    func integer(_ field: IPCCommandIntegerField) throws -> Int {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 1, case let .integer(value) = arguments[0] else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return value
-        case let .json(container):
-            switch field {
-            case .workspaceNumber:
-                return try container.decode(IPCWorkspaceNumberArguments.self, forKey: .arguments).workspaceNumber
-            case .slotNumber:
-                return try container.decode(IPCSlotNumberArguments.self, forKey: .arguments).slotNumber
-            case .columnIndex:
-                return try container.decode(IPCColumnIndexArguments.self, forKey: .arguments).columnIndex
-            case .scratchpadIndex:
-                return try container.decode(IPCScratchpadIndexArguments.self, forKey: .arguments).scratchpadIndex
-            case .windowIndex:
-                return try container.decode(IPCWindowIndexArguments.self, forKey: .arguments).windowIndex
-            }
-        }
-    }
-
-    func workspaceAndDirection() throws -> (workspaceNumber: Int, direction: IPCDirection) {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 2,
-                  case let .integer(workspaceNumber) = arguments[0],
-                  case let .direction(direction) = arguments[1]
-            else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return (workspaceNumber, direction)
-        case let .json(container):
-            let arguments = try container.decode(IPCWorkspaceOnMonitorArguments.self, forKey: .arguments)
-            return (arguments.workspaceNumber, arguments.direction)
-        }
-    }
-
-    func resize() throws -> (axis: IPCResizeAxis, operation: IPCResizeOperation) {
-        switch self {
-        case let .values(arguments):
-            guard arguments.count == 2,
-                  case let .resizeAxis(axis) = arguments[0],
-                  case let .resizeOperation(operation) = arguments[1]
-            else {
-                throw IPCCommandRequestConstructionError.invalidArgumentType
-            }
-            return (axis, operation)
-        case let .json(container):
-            let arguments = try container.decode(IPCResizeArguments.self, forKey: .arguments)
-            return (arguments.axis, arguments.operation)
+    private func workspaceArguments(for name: IPCCommandName) throws -> [IPCCommandArgumentValue] {
+        switch name {
+        case .workspace(.switchSlot),
+             .workspace(.moveToSlot):
+            return try [.integer(decode(IPCSlotNumberArguments.self, forKey: .arguments).slotNumber)]
+        case .workspace(.moveToOnMonitor):
+            let values = try decode(IPCWorkspaceOnMonitorArguments.self, forKey: .arguments)
+            return [.integer(values.workspaceNumber), .direction(values.direction)]
+        default:
+            return try [.integer(decode(IPCWorkspaceNumberArguments.self, forKey: .arguments).workspaceNumber)]
         }
     }
 }
 
 struct IPCCommandArgumentWriter {
-    private var container: KeyedEncodingContainer<IPCCommandArgumentSource.CodingKeys>
+    private var container: KeyedEncodingContainer<IPCCommandCodingKeys>
 
     init(encoder: Encoder, name: String) throws {
-        container = encoder.container(keyedBy: IPCCommandArgumentSource.CodingKeys.self)
+        container = encoder.container(keyedBy: IPCCommandCodingKeys.self)
         try container.encode(name, forKey: .name)
     }
 
@@ -226,6 +124,8 @@ struct IPCCommandArgumentWriter {
             try container.encode(IPCScratchpadIndexArguments(scratchpadIndex: value), forKey: .arguments)
         case .windowIndex:
             try container.encode(IPCWindowIndexArguments(windowIndex: value), forKey: .arguments)
+        case .visibleContainerCount:
+            try container.encode(IPCVisibleContainerCountArguments(visibleContainerCount: value), forKey: .arguments)
         }
     }
 
@@ -298,4 +198,8 @@ private struct IPCResizeOperationArguments: Codable, Equatable, Sendable {
 
 private struct IPCSizeChangeArguments: Codable, Equatable, Sendable {
     let change: IPCSizeChange
+}
+
+private struct IPCVisibleContainerCountArguments: Codable, Equatable, Sendable {
+    let visibleContainerCount: Int
 }

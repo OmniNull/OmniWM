@@ -133,7 +133,7 @@ actor ShellWidgetSourceLoader {
         let prefix = layer.isEmpty ? "lib/" : layer + "/lib/"
         var shared: Set<String> = []
         let library = input.libraries.flatMap { library in
-            entries(in: library, directories: false).compactMap { file -> (URL, String)? in
+            entries(in: library, directories: false, sharedLibrary: true).compactMap { file -> (URL, String)? in
                 let name = String(file.standardizedFileURL.path.dropFirst(library.standardizedFileURL.path.count + 1))
                 return shared.insert(name).inserted ? (file, prefix + name) : nil
             }
@@ -166,7 +166,7 @@ actor ShellWidgetSourceLoader {
             result[file.path] = SettingsFileAccess.currentFingerprint(at: file.url)
         }
         if input.contained {
-            let url = input.sourceURL.deletingLastPathComponent().appendingPathComponent("settings.toml")
+            let url = input.sourceURL.deletingLastPathComponent().appendingPathComponent(ShellRootSettings.fileName)
             result[url.path] = SettingsFileAccess.currentFingerprint(at: url)
         }
         for url in ShellFontLibrary.folders(input.directories).flatMap(ShellFontLibrary.files(in:))
@@ -178,7 +178,7 @@ actor ShellWidgetSourceLoader {
             let names = Set(instances.map(\.widget) + components.map(\.widget))
             for name in names {
                 for directory in input.directories {
-                    let url = directory.appendingPathComponent("widgets/\(name)/component.toml")
+                    let url = directory.appendingPathComponent("widgets/\(name)/\(ShellComponentCatalog.manifestName)")
                     result[url.path] = SettingsFileAccess.currentFingerprint(at: url)
                 }
             }
@@ -186,25 +186,32 @@ actor ShellWidgetSourceLoader {
         return result
     }
 
-    static func entries(in folder: URL, directories: Bool) -> [URL] {
+    static func entries(in folder: URL, directories: Bool, sharedLibrary: Bool = false) -> [URL] {
         let resolved = folder.resolvingSymlinksInPath().standardizedFileURL
         let prefixLength = resolved.path.count + 1
         return FileManager.default.enumerator(
             at: resolved,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
-        )?
-            .compactMap { $0 as? URL }
-            .filter {
-                directories
-                    ? (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-                    : $0.pathExtension == "luau"
+        )?.compactMap { entry in
+            guard let url = entry as? URL else { return nil }
+            let relative = url.standardizedFileURL.path.dropFirst(prefixLength)
+            if directories {
+                guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { return nil }
+            } else {
+                guard url.pathExtension == "luau", sharedLibrary || !isMetadata(relative) else { return nil }
             }
-            .map {
-                folder.appendingPathComponent(
-                    String($0.standardizedFileURL.path.dropFirst(prefixLength)), isDirectory: directories
-                )
-            } ?? []
+            return folder.appendingPathComponent(String(relative), isDirectory: directories)
+        } ?? []
+    }
+
+    private static func isMetadata(_ relative: Substring) -> Bool {
+        let components = relative.split(separator: "/")
+        let path = components.first == "widgets" && components.count > 2 ? components.dropFirst(2) : components[...]
+        if path.count == 2 { return path[path.startIndex] == ShellStrings.folder }
+        guard path.count == 1, let name = path.first else { return false }
+        return name == ShellComponentCatalog.manifestName || name == ShellRootSettings.fileName ||
+            name == ShellStyleManifest.fileName
     }
 
     static func read(_ url: URL) throws -> String {

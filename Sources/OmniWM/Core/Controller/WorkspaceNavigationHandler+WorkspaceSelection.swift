@@ -6,15 +6,10 @@ import Foundation
 import OmniWMIPC
 
 extension WorkspaceNavigationHandler {
-    func switchWorkspace(index: Int, autoBackAndForth: Bool = false) {
-        guard let rawWorkspaceID = WorkspaceIDPolicy.rawID(from: max(0, index) + 1) else { return }
-        if autoBackAndForth, let current = controller?.activeWorkspace(), current.name == rawWorkspaceID,
-           canSkipSwitch(toVisibleWorkspace: current.id)
-        {
-            workspaceBackAndForth()
-            return
-        }
-        switchWorkspace(rawWorkspaceID: rawWorkspaceID)
+    @discardableResult
+    func switchWorkspace(index: Int, autoBackAndForth: Bool = false, anywhere: Bool = false) -> ExternalCommandResult {
+        guard index >= 0, index < Int.max else { return .invalidArguments }
+        return selectWorkspace(rawID: String(index + 1), anywhere: anywhere, autoBackAndForth: autoBackAndForth)
     }
 
     func canSkipSwitch(toVisibleWorkspace workspaceId: WorkspaceDescriptor.ID) -> Bool {
@@ -29,69 +24,69 @@ extension WorkspaceNavigationHandler {
         rawWorkspaceID: String,
         affectedWorkspaces: Set<WorkspaceDescriptor.ID> = []
     ) -> Bool {
-        guard let controller else { return false }
-        let currentWorkspace = controller.activeWorkspace()
-        if let currentWorkspace,
-           currentWorkspace.name == rawWorkspaceID,
-           canSkipSwitch(toVisibleWorkspace: currentWorkspace.id)
-        {
-            return false
-        }
-
-        if controller.settings.slideWorkspaceSwitchesUntracked, affectedWorkspaces.isEmpty,
-           let monitorId = interactionMonitorId(for: controller),
-           let currentWorkspace,
-           controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == monitorId,
-           let targetWorkspaceId = controller.workspaceManager.workspaceId(named: rawWorkspaceID),
-           controller.workspaceManager.monitor(for: targetWorkspaceId)?.id == monitorId,
-           controller.layoutRefreshController.workspaceSwipe.animateSwitch(
-               to: targetWorkspaceId, on: monitorId, isNext: nil
-           )
-        {
-            return true
-        }
-
-        if let currentWorkspace {
-            saveNiriViewportState(for: currentWorkspace.id)
-        }
-
-        guard let targetWorkspaceId = controller.workspaceManager.workspaceId(
-                  for: rawWorkspaceID,
-                  createIfMissing: false
-              ),
-              controller.workspaceManager.monitorForWorkspace(targetWorkspaceId) != nil
-        else {
-            return false
-        }
-
-        guard let result = controller.workspaceManager.focusWorkspace(named: rawWorkspaceID) else { return false }
-
-        commitWorkspaceTransitionFocusHandoff(
-            targetWorkspaceId: result.workspace.id,
-            monitor: result.monitor,
-            startScrollAnimation: false,
-            affectedWorkspaces: affectedWorkspaces
-        )
-        return true
+        selectWorkspace(rawID: rawWorkspaceID, affectedWorkspaces: affectedWorkspaces) == .executed
     }
 
+    private func selectWorkspace(
+        rawID: String,
+        anywhere: Bool = false,
+        autoBackAndForth: Bool = false,
+        affectedWorkspaces: Set<WorkspaceDescriptor.ID> = []
+    ) -> ExternalCommandResult {
+        guard let controller,
+              let targetId = controller.workspaceManager.workspaceId(named: rawID)
+        else { return .notFound }
+        let current = controller.activeWorkspace()
+        if let current, current.id == targetId, canSkipSwitch(toVisibleWorkspace: current.id) {
+            guard autoBackAndForth else { return .noChange }
+            workspaceBackAndForth()
+            return .executed
+        }
+        guard let targetMonitor = controller.workspaceManager.monitorForWorkspace(targetId) else { return .notFound }
+        if anywhere {
+            return focusWorkspaceAnywhere(targetId, on: targetMonitor, from: current, controller: controller)
+        }
+        if controller.settings.slideWorkspaceSwitchesUntracked, affectedWorkspaces.isEmpty,
+           let monitorId = interactionMonitorId(for: controller),
+           let current,
+           controller.workspaceManager.monitor(for: current.id)?.id == monitorId,
+           targetMonitor.id == monitorId,
+           controller.layoutRefreshController.workspaceSwipe.animateSwitch(to: targetId, on: monitorId, isNext: nil)
+        {
+            return .executed
+        }
+        if let current { saveNiriViewportState(for: current.id) }
+        guard let result = controller.workspaceManager.focusWorkspace(named: rawID) else { return .notFound }
+        commitWorkspaceTransitionFocusHandoff(
+            targetWorkspaceId: result.workspace.id, monitor: result.monitor, startScrollAnimation: false,
+            affectedWorkspaces: affectedWorkspaces
+        )
+        return .executed
+    }
+
+    struct SwitchOrigin {
+        let id: WorkspaceDescriptor.ID?
+    }
+
+    @discardableResult
     func switchWorkspaceRelative(
         isNext: Bool,
         wrapAround: Bool = true,
-        monitorId explicitMonitorId: Monitor.ID? = nil
-    ) {
-        guard let controller else { return }
+        monitorId explicitMonitorId: Monitor.ID? = nil,
+        interactionOrigin: @autoclosure () -> SwitchOrigin? = nil
+    ) -> SwitchOrigin? {
+        guard let controller else { return nil }
         guard let currentMonitorId = explicitMonitorId ?? interactionMonitorId(for: controller)
-        else { return }
+        else { return nil }
         let slides = controller.settings.slideWorkspaceSwitchesUntracked
         let pendingId = slides
             ? controller.layoutRefreshController.workspaceSwipe.pendingSwitchTarget(on: currentMonitorId)
             : nil
-        let resolvedWorkspace = pendingId.flatMap { controller.workspaceManager.descriptor(for: $0) }
-            ?? (explicitMonitorId == nil
-                ? controller.activeWorkspace()
-                : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
-        guard let currentWorkspace = resolvedWorkspace else { return }
+        let pendingWorkspace = pendingId.flatMap { controller.workspaceManager.descriptor(for: $0) }
+        let resolvedWorkspace = pendingWorkspace ?? (explicitMonitorId == nil
+            ? controller.activeWorkspace()
+            : controller.workspaceManager.activeWorkspaceOrFirst(on: currentMonitorId))
+        guard let currentWorkspace = resolvedWorkspace else { return nil }
         let skipEmpty = skipsEmptyWorkspaces(on: currentMonitorId)
 
         let targetWorkspace: WorkspaceDescriptor? = if isNext {
@@ -110,10 +105,14 @@ extension WorkspaceNavigationHandler {
             )
         }
 
-        guard let targetWorkspace else { return }
+        guard let targetWorkspace else { return nil }
+        let origin = pendingWorkspace == nil && explicitMonitorId == nil
+            ? SwitchOrigin(id: currentWorkspace.id)
+            : interactionOrigin()
         activateWorkspaceInOrder(
             targetWorkspace, from: currentWorkspace.id, on: currentMonitorId, isNext: isNext, animated: slides
         )
+        return origin
     }
 
     func switchWorkspaceBySwipe(isNext: Bool, monitorId: Monitor.ID) {
@@ -174,22 +173,26 @@ extension WorkspaceNavigationHandler {
     }
 
     @discardableResult
-    func switchWorkspaceSlot(_ slot: Int, autoBackAndForth: Bool = false) -> Bool {
+    func switchWorkspaceSlot(_ slot: Int) -> Bool {
+        switchWorkspaceSlotResult(slot, autoBackAndForth: false) == .executed
+    }
+
+    func switchWorkspaceSlotResult(_ slot: Int, autoBackAndForth: Bool) -> ExternalCommandResult {
+        guard slot >= 1 else { return .invalidArguments }
         guard let controller,
               let monitorId = interactionMonitorId(for: controller),
               let targetWorkspace = workspaceSlot(slot),
               let currentWorkspace = controller.workspaceManager.activeWorkspaceOrFirst(on: monitorId)
-        else { return false }
+        else { return .notFound }
         if currentWorkspace.id == targetWorkspace.id, canSkipSwitch(toVisibleWorkspace: targetWorkspace.id) {
-            if autoBackAndForth {
-                workspaceBackAndForth()
-            }
-            return false
+            guard autoBackAndForth else { return .noChange }
+            workspaceBackAndForth()
+            return .executed
         }
         return activateWorkspaceInOrder(
             targetWorkspace, from: currentWorkspace.id, on: monitorId,
             animated: controller.settings.slideWorkspaceSwitchesUntracked
-        )
+        ) ? .executed : .notFound
     }
 
     @discardableResult
@@ -238,14 +241,12 @@ extension WorkspaceNavigationHandler {
         }
     }
 
-    @discardableResult
-    func focusWorkspaceAnywhere(rawWorkspaceID: String) -> Bool {
-        guard let controller else { return false }
-        let currentWorkspace = controller.activeWorkspace()
-
-        guard let targetWsId = controller.workspaceManager.workspaceId(named: rawWorkspaceID) else { return false }
-        guard let targetMonitor = controller.workspaceManager.monitorForWorkspace(targetWsId) else { return false }
-
+    private func focusWorkspaceAnywhere(
+        _ targetWsId: WorkspaceDescriptor.ID,
+        on targetMonitor: Monitor,
+        from currentWorkspace: WorkspaceDescriptor?,
+        controller: WMController
+    ) -> ExternalCommandResult {
         if let currentWorkspace {
             saveNiriViewportState(for: currentWorkspace.id)
         }
@@ -258,7 +259,7 @@ extension WorkspaceNavigationHandler {
             }
         }
 
-        guard controller.workspaceManager.setActiveWorkspace(targetWsId, on: targetMonitor.id) else { return false }
+        guard controller.workspaceManager.setActiveWorkspace(targetWsId, on: targetMonitor.id) else { return .notFound }
 
         controller.syncMonitorsToNiriEngine()
 
@@ -267,32 +268,34 @@ extension WorkspaceNavigationHandler {
             monitor: targetMonitor,
             startScrollAnimation: false
         )
-        return true
+        return .executed
     }
 
-    func workspaceBackAndForth() {
-        guard let controller else { return }
+    @discardableResult
+    func workspaceBackAndForth() -> SwitchOrigin? {
+        guard let controller else { return nil }
         guard let currentMonitorId = interactionMonitorId(for: controller)
-        else { return }
+        else { return nil }
 
         guard let prevWorkspace = controller.workspaceManager.previousWorkspace(on: currentMonitorId) else {
-            return
+            return nil
         }
 
         let currentWorkspace = controller.activeWorkspace()
+        let origin = SwitchOrigin(id: currentWorkspace?.id)
         if controller.settings.slideWorkspaceSwitchesUntracked, let currentWorkspace,
            controller.workspaceManager.monitor(for: currentWorkspace.id)?.id == currentMonitorId,
            controller.workspaceManager.monitor(for: prevWorkspace.id)?.id == currentMonitorId
         {
             activateWorkspaceInOrder(prevWorkspace, from: currentWorkspace.id, on: currentMonitorId, animated: true)
-            return
+            return origin
         }
         if let currentWorkspace {
             saveNiriViewportState(for: currentWorkspace.id)
         }
 
         guard controller.workspaceManager.setActiveWorkspace(prevWorkspace.id, on: currentMonitorId) else {
-            return
+            return origin
         }
 
         let monitor = controller.workspaceManager.monitor(for: prevWorkspace.id)
@@ -302,6 +305,7 @@ extension WorkspaceNavigationHandler {
             monitor: monitor,
             startScrollAnimation: false
         )
+        return origin
     }
 
     func resolveOrCreateAdjacentWorkspace(

@@ -88,12 +88,18 @@ final class WorkspaceProjectionCache {
         return descriptions
     }
 
-    func workspaceIdsByMonitor() -> [Monitor.ID: [WorkspaceDescriptor.ID]] {
+    func cachedAssignedMonitor(for workspace: WorkspaceDescriptor.ID) -> Monitor.ID? {
+        _cachedWorkspaceIdsByMonitor?.first(where: { $0.value.contains(workspace) })?.key
+    }
+
+    func workspaceIdsByMonitor(
+        context: @autoclosure () -> WorkspaceManager.MonitorResolutionContext? = nil
+    ) -> [Monitor.ID: [WorkspaceDescriptor.ID]] {
         if let cached = _cachedWorkspaceIdsByMonitor {
             return cached
         }
 
-        let context = manager.monitorResolutionContext()
+        let context = context() ?? manager.monitorResolutionContext()
         var workspaceIdsByMonitor: [Monitor.ID: [WorkspaceDescriptor.ID]] = [:]
         for workspace in manager.sortedWorkspaces() {
             guard let monitorId = manager.effectiveMonitor(for: workspace.id, context: context)?.id else { continue }

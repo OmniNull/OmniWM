@@ -71,6 +71,9 @@ extension DwindleLayoutEngine {
             interactiveMoveCancel()
         }
 
+        if let onFullscreenChange {
+            for token in fullscreenTokens(in: workspaceId) { onFullscreenChange(token, true) }
+        }
         let root = state.root
         for child in root.children {
             child.parent = nil

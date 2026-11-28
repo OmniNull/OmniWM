@@ -12,7 +12,7 @@ final class NiriOverscrollSettingsTests: XCTestCase {
         var export = SettingsExport.defaults()
         export.niri.allowOverscroll = nil
         export.niri.overscrollVisibleStripPercent = nil
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         let settings = NiriSettings()
         settings.allowOverscroll = true
         settings.overscrollVisibleStripPercent = 25
@@ -29,10 +29,10 @@ final class NiriOverscrollSettingsTests: XCTestCase {
         export.monitorNiriSettings = [
             MonitorNiriSettings(monitorName: "Portrait", allowOverscroll: false, overscrollVisibleStripPercent: 30)
         ]
-        let data = try SettingsTOMLCodec.encode(export)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let decoded = try SettingsLuauFixture.decode(data)
         XCTAssertEqual(decoded, export)
-        XCTAssertFalse(SettingsTOMLCodec.unknownKeyPaths(in: data).contains { $0.contains("verscroll") })
+        XCTAssertNoThrow(try SettingsLuauFixture.decode(data))
         let settings = NiriSettings()
         settings.apply(decoded.niri, baseline: .defaults())
         XCTAssertEqual(settings.edgeOverscroll, .enabled(visibleFraction: 0.15))

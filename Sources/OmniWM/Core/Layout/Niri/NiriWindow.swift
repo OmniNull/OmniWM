@@ -277,43 +277,6 @@ final class NiriWindow: NiriNode {
         widthAnimation = MoveAnimation(animation: consume anim, fromOffset: delta + renderWidthOffset(at: now))
     }
 
-    func tickMoveAnimations(at time: TimeInterval) -> Bool {
-        var running = false
-        let sizeCompletion = sizeAnimations?.completion(at: time)
-        if let widthComplete = sizeCompletion?.width {
-            if widthComplete {
-                widthAnimation = nil
-            } else {
-                running = true
-            }
-        }
-        if let heightComplete = sizeCompletion?.height {
-            if heightComplete {
-                heightAnimation = nil
-            } else {
-                running = true
-            }
-        }
-        if let moveX = moveXAnimation {
-            if moveX.isComplete(at: time) {
-                moveXAnimation = nil
-                if columnExitOrientation == .vertical { columnExitOrientation = nil }
-            } else {
-                running = true
-            }
-        }
-        if let moveY = moveYAnimation {
-            if moveY.isComplete(at: time) {
-                moveYAnimation = nil
-                moveYContainmentFrame = nil
-                if columnExitOrientation == .horizontal { columnExitOrientation = nil }
-            } else {
-                running = true
-            }
-        }
-        return running
-    }
-
     func stopMoveAnimations() {
         if moveXAnimation != nil {
             moveXAnimation = nil
@@ -336,6 +299,74 @@ final class NiriWindow: NiriNode {
 }
 
 extension NiriWindow {
+    struct AnimationAxes: OptionSet {
+        let rawValue: UInt8
+
+        static let horizontal = Self(rawValue: 1 << 0)
+        static let vertical = Self(rawValue: 1 << 1)
+
+        static func primary(for orientation: Monitor.Orientation) -> Self {
+            orientation == .horizontal ? .horizontal : .vertical
+        }
+    }
+
+    var animationAxes: AnimationAxes {
+        var axes = Self.sizeAnimationAxes(sizeAnimations)
+        if moveXAnimation != nil { axes.insert(.horizontal) }
+        if moveYAnimation != nil { axes.insert(.vertical) }
+        return axes
+    }
+
+    private static func sizeAnimationAxes(_ animations: borrowing SizeAnimations?) -> AnimationAxes {
+        switch animations {
+        case .width: .horizontal
+        case .height: .vertical
+        case .both: [.horizontal, .vertical]
+        case nil: []
+        }
+    }
+
+    func tickMoveAnimations(at time: TimeInterval) -> Bool {
+        !advanceMoveAnimations(at: time).isEmpty
+    }
+
+    func advanceMoveAnimations(at time: TimeInterval) -> AnimationAxes {
+        var running: AnimationAxes = []
+        let sizeCompletion = sizeAnimations?.completion(at: time)
+        if let widthComplete = sizeCompletion?.width {
+            if widthComplete {
+                widthAnimation = nil
+            } else {
+                running.insert(.horizontal)
+            }
+        }
+        if let heightComplete = sizeCompletion?.height {
+            if heightComplete {
+                heightAnimation = nil
+            } else {
+                running.insert(.vertical)
+            }
+        }
+        if let moveX = moveXAnimation {
+            if moveX.isComplete(at: time) {
+                moveXAnimation = nil
+                if columnExitOrientation == .vertical { columnExitOrientation = nil }
+            } else {
+                running.insert(.horizontal)
+            }
+        }
+        if let moveY = moveYAnimation {
+            if moveY.isComplete(at: time) {
+                moveYAnimation = nil
+                moveYContainmentFrame = nil
+                if columnExitOrientation == .horizontal { columnExitOrientation = nil }
+            } else {
+                running.insert(.vertical)
+            }
+        }
+        return running
+    }
+
     private static func sizeAnimations(
         height: consuming MoveAnimation?,
         width: consuming MoveAnimation?

@@ -60,7 +60,8 @@ struct BorderConfig: Equatable {
         case .normal: nil
         case .paused: SettingsColor(red: 1, green: 0.584, blue: 0, alpha: 1)
         case .prefix,
-             .window: SettingsColor(red: 0.204, green: 0.78, blue: 0.349, alpha: 1)
+             .window,
+             .named: SettingsColor(red: 0.204, green: 0.78, blue: 0.349, alpha: 1)
         }
     }
 

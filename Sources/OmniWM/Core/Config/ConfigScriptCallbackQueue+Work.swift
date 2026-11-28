@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+import OmniWMScriptHost
+
+extension ConfigScriptCallbackQueue {
+    static let edgeCapacity = Int(OMNI_CONFIG_COMMAND_LIMIT)
+    static let windowStateCapacity = Int(OMNI_CONFIG_COMMAND_LIMIT)
+
+    static func combined(
+        _ current: ConfigScriptListenerMask?,
+        _ additional: ConfigScriptListenerMask
+    ) -> ConfigScriptListenerMask {
+        guard var current else { return additional }
+        current.formUnion(additional)
+        return current
+    }
+
+    static func windowKey(
+        _ kind: ConfigScriptEventKind, _ argument: borrowing ConfigScriptNativeEvent
+    ) -> WindowStateKey? {
+        guard case let .window(token, _, epoch) = argument.id else { return nil }
+        return .window(kind, token, epoch)
+    }
+
+    enum WindowStateKey: Hashable {
+        case window(ConfigScriptEventKind, WindowToken, UInt64)
+    }
+
+    struct Listener {
+        let function: Int
+        let index: Int
+    }
+
+    struct Declaration {
+        let fullQueueDiagnostic: String
+        let reads: ConfigScriptReads
+    }
+
+    struct EventReads {
+        var all: ConfigScriptReads = []
+        var readers: [(function: Int, reads: ConfigScriptReads)] = []
+
+        func demand(excluding functions: ConfigScriptListenerMask) -> ConfigScriptReads {
+            if functions.isEmpty { return all }
+            var demand: ConfigScriptReads = []
+            for reader in readers where !functions.contains(reader.function) { demand.formUnion(reader.reads) }
+            return demand
+        }
+    }
+
+    enum Trigger {
+        case function(Int, ConfigScriptCapture)
+        case title(ConfigScriptWindowTitle)
+        case causedTitle(ConfigScriptWindowTitle, excluding: ConfigScriptListenerMask)
+        case event(
+            ConfigScriptEventKind,
+            ConfigScriptNativeEvent,
+            excluding: ConfigScriptListenerMask?,
+            capture: ConfigScriptCapture?
+        )
+    }
+
+    struct Work {
+        var trigger: Trigger
+        var missed: UInt64 = 0
+        var focus: ConfigScriptFocusBaseline?
+    }
+
+    struct InFlight {
+        var capture: ConfigScriptCapture?
+        var event: ConfigScriptQueuedEvent?
+        var missed: UInt64 = 0
+        var excluded: ConfigScriptListenerMask?
+        var listenerIndex = 0
+        var listeners: ArraySlice<Listener>?
+
+        var cause: ConfigScriptEventCause {
+            ConfigScriptEventCause(function: listenerIndex, ancestors: excluded ?? [])
+        }
+
+        mutating func nextListener() -> Int? {
+            while let function = listeners?.popFirst() {
+                if excluded?.contains(function.index) != true {
+                    listenerIndex = function.index
+                    return function.function
+                }
+            }
+            return nil
+        }
+
+        mutating func nextEventArgument() -> ConfigScriptQueuedEvent? {
+            if listeners?.isEmpty == false { return event }
+            return event.take()
+        }
+    }
+}

@@ -29,7 +29,7 @@ extension ShellDesktopEditorTests {
         let fixture = try await fixture()
         let directory = fixture.shell.appendingPathComponent("lake/widgets/broken-entry")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data("title = [invalid".utf8).write(to: directory.appendingPathComponent("component.toml"))
+        try Data("title = [invalid".utf8).write(to: directory.appendingPathComponent("component.manifest.luau"))
         try await fixture.configuration.refresh()
         await fixture.editor.reload()
         let entry = try XCTUnwrap(fixture.editor.libraryEntries(.island).first { $0.name == "broken-entry" })
@@ -95,7 +95,7 @@ extension ShellDesktopEditorTests {
         XCTAssertTrue(selected)
         let destination = editor.destination
         let members = editor.drawerMembers("dashboard")
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         try Data("[invalid".utf8).write(to: file)
         let invalid = try Data(contentsOf: file)
@@ -133,8 +133,8 @@ extension ShellDesktopEditorTests {
             host.stop()
         }
         XCTAssertEqual(editor.status(for: "clock")?.state, "loading")
-        let file = fixture.shell.appendingPathComponent("default/widgets/clock/settings.toml")
-        try Data("[options.invalid".utf8).write(to: file)
+        let file = fixture.shell.appendingPathComponent("default/widgets/clock/settings.luau")
+        try Data("return { options =".utf8).write(to: file)
         try await fixture.configuration.refresh()
         await editor.reload()
         XCTAssertNotNil(fixture.configuration.metadataError)

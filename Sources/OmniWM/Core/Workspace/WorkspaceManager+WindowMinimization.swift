@@ -17,7 +17,8 @@ extension WorkspaceManager {
     func setWindowMinimized(
         _ minimized: Bool,
         token: WindowToken,
-        source: WMEventSource = .ax
+        source: WMEventSource = .ax,
+        publishesEvent: Bool = true
     ) -> Bool {
         guard let (workspaceId, isMinimized) = withEntry(token, { ($0.workspaceId, $0.observedState.isMinimized) }),
               isMinimized != minimized
@@ -26,16 +27,23 @@ extension WorkspaceManager {
             guard hostedFamilyRoot(for: token) == parent,
                   withEntry(parent, { $0.observedState.isMinimized }) == minimized else { return false }
         }
-        let txn = recordReconcileEvent(.windowMinimizedChanged(
-            token: token,
-            workspaceId: workspaceId,
-            minimized: minimized,
-            source: source
-        ))
-        if txn.plan.focusSession != nil {
-            notifySessionStateChanged()
+        func commit() {
+            let txn = recordReconcileEvent(.windowMinimizedChanged(
+                token: token,
+                workspaceId: workspaceId,
+                minimized: minimized,
+                source: source
+            ))
+            if txn.plan.focusSession != nil {
+                notifySessionStateChanged()
+            }
+            drainPendingRuntimeMonitorOverrideClears()
         }
-        drainPendingRuntimeMonitorOverrideClears()
+        if let observer = scriptWindowMinimizeObserver, publishesEvent {
+            observer.commitMinimization(of: token, minimized: minimized, in: self, commit: commit)
+        } else {
+            commit()
+        }
         return true
     }
 

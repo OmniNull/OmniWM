@@ -52,6 +52,10 @@ extension WindowModel {
             model.windows(in: workspace)
         }
 
+        func tokens(in workspace: WorkspaceDescriptor.ID) -> [WindowToken] {
+            model.tokens(in: workspace)
+        }
+
         func forEachToken(in workspace: WorkspaceDescriptor.ID, _ body: (WindowToken) -> Void) {
             model.forEachToken(in: workspace, body)
         }
@@ -60,8 +64,16 @@ extension WindowModel {
             model.forEachToken(body)
         }
 
+        func collectStandardWindowTokens(into tokens: inout [WindowToken]) {
+            model.collectStandardWindowTokens(into: &tokens)
+        }
+
         func windowCount(in workspace: WorkspaceDescriptor.ID) -> Int {
             model.windowCount(in: workspace)
+        }
+
+        func tokens(in workspace: WorkspaceDescriptor.ID, mode: TrackedWindowMode) -> [WindowToken] {
+            model.tokens(in: workspace, mode: mode)
         }
 
         func windows(in workspace: WorkspaceDescriptor.ID, mode: TrackedWindowMode) -> [WindowState] {
@@ -88,15 +100,13 @@ extension WindowModel {
             model.forEachWindowForLayoutSnapshot(in: workspace, mode: mode, body)
         }
 
-        func firstWindow(
+        func firstToken(
             in workspace: WorkspaceDescriptor.ID,
             mode: TrackedWindowMode,
-            where predicate: (WindowState) -> Bool
-        ) -> WindowState? {
-            for token in model.tokens(in: workspace, mode: mode) {
-                if let entry = model.entry(for: token), predicate(entry) {
-                    return entry
-                }
+            where predicate: (borrowing WindowState) -> Bool
+        ) -> WindowToken? {
+            for token in model.tokens(in: workspace, mode: mode) where model.withEntry(token, predicate) == true {
+                return token
             }
             return nil
         }
@@ -119,6 +129,10 @@ extension WindowModel {
 
         func withEntry<Result>(_ token: WindowToken, _ read: (borrowing WindowState) -> Result) -> Result? {
             model.withEntry(token, read)
+        }
+
+        func tiledAdmission(of token: WindowToken, in workspace: WorkspaceDescriptor.ID) -> UInt64? {
+            model.withEntry(token) { $0.workspaceId == workspace && $0.mode == .tiling ? $0.admission : nil } ?? nil
         }
 
         func withEntry<Result>(forWindowId windowId: Int, _ read: (borrowing WindowState) -> Result) -> Result? {
@@ -183,6 +197,23 @@ extension WindowModel {
 
         func observedSizeEvidence(for token: WindowToken) -> ObservedSizeEvidence? {
             model.observedSizeEvidence(for: token)
+        }
+    }
+}
+
+extension WindowModel {
+    static func scanStandardWindowTokens(
+        _ entries: inout [WindowToken: WindowState], into tokens: inout [WindowToken]
+    ) {
+        func isStandard(_ entry: inout WindowState) -> Bool {
+            entry.layoutReason == .standard
+        }
+        tokens.removeAll(keepingCapacity: true)
+        tokens.reserveCapacity(entries.count)
+        var index = entries.startIndex
+        while index != entries.endIndex {
+            if isStandard(&entries.values[index]) { tokens.append(entries.keys[index]) }
+            entries.formIndex(after: &index)
         }
     }
 }

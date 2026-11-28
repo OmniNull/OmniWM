@@ -28,6 +28,7 @@ struct MonitorSetupMouseWarpStep: View {
                         MonitorSetupBadge(text: String(localized: "Recommended"))
                     }
                 }
+                .settingsField(.mouseWarpEnabled)
 
                 Text(
                     "When the pointer reaches a display edge, OmniWM moves it to the matching edge of the neighboring display."

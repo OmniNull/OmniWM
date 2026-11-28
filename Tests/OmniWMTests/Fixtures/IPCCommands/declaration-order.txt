@@ -58,6 +58,7 @@ reset-window-secondary-span
 set-container-primary-span
 set-window-primary-span
 set-window-secondary-span
+set-visible-containers
 swap-workspace-with-monitor
 balance-sizes
 move-to-root
@@ -65,6 +66,7 @@ toggle-split
 swap-split
 resize
 resize-focused
+resize-direction
 preselect
 preselect-clear
 open-command-palette
@@ -97,5 +99,6 @@ close-focused-window
 scratchpad-assign
 scratchpad-toggle
 open-menu-anywhere
+open-settings
 app-open
 app-new-window

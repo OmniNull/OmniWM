@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
-import TOML
 
 struct ShellBarShader: Equatable {
     static let valueCount = SIMD4<Float>.scalarCount
@@ -11,18 +10,19 @@ struct ShellBarShader: Equatable {
     var fps = 30
     var values = SIMD4<Float>.zero
 
-    static func parse(_ node: TOMLNode?, problems: inout [String]) -> Self? {
+    static func parse(_ node: SettingsLuauValue?, problems: inout [String]) -> Self? {
         guard let node else { return nil }
-        guard case let .table(table) = node else {
-            ShellConfig.report("shell.toml: [barShader] must be a table", &problems)
+        guard case let .record(table) = node else {
+            ShellConfig.report("shell.luau: barShader must be a table", &problems)
             return nil
         }
         for key in table.keys.sorted() where !["enabled", "source", "fps", "values"].contains(key) {
-            ShellConfig.report("shell.toml: [barShader] has unknown key \(key)", &problems)
+            let path = SettingsLuauValue.fieldPath(key, in: "barShader")
+            ShellConfig.report("shell.luau: \(path) is an unknown key", &problems)
         }
         if let enabled = table["enabled"] {
             guard case let .boolean(value) = enabled else {
-                ShellConfig.report("shell.toml: [barShader] enabled must be a boolean", &problems)
+                ShellConfig.report("shell.luau: barShader.enabled must be a boolean", &problems)
                 return nil
             }
             if !value { return nil }
@@ -30,17 +30,17 @@ struct ShellBarShader: Equatable {
         guard case let .string(source)? = table["source"], !source.isEmpty,
               !source.hasPrefix("."), !source.contains("/"), source.hasSuffix(".metal")
         else {
-            ShellConfig.report("shell.toml: [barShader] source must be a shader filename ending in .metal", &problems)
+            ShellConfig.report("shell.luau: barShader.source must be a shader filename ending in .metal", &problems)
             return nil
         }
         guard let fps = frameRate(table["fps"]) else {
-            ShellConfig.report("shell.toml: [barShader] fps must be an integer between 0 and 60", &problems)
+            ShellConfig.report("shell.luau: barShader.fps must be an integer between 0 and 60", &problems)
             return nil
         }
         var shader = Self(source: source, fps: fps)
         if let node = table["values"] {
             guard let values = parameters(node) else {
-                ShellConfig.report("shell.toml: [barShader] values must contain up to four finite numbers", &problems)
+                ShellConfig.report("shell.luau: barShader.values must contain up to four finite numbers", &problems)
                 return nil
             }
             shader.values = values
@@ -48,15 +48,15 @@ struct ShellBarShader: Equatable {
         return shader
     }
 
-    private static func frameRate(_ node: TOMLNode?) -> Int? {
+    private static func frameRate(_ node: SettingsLuauValue?) -> Int? {
         guard let node else { return 30 }
         guard let value = ShellConfig.number(node), value.isFinite,
               (0 ... 60).contains(value), value.rounded() == value else { return nil }
         return Int(value)
     }
 
-    private static func parameters(_ node: TOMLNode) -> SIMD4<Float>? {
-        guard case let .array(nodes) = node, nodes.count <= valueCount else { return nil }
+    private static func parameters(_ node: SettingsLuauValue) -> SIMD4<Float>? {
+        guard let nodes = node.shellArray, nodes.count <= valueCount else { return nil }
         var values = SIMD4<Float>.zero
         for (index, node) in nodes.enumerated() {
             guard let value = ShellConfig.number(node), value.isFinite, Float(value).isFinite else { return nil }
@@ -88,9 +88,8 @@ final class ShellBarShaderView: NSView {
         wantsLayer = true
     }
 
-    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+        nil
     }
 
     func update(program: ShellShaderProgram, input: ShellShaderInput, paused: Bool) {

@@ -22,7 +22,7 @@ final class WorkspaceBarEdgePositionTests: XCTestCase {
                 MonitorBarSettings(monitorName: monitor.name, position: position),
                 MonitorBarSettings(monitorName: "Inherited")
             ]
-            let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+            let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
             XCTAssertEqual(decoded.workspaceBar.position, position)
             XCTAssertEqual(decoded.monitorBarSettings.map(\.position), [position, nil])
         }

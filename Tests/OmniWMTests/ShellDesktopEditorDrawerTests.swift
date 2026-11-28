@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 @MainActor
@@ -130,7 +129,7 @@ extension ShellDesktopEditorTests {
     func testFailedDrawerAddKeepsSelectionConfigurationAndProblem() async throws {
         let fixture = try await drawerFixture()
         let editor = fixture.editor
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let original = try Data(contentsOf: file)
         let selection = editor.selectedDrawer
         try Data("[invalid".utf8).write(to: file)
@@ -161,11 +160,11 @@ extension ShellDesktopEditorTests {
         await fixture.editor.reload()
     }
 
-    func outsideProfile(_ profile: String, _ value: [String: TOMLNode]) -> [String: TOMLNode] {
+    func outsideProfile(_ profile: String, _ value: [String: SettingsLuauValue]) -> [String: SettingsLuauValue] {
         var value = value
-        if case var .table(profiles)? = value["profiles"] {
+        if case var .record(profiles)? = value["profiles"] {
             profiles[profile] = nil
-            value["profiles"] = .table(profiles)
+            value["profiles"] = .record(profiles)
         }
         return value
     }

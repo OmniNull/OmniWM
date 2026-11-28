@@ -6,7 +6,6 @@ import CoreText
 @testable import OmniWM
 import OmniWMScriptHost
 import OmniWMShellCore
-import TOML
 import XCTest
 
 @MainActor
@@ -97,10 +96,10 @@ final class ShellVitreusDeskTests: XCTestCase {
         end
         """)
         XCTAssertEqual(strings, ["foreground/1.000", "accent/0.000", "secondaryContainer/0.360", "error/0.000"])
-        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.toml")
+        let url = try ShellStyleFixture.source("vitreus").appendingPathComponent("themes/vitreus.luau")
         var problems: [String] = []
         let theme = try ShellTheme(
-            toml: TOMLDecoder().decode([String: TOMLNode].self, from: Data(contentsOf: url)),
+            values: ShellLuauFixture.table(at: url),
             name: "vitreus", problems: &problems
         )
         XCTAssertEqual(problems, [])

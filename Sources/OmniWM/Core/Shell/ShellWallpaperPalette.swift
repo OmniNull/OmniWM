@@ -64,22 +64,37 @@ enum ShellWallpaperPalette {
     static func theme(pixels: [UInt32], scheme: ShellWallpaperScheme) -> String {
         let seed = pixels.withUnsafeBufferPointer { omni_material_seed($0.baseAddress, $0.count, 0) }
         let (source, variant) = seed == 0 ? (gray, OMNI_MATERIAL_MONOCHROME) : (seed, scheme.variant)
-        var text = ""
+        var text = "return {\n"
         for (name, dark) in [("light", false), ("dark", true)] {
             let colors = ShellMaterialPalette.colors(seed: source, variant: variant, dark: dark)
-            text += text.isEmpty ? "[\(name)]\n" : "\n[\(name)]\n"
+            text += "    \(name) = {\n"
             for role in ShellRole.allCases {
                 guard let color = colors[role] else { continue }
-                text += "\(role) = \"#\(String(format: "%06X", color))\"\n"
+                text += "        \(role) = \"#\(String(format: "%06X", color))\",\n"
             }
+            text += "    },\n"
         }
-        return text
+        return text + "}\n"
     }
 
-    static func write(_ text: String, to url: URL) throws -> Bool {
-        guard (try? Data(contentsOf: url)) != Data(text.utf8) else { return false }
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(text.utf8).write(to: url, options: .atomic)
+    static func write(_ text: String, to url: URL, onlyIfMissing: Bool = false) throws -> Bool {
+        let data = Data(text.utf8)
+        guard (try? Data(contentsOf: url)) != data else { return false }
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        if !onlyIfMissing {
+            try data.write(to: url, options: .atomic)
+            return true
+        }
+
+        let temporary = directory.appendingPathComponent(".wallpaper-\(UUID().uuidString).tmp")
+        try data.write(to: temporary, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        guard renamex_np(temporary.path, url.path, UInt32(RENAME_EXCL)) == 0 else {
+            let code = POSIXErrorCode(rawValue: errno) ?? .EIO
+            if code == .EEXIST { return false }
+            throw POSIXError(code)
+        }
         return true
     }
 }
@@ -103,14 +118,36 @@ extension ShellWallpaperPalette {
         let modified: Date
     }
 
+    enum WallpaperWindow: Sendable {
+        case system
+        case other
+        case unavailable
+    }
+
     struct StillProbe: Sendable {
-        let showsWallpaperWindow: Bool
+        let window: WallpaperWindow
         let location: (display: String, space: String)?
     }
 
     enum Source: Equatable, Sendable {
         case still(StillWallpaper, aerial: Bool)
-        case capture(aerial: Bool)
+        case capture(aerial: Bool, fallbackFile: URL? = nil)
+    }
+
+    enum FileFallback: Sendable {
+        case automatic
+        case appKit
+        case file(URL)
+    }
+
+    struct ScreenImage {
+        let image: CGImage
+        let onlyIfMissing: Bool
+
+        init(_ image: CGImage, onlyIfMissing: Bool = false) {
+            self.image = image
+            self.onlyIfMissing = onlyIfMissing
+        }
     }
 
     @MainActor
@@ -123,24 +160,24 @@ extension ShellWallpaperPalette {
         location: (CGDirectDisplayID) -> (display: String, space: String)? = { ShellWallpaperPalette.location(of: $0) }
     ) -> StillProbe {
         StillProbe(
-            showsWallpaperWindow: showsWallpaperWindow(windows(), frame: frame ?? CGDisplayBounds(displayId)),
+            window: wallpaperWindow(in: windows(), frame: frame ?? CGDisplayBounds(displayId)),
             location: location(displayId)
         )
     }
 
     static func source(_ probe: StillProbe, store: Data?, aerials: URL = Self.aerials) -> Source {
-        guard let location = probe.location,
-              let choice = desktopChoice(store: store, location: location, aerials: aerials)
+        guard let choice = desktopChoice(store: store, location: probe.location, aerials: aerials)
         else { return .capture(aerial: false) }
         switch choice {
         case let .aerial(_, thumbnail):
-            guard probe.showsWallpaperWindow, let thumbnail, let still = stamp(thumbnail) else {
+            guard probe.window == .system, let thumbnail, let still = stamp(thumbnail) else {
                 return .capture(aerial: true)
             }
             return .still(still, aerial: true)
         case let .file(chosen):
-            guard probe.showsWallpaperWindow, isSingleImage(chosen), let still = stamp(chosen)
+            guard probe.window != .other, isSingleImage(chosen), let still = stamp(chosen)
             else { return .capture(aerial: false) }
+            if probe.window == .unavailable { return .capture(aerial: false, fallbackFile: still.url) }
             return .still(still, aerial: false)
         case .shuffle,
              .other:
@@ -171,23 +208,37 @@ extension ShellWallpaperPalette {
     static func screenImage(
         for displayId: CGDirectDisplayID,
         aerial: Bool,
-        capture: (CGDirectDisplayID) -> CGImage? = { displayId in
-            guard ScreenCapturePermissionMonitor.shared.isGranted else { return nil }
-            let frame = CGDisplayBounds(displayId)
-            return SkyLight.shared.captureWallpaper(in: frame).flatMap {
-                $0.width >= Int(ceil(frame.width)) && $0.height >= Int(ceil(frame.height)) ? $0 : nil
-            }
-        },
-        fallback: (CGDirectDisplayID) -> CGImage? = {
-            OverviewWallpaperCache().image(for: $0, maxPixelSize: ShellWallpaperPalette.pixelSize)
+        fileFallback: FileFallback = .automatic,
+        frame: CGRect? = nil,
+        canCapture: Bool = ScreenCapturePermissionMonitor.shared.isGranted,
+        capture: (CGRect) -> CGImage? = { SkyLight.shared.captureWallpaper(in: $0) },
+        makeCache: () -> OverviewWallpaperCache = { OverviewWallpaperCache() }
+    ) -> ScreenImage? {
+        if aerial {
+            guard canCapture else { return nil }
+            let frame = frame ?? CGDisplayBounds(displayId)
+            guard let image = capture(frame),
+                  image.width >= Int(ceil(frame.width)), image.height >= Int(ceil(frame.height))
+            else { return nil }
+            return ScreenImage(image)
         }
-    ) -> CGImage? {
-        aerial ? capture(displayId) : fallback(displayId)
+        let cache = makeCache()
+        let frame = frame ?? CGDisplayBounds(displayId)
+        if let image = cache.capturedImage(for: displayId, frame: frame, maxPixelSize: pixelSize) {
+            return ScreenImage(image)
+        }
+        let url = switch fileFallback {
+        case .automatic: canCapture ? nil : cache.desktopImageURL(displayId)
+        case .appKit: cache.desktopImageURL(displayId)
+        case let .file(url): url
+        }
+        guard let url, let image = read(url) else { return nil }
+        return ScreenImage(image, onlyIfMissing: canCapture)
     }
 
     static func desktopChoice(
         store: Data?,
-        location: (display: String, space: String),
+        location: (display: String, space: String)?,
         aerials: URL
     ) -> DesktopChoice? {
         guard let store,
@@ -229,12 +280,13 @@ extension ShellWallpaperPalette {
     }
 
     @MainActor
-    static func showsWallpaperWindow(_ windows: [[String: Any]], frame: CGRect) -> Bool {
-        guard let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame) else { return false }
-        return windows.contains {
+    private static func wallpaperWindow(in windows: [[String: Any]], frame: CGRect) -> WallpaperWindow {
+        guard let wallpaper = SkyLight.wallpaperWindow(in: windows, frame: frame) else { return .unavailable }
+        let isSystem = windows.contains {
             $0[kCGWindowNumber as String] as? UInt32 == wallpaper.id
                 && $0[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.desktopWindow) - 1
         }
+        return isSystem ? .system : .other
     }
 
     static func isSingleImage(_ url: URL) -> Bool {
@@ -244,16 +296,22 @@ extension ShellWallpaperPalette {
 
     static func desktopContent(
         in index: [String: Any],
-        location: (display: String, space: String)
+        location: (display: String, space: String)?
     ) -> [String: Any]? {
-        let space = (index["Spaces"] as? [String: Any])?[location.space] as? [String: Any]
-        let entries: [Any?] = [
-            (space?["Displays"] as? [String: Any])?[location.display],
-            space?["Default"],
-            (index["Displays"] as? [String: Any])?[location.display],
-            index["AllSpacesAndDisplays"],
-            index["SystemDefault"]
-        ]
+        var entries: [Any?] = []
+        if let location {
+            let space = (index["Spaces"] as? [String: Any])?[location.space] as? [String: Any]
+            entries = [
+                (space?["Displays"] as? [String: Any])?[location.display],
+                space?["Default"],
+                (index["Displays"] as? [String: Any])?[location.display]
+            ]
+        } else {
+            guard ["Displays", "Spaces"].allSatisfy({
+                index[$0] == nil || (index[$0] as? [String: Any])?.isEmpty == true
+            }) else { return nil }
+        }
+        entries += [index["AllSpacesAndDisplays"], index["SystemDefault"]]
         return entries.lazy.compactMap { candidate -> Any? in
             guard let entry = candidate as? [String: Any] else { return nil }
             let slot = entry["Type"] as? String == "linked" ? "Linked" : "Desktop"

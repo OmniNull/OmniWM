@@ -39,7 +39,7 @@ class MakeToolTests(unittest.TestCase):
     def test_format_and_lint_use_pinned_tools_independently_of_inherited_path(self):
         source = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory(prefix="omniwm make tools ") as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             shutil.copy2(source / "Makefile", root / "Makefile")
             (root / "Scripts").mkdir()
             shutil.copy2(source / "Scripts/dev-tools.env", root / "Scripts/dev-tools.env")
@@ -70,7 +70,7 @@ class MakeToolTests(unittest.TestCase):
                     result = subprocess.run(
                         ["/usr/bin/make", "format", "format-check", "lint", "lint-fix"],
                         cwd=root,
-                        env={**os.environ, "PATH": inherited_path},
+                        env={**os.environ, "PATH": inherited_path, "OMNIWM_DEV_TOOLS": ""},
                         text=True,
                         capture_output=True,
                         check=False,
@@ -84,3 +84,31 @@ class MakeToolTests(unittest.TestCase):
                         "pinned swiftlint: lint --fix",
                     ):
                         self.assertIn(invocation, result.stdout)
+
+            shell_tools = root / "shell tools"
+            tools.parent.rename(shell_tools)
+            result = subprocess.run(
+                ["/usr/bin/make", "format-check", "lint"],
+                cwd=root,
+                env={**os.environ, "PATH": "/usr/bin:/bin", "OMNIWM_DEV_TOOLS": str(shell_tools)},
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("pinned swiftformat: --lint .", result.stdout)
+            self.assertIn("pinned swiftlint: lint", result.stdout)
+
+            shutil.copy2(source / "Scripts/doctor.sh", root / "Scripts")
+            for name, body in (("uname", "echo fixture"), ("security", "exit 1")):
+                command = decoys / name
+                command.write_text(f"#!/bin/sh\n{body}\n")
+                command.chmod(0o755)
+            doctor = subprocess.run(
+                ["/usr/bin/make", "doctor"], cwd=root, text=True, capture_output=True,
+                env={**os.environ, "PATH": f"{decoys}:/usr/bin:/bin", "OMNIWM_DEV_TOOLS": shell_tools.name},
+            )
+            self.assertNotEqual(doctor.returncode, 0)
+            self.assertIn("Building OmniWM requires macOS", doctor.stderr)
+            for name in ("swiftformat", "swiftlint"):
+                self.assertIn(f"{name}: {versions[name.upper() + '_VERSION']} ({shell_tools}/bin/{name})", doctor.stdout)

@@ -136,7 +136,7 @@ final class StatusBarOwnerContractTests: XCTestCase {
     }
 
     private func savedExport(_ settings: SettingsStore) throws -> SettingsExport {
-        try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL))
+        try SettingsLuauDocument(Data(contentsOf: settings.settingsFileURL)).export
     }
 
     private func makeSettings(directory: URL) -> SettingsStore {

@@ -15,7 +15,7 @@ Put each app in its own folder:
 
 ```text
 ~/.config/omniwm/apps/<id>/
-  component.toml
+  component.manifest.luau
   init.luau
 ```
 
@@ -23,32 +23,26 @@ The folder name is the app's ID. OmniWM notices new apps and edits on its own. W
 
 ## Declare the windows
 
-A `[window]` table makes a component an app. Sizes are content points, and all four are required:
+The `window` table in `component.manifest.luau` declares the main window. All four sizes are required, in content points. Its `view` defaults to `window`. This example also declares a confirmation sheet under `window.children`.
 
-```toml
-title = "Notes"
-icon = "app"
-views = ["window", "confirm"]
-
-[window]
-width = 640
-height = 420
-minWidth = 280
-minHeight = 240
+```lua
+return {
+    title = "Notes",
+    icon = "app",
+    views = { "window", "confirm" },
+    window = {
+        width = 640, height = 420, minWidth = 280, minHeight = 240,
+        children = {
+            confirm = {
+                kind = "sheet", view = "confirm", title = "Confirm deletion",
+                width = 360, height = 200, minWidth = 280, minHeight = 160,
+            },
+        },
+    },
+}
 ```
 
-`view` picks the main view and defaults to `window`. Each child window is a table under `[window.children]`. `kind` is `sheet`, attached to the main window and blocking it, or `utility`, a floating window attached to it:
-
-```toml
-[window.children.confirm]
-kind = "sheet"
-view = "confirm"
-title = "Confirm deletion"
-width = 360
-height = 200
-minWidth = 280
-minHeight = 160
-```
+Use `kind = "sheet"` for a child that blocks interaction with its main window. Use `kind = "utility"` for a floating child attached to that window.
 
 ## Write the views
 
@@ -104,7 +98,7 @@ A [provider](/omnishell/reference/providers/) is a separate program for work Lua
 
 This example asks its provider to check for work. The provider answers with an event, and the app shows a **Review** button that opens the sheet.
 
-<ExampleFile file="apps/provider-review/component.toml" />
+<ExampleFile file="apps/provider-review/component.manifest.luau" />
 
 <ExampleFile file="apps/provider-review/init.luau" />
 

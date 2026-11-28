@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -69,15 +70,15 @@ final class NiriSizingCommandContractTests: XCTestCase {
 
     func testSizingRequestsRoundTripWithNewWireNames() throws {
         let requests: [(IPCCommandRequest, String)] = [
-            (.sizing(.cycleSizeForward), "cycle-size-forward"),
-            (.sizing(.cycleWindowPrimarySpanBackward), "cycle-window-primary-span-backward"),
-            (.sizing(.cycleWindowSecondarySpanForward), "cycle-window-secondary-span-forward"),
-            (.sizing(.toggleContainerFullPrimarySpan), "toggle-container-full-primary-span"),
-            (.sizing(.expandContainerToAvailablePrimarySpan), "expand-container-to-available-primary-span"),
-            (.sizing(.resetWindowSecondarySpan), "reset-window-secondary-span"),
-            (.sizing(.setContainerPrimarySpan(change: .setProportion(50))), "set-container-primary-span"),
-            (.sizing(.setWindowPrimarySpan(change: .adjustFixed(10))), "set-window-primary-span"),
-            (.sizing(.setWindowSecondarySpan(change: .adjustProportion(-10))), "set-window-secondary-span")
+            (.init(.sizing(.cycleSizeForward)), "cycle-size-forward"),
+            (.init(.sizing(.cycleWindowPrimarySpanBackward)), "cycle-window-primary-span-backward"),
+            (.init(.sizing(.cycleWindowSecondarySpanForward)), "cycle-window-secondary-span-forward"),
+            (.init(.sizing(.toggleContainerFullPrimarySpan)), "toggle-container-full-primary-span"),
+            (.init(.sizing(.expandContainerToAvailablePrimarySpan)), "expand-container-to-available-primary-span"),
+            (.init(.sizing(.resetWindowSecondarySpan)), "reset-window-secondary-span"),
+            (.init(.sizing(.setContainerPrimarySpan(change: .setProportion(50)))), "set-container-primary-span"),
+            (.init(.sizing(.setWindowPrimarySpan(change: .adjustFixed(10)))), "set-window-primary-span"),
+            (.init(.sizing(.setWindowSecondarySpan(change: .adjustProportion(-10)))), "set-window-secondary-span")
         ]
 
         for (request, expectedName) in requests {
@@ -121,16 +122,19 @@ final class NiriSizingCommandContractTests: XCTestCase {
         export.niri.containerPrimarySpanPresets = [0.25, 0.5, 0.75]
         export.niri.defaultContainerPrimarySpan = 0.5
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = String(decoding: data, as: UTF8.self)
-        let decoded = try SettingsTOMLCodec.decode(data)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = String(decoding: data, as: UTF8.self)
+        let decoded = try SettingsLuauFixture.decode(data)
 
-        XCTAssertTrue(toml.contains("visibleContainerCount = 4"))
-        XCTAssertTrue(toml.contains("containerPrimarySpanPresets = [0.25, 0.5, 0.75]"))
-        XCTAssertTrue(toml.contains("defaultContainerPrimarySpan = 0.5"))
-        XCTAssertFalse(toml.contains("maxVisibleColumns"))
-        XCTAssertFalse(toml.contains("columnWidthPresets"))
-        XCTAssertFalse(toml.contains("defaultColumnWidth"))
+        XCTAssertTrue(source.contains("visibleContainerCount = 4"))
+        XCTAssertEqual(
+            try SettingsLuauFixture.fields(in: data)["niri"]?["containerPrimarySpanPresets"],
+            .list([.number(0.25), .number(0.5), .number(0.75)])
+        )
+        XCTAssertTrue(source.contains("defaultContainerPrimarySpan = 0.5"))
+        XCTAssertFalse(source.contains("maxVisibleColumns"))
+        XCTAssertFalse(source.contains("columnWidthPresets"))
+        XCTAssertFalse(source.contains("defaultColumnWidth"))
         XCTAssertEqual(decoded.niri.visibleContainerCount, 4)
         XCTAssertEqual(decoded.niri.containerPrimarySpanPresets, [0.25, 0.5, 0.75])
         XCTAssertEqual(decoded.niri.defaultContainerPrimarySpan, 0.5)

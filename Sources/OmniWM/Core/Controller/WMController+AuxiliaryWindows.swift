@@ -6,6 +6,36 @@ import Foundation
 import OmniWMIPC
 
 extension WMController {
+    func makeFootQuickAccessTerminal() -> FootQuickAccessTerminal {
+        let terminal = FootQuickAccessTerminal(
+            environment: .live,
+            socketPath: FootQuickAccessTerminal.defaultSocketPath(),
+            context: { [weak self] in self?.footQuakeControlContext() }
+        )
+        terminal.onToggleFailure = { [weak self] problem in
+            self?.presentQuakeTerminalFailure(
+                title: String(localized: "foot Quake Terminal Unavailable"),
+                message: problem.message
+            )
+        }
+        return terminal
+    }
+
+    func makeKittyQuickAccessTerminal() -> KittyQuickAccessTerminal {
+        let terminal = KittyQuickAccessTerminal(
+            environment: .live,
+            socketPath: KittyQuickAccessTerminal.defaultSocketPath(),
+            context: { [weak self] in self?.kittyQuakeControlContext() }
+        )
+        terminal.onToggleFailure = { [weak self] problem in
+            self?.presentQuakeTerminalFailure(
+                title: String(localized: "Kitty Quake Terminal Unavailable"),
+                message: problem.message
+            )
+        }
+        return terminal
+    }
+
     func handleWindowSwitcherAction(_ action: WindowSwitcherAction, generation: UInt64) {
         if case .begin = action {
             guard settings.windowSwitcher.enabled else { return }
@@ -207,6 +237,9 @@ extension WMController {
     }
 
     func openCommandPalette(mode: CommandPaletteMode? = nil) {
+        #if OMNIWM_CONFIG_CALLBACK_TRACE
+            ConfigScriptLatencyTrace.mark(.nativeCommand)
+        #endif
         commandPaletteController.toggle(wmController: self, mode: mode)
     }
 
@@ -251,6 +284,10 @@ extension WMController {
         windowActionHandler.openMenuAnywhere()
     }
 
+    func openSettings() {
+        settingsWindowController.show(settings: settings, controller: self)
+    }
+
     @discardableResult
     func navigateToCommandPaletteWindow(_ handle: WindowHandle) -> Bool {
         windowActionHandler.navigateToExplicitlySelectedWindow(handle: handle)
@@ -275,6 +312,7 @@ extension WMController {
     func setOverviewEnabled(_ enabled: Bool) {
         if settings.overview.enabled != enabled {
             settings.overview.enabled = enabled
+            guard settings.overview.enabled == enabled else { return }
         }
         if !enabled {
             windowActionHandlerStorage?.releaseOverviewController()
@@ -291,6 +329,6 @@ extension WMController {
     }
 
     func isOverviewOpen() -> Bool {
-        windowActionHandler.isOverviewOpen()
+        windowActionHandlerStorage?.isOverviewOpen() ?? false
     }
 }

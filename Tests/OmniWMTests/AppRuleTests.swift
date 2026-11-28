@@ -56,42 +56,42 @@ final class AppRuleTests: XCTestCase {
         }
     }
 
-    func testScratchpadRoundTripsThroughJSONAndTOML() throws {
+    func testScratchpadRoundTripsThroughJSONAndLuau() throws {
         let rule = AppRule(bundleId: "com.test.app", scratchpad: 3)
         let json = try JSONDecoder().decode(AppRule.self, from: JSONEncoder().encode(rule))
         XCTAssertEqual(json.scratchpad, 3)
 
         var export = SettingsExport.defaults()
         export.appRules = [rule]
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = try XCTUnwrap(String(data: data, encoding: .utf8))
-        XCTAssertTrue(toml.contains("scratchpad = 3"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).appRules.first?.scratchpad, 3)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(source.contains("scratchpad = 3"))
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).appRules.first?.scratchpad, 3)
     }
 
     @MainActor
-    func testWorkspaceAssignmentForAllWindowsRoundTripsThroughEditorAndTOML() throws {
+    func testWorkspaceAssignmentForAllWindowsRoundTripsThroughEditorAndLuau() throws {
         let oldRule = AppRule(bundleId: "com.test.app", assignToWorkspace: "32")
         var settings = SettingsExport.defaults()
         settings.appRules = [oldRule]
-        let original = try SettingsTOMLCodec.encode(settings)
-        let loaded = try XCTUnwrap(SettingsTOMLCodec.decode(original).appRules.first)
+        let original = try SettingsLuauDocument.initialSource(settings)
+        let loaded = try XCTUnwrap(SettingsLuauFixture.decode(original).appRules.first)
         var draft = AppRuleDraft(rule: loaded)
         XCTAssertFalse(draft.assignToWorkspaceForAllWindows)
 
         draft.assignToWorkspaceForAllWindows = true
         XCTAssertFalse(draft.represents(loaded))
         settings.appRules = [draft.makeRule()]
-        let enabled = try SettingsTOMLCodec.encode(settings, preservingUnknownKeysFrom: original)
-        let enabledRule = try XCTUnwrap(SettingsTOMLCodec.decode(enabled).appRules.first)
+        let enabled = try SettingsLuauFixture.editing(original, to: settings)
+        let enabledRule = try XCTUnwrap(SettingsLuauFixture.decode(enabled).appRules.first)
         XCTAssertTrue(AppRuleDraft(rule: enabledRule).assignToWorkspaceForAllWindows)
         XCTAssertEqual(IPCRuleProjection.definition(from: enabledRule).assignToWorkspaceForAllWindows, true)
 
         draft.assignToWorkspaceForAllWindows = false
         settings.appRules = [draft.makeRule()]
-        let disabled = try SettingsTOMLCodec.encode(settings, preservingUnknownKeysFrom: enabled)
+        let disabled = try SettingsLuauFixture.editing(enabled, to: settings)
         XCTAssertFalse(String(decoding: disabled, as: UTF8.self).contains("assignToWorkspaceForAllWindows"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(disabled).appRules.first, loaded)
+        XCTAssertEqual(try SettingsLuauFixture.decode(disabled).appRules.first, loaded)
     }
 
     func testValidScratchpadRequiresRangeAndNoConflict() {
@@ -136,17 +136,17 @@ final class AppRuleTests: XCTestCase {
         XCTAssertTrue(outOfRange.hasAnyRule)
     }
 
-    func testInitialContainerPrimarySpanRoundTripsThroughTOML() throws {
+    func testInitialContainerPrimarySpanRoundTripsThroughLuau() throws {
         var export = SettingsExport.defaults()
         export.appRules = [AppRule(bundleId: "com.test.app", initialContainerPrimarySpan: 0.5)]
 
-        let data = try SettingsTOMLCodec.encode(export)
-        let toml = try XCTUnwrap(String(data: data, encoding: .utf8))
-        XCTAssertTrue(toml.contains("initialContainerPrimarySpan = 0.5"))
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data).appRules.first?.initialContainerPrimarySpan, 0.5)
+        let data = try SettingsLuauDocument.initialSource(export)
+        let source = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(source.contains("initialContainerPrimarySpan = 0.5"))
+        XCTAssertEqual(try SettingsLuauFixture.decode(data).appRules.first?.initialContainerPrimarySpan, 0.5)
     }
 
-    func testNilInitialContainerPrimarySpanIsOmittedFromJSONAndTOML() throws {
+    func testNilInitialContainerPrimarySpanIsOmittedFromJSONAndLuau() throws {
         let rule = AppRule(bundleId: "com.test.app", layout: .float)
         let json = try XCTUnwrap(
             JSONSerialization.jsonObject(with: JSONEncoder().encode(rule)) as? [String: Any]
@@ -155,13 +155,13 @@ final class AppRuleTests: XCTestCase {
 
         var export = SettingsExport.defaults()
         export.appRules = [rule]
-        let tomlData = try SettingsTOMLCodec.encode(export)
-        let toml = try XCTUnwrap(String(data: tomlData, encoding: .utf8))
-        XCTAssertFalse(toml.contains("initialContainerPrimarySpan"))
-        XCTAssertNil(try SettingsTOMLCodec.decode(tomlData).appRules.first?.initialContainerPrimarySpan)
+        let sourceData = try SettingsLuauDocument.initialSource(export)
+        let source = try XCTUnwrap(String(data: sourceData, encoding: .utf8))
+        XCTAssertFalse(source.contains("initialContainerPrimarySpan"))
+        XCTAssertNil(try SettingsLuauFixture.decode(sourceData).appRules.first?.initialContainerPrimarySpan)
     }
 
-    func testLegacyInitialColumnWidthTOMLKeyIsIgnoredAndDiagnosed() throws {
+    func testLegacyInitialColumnWidthLuauKeyIsRejected() throws {
         var export = SettingsExport.defaults()
         export.appRules = [
             AppRule(
@@ -170,7 +170,7 @@ final class AppRuleTests: XCTestCase {
                 initialContainerPrimarySpan: 0.5
             )
         ]
-        let canonical = String(decoding: try SettingsTOMLCodec.encode(export), as: UTF8.self)
+        let canonical = String(decoding: try SettingsLuauDocument.initialSource(export), as: UTF8.self)
         let legacy = Data(
             canonical.replacingOccurrences(
                 of: "initialContainerPrimarySpan",
@@ -178,13 +178,12 @@ final class AppRuleTests: XCTestCase {
             ).utf8
         )
 
-        let decoded = try SettingsTOMLCodec.decode(legacy)
-
-        XCTAssertNil(decoded.appRules.first?.initialContainerPrimarySpan)
-        XCTAssertEqual(
-            SettingsTOMLCodec.unknownKeyPaths(in: legacy),
-            ["appRules[0].initialColumnWidth"]
-        )
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(legacy)) { error in
+            XCTAssertTrue(
+                error.localizedDescription.contains("appRules[0].initialColumnWidth"),
+                error.localizedDescription
+            )
+        }
     }
 
     @MainActor
@@ -217,7 +216,7 @@ final class AppRuleTests: XCTestCase {
     func testIPCProjectionRoundTripsInitialContainerPrimarySpan() {
         let rule = AppRule(bundleId: "com.test.app", initialContainerPrimarySpan: 0.5)
         let definition = IPCRuleProjection.definition(from: rule)
-        let projectedRule = IPCRuleProjection.appRule(from: definition, id: rule.id)
+        let projectedRule = AppRule(definition: definition, id: rule.id)
         let snapshot = IPCRuleProjection.snapshot(
             from: projectedRule,
             position: 1,
@@ -247,7 +246,7 @@ final class AppRuleTests: XCTestCase {
     func testIPCProjectionRoundTripsScratchpad() {
         let rule = AppRule(bundleId: "com.test.app", scratchpad: 4)
         let definition = IPCRuleProjection.definition(from: rule)
-        let projectedRule = IPCRuleProjection.appRule(from: definition, id: rule.id)
+        let projectedRule = AppRule(definition: definition, id: rule.id)
         let snapshot = IPCRuleProjection.snapshot(
             from: projectedRule,
             position: 1,
@@ -261,7 +260,7 @@ final class AppRuleTests: XCTestCase {
     }
 
     @MainActor
-    func testIPCProjectionReportsTOMLLoadedInvalidScratchpadWithRawValue() throws {
+    func testIPCProjectionReportsLuauLoadedInvalidScratchpadWithRawValue() throws {
         let cases: [(rule: AppRule, message: String)] = [
             (
                 AppRule(bundleId: "com.test.app", scratchpad: ScratchpadIndex.range.upperBound + 1),
@@ -280,7 +279,7 @@ final class AppRuleTests: XCTestCase {
             var export = SettingsExport.defaults()
             export.appRules = [testCase.rule]
             let loaded = try XCTUnwrap(
-                SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export)).appRules.first
+                SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export)).appRules.first
             )
 
             let snapshot = IPCRuleProjection.snapshot(from: loaded, position: 1, invalidRegexMessagesByRuleId: [:])

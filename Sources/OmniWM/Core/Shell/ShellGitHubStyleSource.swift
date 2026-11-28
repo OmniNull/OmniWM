@@ -200,7 +200,7 @@ struct ShellGitHubStyleSource: ShellStyleSource {
                 missingAllowed: toleratingInvalid
             )
         } catch is MissingManifest {
-            throw ShellStyleInstaller.Failure("\(repositoryName) has no style.toml or styles/<name>/style.toml")
+            throw ShellStyleInstaller.Failure("\(repositoryName) has no style.luau or styles/<name>/style.luau")
         }
         var listings: [ShellStyleListing] = []
         var problems: [String] = []

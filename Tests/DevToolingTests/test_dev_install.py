@@ -71,19 +71,19 @@ class DevInstallTests(unittest.TestCase):
         self.assertFalse((self.root / "opened").exists())
 
     def test_settings_are_copied_once_as_an_independent_file(self):
-        original = self.root / "original-settings.toml"
-        original.write_text("release = true\n")
-        (self.release_config / "settings.toml").symlink_to(original)
+        original = self.root / "original-settings.luau"
+        original.write_text("return { gaps = { size = 8 } }\n")
+        (self.release_config / "settings.luau").symlink_to(original)
 
         result = self.install()
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.dev_app / "new-build").read_text(), "built")
         self.assertFalse((self.root / "dist" / self.dev_app.name).exists())
-        dev_settings = self.dev_config / "settings.toml"
+        dev_settings = self.dev_config / "settings.luau"
         self.assertFalse(dev_settings.is_symlink())
         self.assertEqual(dev_settings.read_text(), original.read_text())
-        dev_settings.write_text("development = true\n")
+        dev_settings.write_text("return { gaps = { size = 4 } }\n")
         previous_build = self.dev_app / "previous-build"
         previous_build.write_text("obsolete")
         result = self.install()
@@ -91,8 +91,8 @@ class DevInstallTests(unittest.TestCase):
         self.assertEqual((self.dev_app / "new-build").read_text(), "built")
         self.assertFalse((self.root / "dist" / self.dev_app.name).exists())
         self.assertFalse(previous_build.exists())
-        self.assertEqual(dev_settings.read_text(), "development = true\n")
-        self.assertEqual(original.read_text(), "release = true\n")
+        self.assertEqual(dev_settings.read_text(), "return { gaps = { size = 4 } }\n")
+        self.assertEqual(original.read_text(), "return { gaps = { size = 8 } }\n")
 
     def test_move_failure_stops_before_success_message_and_launch(self):
         self.write_command(self.root / "tools" / "mv", "exit 1\n")
@@ -106,10 +106,11 @@ class DevInstallTests(unittest.TestCase):
             (self.root / "dist" / self.dev_app.name / "new-build").read_text(), "built"
         )
 
-    def test_no_release_settings_leaves_dev_to_use_defaults(self):
+    def test_only_old_release_settings_leaves_dev_to_use_defaults(self):
+        (self.release_config / "settings.toml").write_text("[gaps]\nsize = 21\n")
         result = self.install()
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(self.dev_config.is_dir())
-        self.assertFalse((self.dev_config / "settings.toml").exists())
+        self.assertFalse((self.dev_config / "settings.luau").exists())
         self.assertTrue((self.root / "opened").exists())

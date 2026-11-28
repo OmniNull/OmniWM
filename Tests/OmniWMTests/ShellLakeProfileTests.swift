@@ -624,7 +624,7 @@ final class ShellLakeProfileTests: XCTestCase {
         try before.render()
         let shell = root.appendingPathComponent("shell")
         let profile = shell.appendingPathComponent("lake")
-        let configURL = profile.appendingPathComponent("shell.toml")
+        let configURL = profile.appendingPathComponent("shell.luau")
         var config = try String(contentsOf: configURL, encoding: .utf8)
         for name in Set(original.components.map(\.widget)) {
             try FileManager.default.moveItem(
@@ -821,12 +821,8 @@ final class ShellLakeProfileTests: XCTestCase {
         let widget = style.appendingPathComponent("widgets/carry")
         try FileManager.default.createDirectory(at: widget, withIntermediateDirectories: true)
         try Data("""
-        [island]
-        root = "carry"
-        displays = "all"
-        sizing = "display"
-        fullscreen = "hide"
-        """.utf8).write(to: style.appendingPathComponent("shell.toml"))
+        return { island = { root = "carry", displays = "all", sizing = "display", fullscreen = "hide" } }
+        """.utf8).write(to: style.appendingPathComponent("shell.luau"))
         try Data(Self.carryWidget.utf8).write(to: widget.appendingPathComponent("init.luau"))
         return try source(in: root, style: "carry")
     }

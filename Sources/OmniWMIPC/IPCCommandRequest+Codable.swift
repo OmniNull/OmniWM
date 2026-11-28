@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
+
 extension IPCCommandRequest: Codable {
     public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: IPCCommandArgumentSource.CodingKeys.self)
+        let container = try decoder.container(keyedBy: IPCCommandCodingKeys.self)
         let name = try container.decode(IPCCommandName.self, forKey: .name)
-        try self.init(name: name, arguments: .json(container))
+        let args = try container.commandArguments(for: name)
+        try self.init(name: name, argumentValues: args)
     }
 
     public func encode(to encoder: Encoder) throws {
         var writer = try IPCCommandArgumentWriter(encoder: encoder, name: name.rawValue)
-        switch self {
+        switch command {
         case let .shellAppOpen(appID),
              let .shellAppNewWindow(appID):
             try writer.encode(appID: appID)
@@ -46,7 +49,8 @@ extension IPCCommandRequest: Codable {
              .media,
              .keyboardMode,
              .windowState,
-             .openMenuAnywhere:
+             .openMenuAnywhere,
+             .openSettings:
             break
         }
     }

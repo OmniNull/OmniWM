@@ -10,7 +10,7 @@ import XCTest
 final class WorkspaceBarIconResolverTests: XCTestCase {
     func testResolvesAbsoluteRelativeAndHomePaths() throws {
         let root = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver")
-        let settingsFileURL = root.appendingPathComponent("config/settings.toml")
+        let settingsFileURL = root.appendingPathComponent("config/settings.luau")
         let homeDirectoryURL = root.appendingPathComponent("home")
         var imagesByPath: [String: NSImage] = [:]
         let resolver = WorkspaceBarIconResolver(
@@ -51,7 +51,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
     }
 
     func testCachesSuccessAndFailureUntilForcedReload() throws {
-        let settingsFileURL = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml")
+        let settingsFileURL = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau")
         var loadCount = 0
         var unavailableMessages: [String] = []
         let resolver = WorkspaceBarIconResolver(
@@ -92,7 +92,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
     }
 
     func testReloadsChangedMappingAndPrunesRemovedBundleIds() throws {
-        let settingsFileURL = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml")
+        let settingsFileURL = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau")
         var loadedPaths: [String] = []
         let resolver = WorkspaceBarIconResolver(
             settingsFileURL: settingsFileURL,
@@ -130,7 +130,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
     }
 
     func testSharedPathDecodesOncePerReload() throws {
-        let settingsFileURL = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml")
+        let settingsFileURL = URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau")
         var loadCount = 0
         let resolver = WorkspaceBarIconResolver(
             settingsFileURL: settingsFileURL,
@@ -170,7 +170,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
         let image = NSImage(size: NSSize(width: 64, height: 64))
         var requests: [String] = []
         let resolver = WorkspaceBarIconResolver(
-            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml"),
+            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau"),
             imageLoader: { _ in nil },
             bundleResourceImageLoader: { bundleId, name in
                 requests.append("\(bundleId):\(name)")
@@ -195,7 +195,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
     func testTargetedReloadReloadsOnlyRequestedBundleId() {
         var requestsByBundleId: [String: Int] = [:]
         let resolver = WorkspaceBarIconResolver(
-            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml"),
+            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau"),
             imageLoader: { _ in nil },
             bundleResourceImageLoader: { bundleId, _ in
                 requestsByBundleId[bundleId, default: 0] += 1
@@ -221,7 +221,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
     func testTargetedReloadRefreshesEveryBundleSharingTheFileSource() throws {
         var loadCount = 0
         let resolver = WorkspaceBarIconResolver(
-            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml"),
+            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau"),
             imageLoader: { _ in
                 loadCount += 1
                 return NSImage(size: NSSize(width: CGFloat(loadCount), height: 32))
@@ -251,7 +251,7 @@ final class WorkspaceBarIconResolverTests: XCTestCase {
     func testTargetedReloadReportsNoChangeWhenLoaderReturnsSameImage() {
         let image = NSImage(size: NSSize(width: 32, height: 32))
         let resolver = WorkspaceBarIconResolver(
-            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.toml"),
+            settingsFileURL: URL(fileURLWithPath: "/tmp/omniwm-icon-resolver/settings.luau"),
             imageLoader: { _ in nil },
             bundleResourceImageLoader: { _, _ in image },
             unavailableLogger: { _ in }

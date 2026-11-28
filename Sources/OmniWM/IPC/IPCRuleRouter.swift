@@ -36,7 +36,7 @@ final class IPCRuleRouter {
         }
 
         var rules = controller.settings.appRules
-        rules.append(IPCRuleProjection.appRule(from: definition))
+        rules.append(AppRule(definition: definition))
         controller.settings.appRules = rules
         controller.updateAppRules()
         return .success(currentRulesResult())
@@ -55,7 +55,7 @@ final class IPCRuleRouter {
             return .failure(.notFound)
         }
 
-        rules[index] = IPCRuleProjection.appRule(from: definition, id: ruleId)
+        rules[index] = AppRule(definition: definition, id: ruleId)
         controller.settings.appRules = rules
         controller.updateAppRules()
         return .success(currentRulesResult())

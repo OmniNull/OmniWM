@@ -65,7 +65,7 @@ extension ShellAppDefinition {
     private func validation(_ descriptor: ShellComponentDescriptor) -> String {
         let module = Self.luauString("@self/component")
         let checks = descriptor.views.map { view in
-            let message = Self.luauString("\(id)/component.toml: missing declared view \(view)")
+            let message = Self.luauString("\(id)/component.manifest.luau: missing declared view \(view)")
             return "assert(type(rawget(views, \(Self.luauString(view)))) == 'function', \(message))"
         }.joined(separator: "\n")
         return """

@@ -3,7 +3,6 @@
 
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class SettingsColorCodecTests: XCTestCase {
@@ -28,32 +27,32 @@ final class SettingsColorCodecTests: XCTestCase {
             "workspaceBar.accentColor": ["red": 0.6, "green": 0.7, "blue": 0.8, "alpha": 0.9],
             "workspaceBar.textColor": ["red": 0.7, "green": 0.8, "blue": 0.9, "alpha": 1.0]
         ]
-        let canonical = CanonicalTOMLConfig(export: export)
+        let canonical = SettingsFileModel(export: export)
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(canonical))
-        let tomlData = try SettingsTOMLCodec.encode(export)
-        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: tomlData)
+        let sourceData = try SettingsLuauDocument.initialSource(export)
+        let source = try SettingsLuauFixture.fields(in: sourceData)
 
         for (path, components) in expected {
             var jsonValue = json
-            var tomlValue = TOMLNode.table(toml)
+            var sourceValue = SettingsLuauValue.record(source)
             for key in path.split(separator: ".").map(String.init) {
                 jsonValue = try XCTUnwrap((jsonValue as? [String: Any])?[key], path)
-                guard case let .table(table) = tomlValue else {
-                    return XCTFail("Expected TOML table at \(path)")
+                guard case let .record(table) = sourceValue else {
+                    return XCTFail("Expected Luau table at \(path)")
                 }
-                tomlValue = try XCTUnwrap(table[key], path)
+                sourceValue = try XCTUnwrap(table[key], path)
             }
             XCTAssertEqual(jsonValue as? [String: Double], components, path)
-            XCTAssertEqual(tomlValue, .table(components.mapValues(TOMLNode.float)), path)
+            XCTAssertEqual(sourceValue, .record(components.mapValues(SettingsLuauFixture.number)), path)
         }
-        XCTAssertEqual(CanonicalTOMLConfig(export: try SettingsTOMLCodec.decode(tomlData)), canonical)
+        XCTAssertEqual(SettingsFileModel(export: try SettingsLuauFixture.decode(sourceData)), canonical)
     }
 
     func testUnsetWorkspaceColorsRemainOmittedAndDecodeAsNil() throws {
         var export = SettingsExport.defaults()
         export.workspaceBar.accentColor = nil
         export.workspaceBar.textColor = nil
-        let canonical = CanonicalTOMLConfig(export: export)
+        let canonical = SettingsFileModel(export: export)
         let json = try XCTUnwrap(
             JSONSerialization.jsonObject(with: JSONEncoder().encode(canonical)) as? [String: Any]
         )
@@ -61,14 +60,14 @@ final class SettingsColorCodecTests: XCTestCase {
         XCTAssertNil(workspaceBar["accentColor"])
         XCTAssertNil(workspaceBar["textColor"])
 
-        let tomlData = try SettingsTOMLCodec.encode(export)
-        let toml = try TOMLDecoder().decode([String: TOMLNode].self, from: tomlData)
-        guard case let .table(workspaceBarTable) = try XCTUnwrap(toml["workspaceBar"]) else {
-            return XCTFail("Expected workspaceBar TOML table")
+        let sourceData = try SettingsLuauDocument.initialSource(export)
+        let source = try SettingsLuauFixture.fields(in: sourceData)
+        guard case let .record(workspaceBarTable) = try XCTUnwrap(source["workspaceBar"]) else {
+            return XCTFail("Expected workspaceBar Luau table")
         }
         XCTAssertNil(workspaceBarTable["accentColor"])
         XCTAssertNil(workspaceBarTable["textColor"])
-        let decoded = try SettingsTOMLCodec.decode(tomlData)
+        let decoded = try SettingsLuauFixture.decode(sourceData)
         XCTAssertNil(decoded.workspaceBar.accentColor)
         XCTAssertNil(decoded.workspaceBar.textColor)
     }

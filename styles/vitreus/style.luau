@@ -1,0 +1,11 @@
+return {
+    format = 1,
+    name = "vitreus",
+    version = "2.0.0",
+    api = 1,
+    author = "OmniNull",
+    license = "GPL-2.0-only",
+    title = "Vitreus",
+    summary = "Liquid glass with a Desk for focus sessions and tasks.",
+    previews = { "bar.jpg", "desktop.jpg" },
+}

@@ -63,10 +63,10 @@ extension ShellWidgetHost {
 
     var configurationMetadataPaths: [URL] {
         let manifests = configurationCatalog?.entries.flatMap { entry in
-            entry.sources.map { $0.appendingPathComponent("component.toml") }
+            entry.sources.map { $0.appendingPathComponent(ShellComponentCatalog.manifestName) }
         } ?? []
         let settings = config.island.map { island in
-            config.directories.map { $0.appendingPathComponent("widgets/\(island.root)/settings.toml") }
+            config.directories.map { $0.appendingPathComponent("widgets/\(island.root)/\(ShellRootSettings.fileName)") }
         } ?? []
         return manifests + settings
     }

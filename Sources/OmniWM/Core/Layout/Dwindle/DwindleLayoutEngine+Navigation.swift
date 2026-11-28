@@ -17,11 +17,9 @@ extension DwindleLayoutEngine {
               let currentNode = state.leafByToken[handle],
               let currentTile = currentNode.tile,
               visibleMember(in: currentTile, excluding: state.excludedTokens)?.token == handle,
-              let rootFrame = state.root.cachedFrame,
-              let currentFrame = structuralFrame(
-                  for: currentNode,
-                  at: .init(node: state.root, rect: rootFrame, boundaryEdges: .all),
-                  projection: .init(tilingArea: rootFrame, excludedTokens: state.excludedTokens),
+              let (rootFrame, currentFrame) = rootAndStructuralFrame(
+                  of: currentNode,
+                  in: state,
                   measurement: measurement
               )
         else {
@@ -49,6 +47,52 @@ extension DwindleLayoutEngine {
         )
 
         return bestCandidate?.handle
+    }
+
+    func tileCanMoveToWorkspaceEdge(
+        _ token: WindowToken,
+        toward direction: Direction,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> Bool {
+        guard let state = existingState(for: workspaceId),
+              let node = state.leafByToken[token],
+              let (rootFrame, frame) = rootAndStructuralFrame(of: node, in: state, measurement: .structuralRects)
+        else {
+            return false
+        }
+        func aligned(_ lhs: CGFloat, _ rhs: CGFloat) -> Bool {
+            abs(lhs - rhs) < 0.5
+        }
+        let spansHorizontally = aligned(frame.minX, rootFrame.minX) && aligned(frame.maxX, rootFrame.maxX)
+        let spansVertically = aligned(frame.minY, rootFrame.minY) && aligned(frame.maxY, rootFrame.maxY)
+        switch direction {
+        case .left:
+            return aligned(frame.minX, rootFrame.minX) && !spansVertically
+        case .right:
+            return aligned(frame.maxX, rootFrame.maxX) && !spansVertically
+        case .up:
+            return aligned(frame.maxY, rootFrame.maxY) && !spansHorizontally
+        case .down:
+            return aligned(frame.minY, rootFrame.minY) && !spansHorizontally
+        }
+    }
+
+    private func rootAndStructuralFrame(
+        of node: DwindleNode,
+        in state: DwindleWorkspaceState,
+        measurement: DwindleNeighborMeasurement
+    ) -> (root: CGRect, node: CGRect)? {
+        guard let rootFrame = state.root.cachedFrame,
+              let frame = structuralFrame(
+                  for: node,
+                  at: .init(node: state.root, rect: rootFrame, boundaryEdges: .all),
+                  projection: .init(tilingArea: rootFrame, excludedTokens: state.excludedTokens),
+                  measurement: measurement
+              )
+        else {
+            return nil
+        }
+        return (rootFrame, frame)
     }
 
     func removalSuccessorToken(

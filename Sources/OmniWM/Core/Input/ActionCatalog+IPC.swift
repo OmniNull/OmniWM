@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
 import OmniWMIPC
 
 extension ActionCatalog {
@@ -12,6 +13,7 @@ extension ActionCatalog {
         case .moveColumn: .column(.move)
         case .openCommandPalette: .openCommandPalette
         case .openCommandPaletteMode: .openCommandPaletteMode
+        case .windowSwitcher: .windowSwitcher
         case .raiseAllFloatingWindows: .raiseAllFloatingWindows
         case .toggleFloatingFocus: .toggleFloatingFocus
         case .rescueOffscreenWindows: .rescueOffscreenWindows
@@ -19,7 +21,11 @@ extension ActionCatalog {
         case let .presentation(command): .presentation(command)
         case let .media(command): .media(command)
         case let .keyboardMode(command): .keyboardMode(command)
-        case .shellToggle,
+        case .configFunction,
+             .namedKeyMode,
+             .runProgram,
+             .showNotice,
+             .shellToggle,
              .openApp,
              .windowMark:
             nil
@@ -27,6 +33,7 @@ extension ActionCatalog {
         case .shellAppNewWindow: .shellAppNewWindow
         case let .windowState(command): .windowState(command)
         case .openMenuAnywhere: .openMenuAnywhere
+        case .openSettings: .openSettings
         case let .focusNavigation(action): action.ipcCommandName()
         case let .windowMovement(action): action.ipcCommandName()
         case let .column(action): action.ipcCommandName()

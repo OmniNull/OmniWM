@@ -363,7 +363,8 @@ extension WindowSwitcherController {
     }
 
     func advanceFromAutomation(reverse: Bool, scope: WindowSwitcherScope?) -> ExternalCommandResult {
-        guard let controller, !controller.isLockScreenActive else { return .ignoredDisabled }
+        guard let controller, controller.settings.windowSwitcher.enabled, !controller.isLockScreenActive
+        else { return .ignoredDisabled }
         guard !controller.commandPaletteController.isVisible else { return .noChange }
         if isVisible { return cycle(reverse: reverse) }
         guard let monitor = controller.monitorForInteraction() else { return .notFound }

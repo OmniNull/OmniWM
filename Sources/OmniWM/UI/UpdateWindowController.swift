@@ -229,8 +229,8 @@ private struct UpdatePopupView: View {
                         installing = true
                         installUpdate()
                     }
-                    .buttonStyle(.omniGlassProminent)
                     .disabled(installing)
+                    .buttonStyle(.omniGlassProminent)
                 } else {
                     Button("Open Release Page") {
                         configuration.openReleasePage()

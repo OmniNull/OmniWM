@@ -13,13 +13,17 @@ Providers extend integrations that the built-in Luau services do not cover. Inst
 
 A component can use a separate program for integrations that the Luau APIs do not cover. One process belongs to each enabled, approved component instance, regardless of how many displays render it. The process exchanges JSON Lines over stdin/stdout; rendering and animations stay in OmniShell.
 
-Declare the executable and capability in `component.toml`:
+Declare the executable and capability in `component.manifest.luau`:
 
-```toml
-capabilities = { provider = true }
-
-[provider]
-command = ["provider.pl"]
+```lua
+return {
+    capabilities = {
+        provider = true,
+    },
+    provider = {
+        command = { "provider.pl" },
+    },
+}
 ```
 
 The first argument must name an executable inside the component folder. Give scripts an executable bit and a valid shebang. Arguments are passed directly, without a shell. Before an enabled instance launches an unapproved program, OmniWM automatically asks whether to trust it. You can also review a pending program under **Settings > Network & Permissions > Programs**. Installing a component or enabling its instance does not grant trust.

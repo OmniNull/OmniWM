@@ -7,12 +7,13 @@ import QuartzCore
 
 extension WorkspaceManager {
     func monitorResolutionContext() -> MonitorResolutionContext {
-        MonitorResolutionContext(
+        let projections = projections
+        return MonitorResolutionContext(
             monitors: monitors,
-            sortedMonitors: sortedMonitors(),
-            topologyProfile: currentTopologyProfile(),
-            configuredWorkspaceNames: configuredWorkspaceNameSet(),
-            monitorDescriptionByWorkspaceName: monitorDescriptionByWorkspaceName(),
+            sortedMonitors: projections.sortedMonitors(),
+            topologyProfile: projections.currentTopologyProfile(),
+            configuredWorkspaceNames: projections.configuredWorkspaceNameSet(),
+            monitorDescriptionByWorkspaceName: projections.monitorDescriptionByWorkspaceName(),
             monitorRanking: settings.monitors.ranking
         )
     }

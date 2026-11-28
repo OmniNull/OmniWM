@@ -39,7 +39,7 @@ extension ShellDesktopEditorTests {
         let key = await dirtyText(fixture.editor)
         let original = try XCTUnwrap(fixture.editor.draft(key))
         _ = await fixture.editor.selectStyle("nocturne")
-        let file = fixture.shell.appendingPathComponent("shell.toml")
+        let file = fixture.shell.appendingPathComponent("shell.luau")
         let saved = try Data(contentsOf: file)
         try Data("[invalid".utf8).write(to: file)
         defer { try? saved.write(to: file) }

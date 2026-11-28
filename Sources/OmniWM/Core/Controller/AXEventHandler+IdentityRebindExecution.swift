@@ -31,10 +31,10 @@ extension AXEventHandler {
             retryManagedWindowIdentityRebind(rebind: rebind, execution: execution)
             return
         }
-        guard commitAcknowledgedManagedWindowIdentity(
+        guard let rebind = await commitAcknowledgedManagedWindowIdentity(
             rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
         ) else { return }
-        applyManagedWindowIdentityRebindFrames(
+        applyManagedWindowIdentityRebindRuntimeState(
             rebind: rebind, acknowledgement: acknowledgement, controller: controller
         )
         requiresBindingRefresh = true
@@ -69,28 +69,41 @@ extension AXEventHandler {
     private func commitAcknowledgedManagedWindowIdentity(
         rebind: ManagedWindowIdentityRebind, execution: AdmissionRetryExecution,
         acknowledgement: AXManagedWindowRebindAcknowledgement?, controller: WMController
-    ) -> Bool {
+    ) async -> ManagedWindowIdentityRebind? {
+        var rebind = rebind
+        if rebind.managedReplacementMetadata != nil,
+           isCurrentManagedWindowIdentityRebind(rebind: rebind, execution: execution, acknowledgement: acknowledgement)
+        {
+            let window = rebind.newWindow.axRef
+            var observation = if let provider = rebindMinimizationProvider {
+                await provider(window)
+            } else {
+                await acknowledgement?.destinationContext.windowMinimizationAsync(window)
+            }
+            if let notification = admissionRetryStateByWindowId[execution.windowId]?.rebindMinimization,
+               observation.map({ notification.sequence > $0.sequence }) ?? true
+            {
+                observation = notification
+            }
+            rebind.minimizedAttribute = observation?.isMinimized ?? rebind.minimizedAttribute
+        }
         guard isCurrentManagedWindowIdentityRebind(
-            rebind: rebind, execution: execution, acknowledgement: acknowledgement
-        ) else {
+                  rebind: rebind, execution: execution, acknowledgement: acknowledgement
+              ),
+              commitManagedWindowIdentityRebind(
+                  from: rebind.oldWindow.token, to: rebind.newWindow.token,
+                  axRef: rebind.newWindow.axRef, managedReplacementMetadata: rebind.managedReplacementMetadata
+              ) != nil
+        else {
             rollbackAndRetireManagedIdentityRebind(
                 rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
             )
-            return false
+            return nil
         }
-        guard commitManagedWindowIdentityRebind(
-            from: rebind.oldWindow.token, to: rebind.newWindow.token,
-            axRef: rebind.newWindow.axRef, managedReplacementMetadata: rebind.managedReplacementMetadata
-        ) != nil else {
-            rollbackAndRetireManagedIdentityRebind(
-                rebind: rebind, execution: execution, acknowledgement: acknowledgement, controller: controller
-            )
-            return false
-        }
-        return true
+        return rebind
     }
 
-    func applyManagedWindowIdentityRebindFrames(
+    func applyManagedWindowIdentityRebindRuntimeState(
         rebind: ManagedWindowIdentityRebind,
         acknowledgement: AXManagedWindowRebindAcknowledgement?, controller: WMController
     ) {
@@ -98,6 +111,9 @@ extension AXEventHandler {
         let retainedParkTarget = controller.axManager.commitFrameApplicationStateForRebind(
             from: rebind.oldWindow, to: rebind.newWindow, acknowledgement: acknowledgement
         )
+        if let minimizedAttribute = rebind.minimizedAttribute {
+            updateWindowMinimizedState(minimizedAttribute, token: rebind.newWindow.token)
+        }
         if let retainedParkTarget {
             controller.axManager.applyParkFramesParallel([retainedParkTarget])
         }

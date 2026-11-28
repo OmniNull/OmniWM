@@ -119,18 +119,16 @@ extension NiriLayoutHandler {
         monitor: Monitor,
         animationTime: TimeInterval?,
         settlesAnimation: Bool,
+        edgeTuck: NiriEdgeTuck? = nil,
         isInteractiveMove: Bool = false
     ) -> WorkspaceLayoutPlan {
         let sampledAnimationTime = settlesAnimation ? nil : animationTime
-        let isSettled = settlesAnimation || (animationTime == nil && controller.map {
-            !hasPendingNiriAnimationWork(
-                state: snapshot.viewportState, driver: $0.workspaceManager.animationDriver,
-                engine: engine, workspaceId: snapshot.workspaceId
-            )
-        } == true)
+        let isSettled = settlesAnimation || (animationTime == nil && onDemandIsIdle(snapshot, engine: engine))
         let (frames, hiddenHandles) = calculateOnDemandFrames(
             snapshot: snapshot, engine: engine, monitor: monitor,
-            sampledAnimationTime: sampledAnimationTime, isSettled: isSettled, recordsPresentationGeometry: true
+            sampledAnimationTime: sampledAnimationTime, isSettled: isSettled,
+            edgeTuck: edgeTuck ?? onDemandTuck(snapshot: snapshot, engine: engine, time: sampledAnimationTime),
+            recordsPresentationGeometry: true
         )
 
         var diff = layoutDiff(
@@ -221,17 +219,29 @@ extension NiriLayoutHandler {
             snapshot: snapshot
         )
 
+        let projection = prepareRelayoutProjection(pass: pass, state: &state)
+
         var plan = computeLayoutPlan(
             pass: pass,
             state: state,
             selection: selection,
             arrival: arrival,
-            snapshot: snapshot
+            snapshot: snapshot,
+            firstProjection: consume projection
         )
         plan.niriRestorePlacements = pass.engine.persistedPlacements(in: pass.wsId)
         plan.quietArrivalTokens = snapshot.quietArrivalTokens
 
         return plan
+    }
+
+    private func prepareRelayoutProjection(
+        pass: borrowing NiriLayoutPass, state: inout ViewportState
+    ) -> [NiriProjectedColumn]? {
+        guard pass.engine.shrinkToFit else { return nil }
+        let columns = pass.engine.projectedColumns(in: pass.wsId)
+        pass.engine.autoFitIfRequested(context: pass.interactionContext, projection: columns.span, state: &state)
+        return columns
     }
 
     private func restoreInitialNiriPlacementsIfNeeded(
@@ -392,6 +402,7 @@ extension NiriLayoutHandler {
         monitor: Monitor,
         sampledAnimationTime: TimeInterval?,
         isSettled: Bool,
+        edgeTuck: NiriEdgeTuck = .settledOnly,
         recordsPresentationGeometry: Bool = false
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
         let gaps = LayoutGaps(
@@ -423,7 +434,7 @@ extension NiriLayoutHandler {
             animationTime: sampledAnimationTime,
             viewOffsetOverride: offsets?.liveOffset,
             settledVisibilityOffset: offsets?.settledVisibilityOffset,
-            isSettled: isSettled,
+            isSettled: isSettled, edgeTuck: edgeTuck,
             excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
             recordsPresentationGeometry: recordsPresentationGeometry
         )

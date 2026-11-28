@@ -22,7 +22,7 @@ import XCTest
                     controller: fixture.controller
                 )
                 await editor.reload()
-                let original = try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml"))
+                let original = try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau"))
                 let message = "No component named missing is installed"
                 for windowClass in windowClasses {
                     editor.problem = nil
@@ -40,7 +40,7 @@ import XCTest
                         XCTAssertEqual(editor.problem, message)
                     }
                     XCTAssertEqual(
-                        try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.toml")),
+                        try Data(contentsOf: configuration.shellDirectory.appendingPathComponent("shell.luau")),
                         original
                     )
                     XCTAssertNil(fixture.controller.workspaceBarManager.shellHost)
@@ -59,8 +59,8 @@ import XCTest
             do {
                 let configuration = fixture.controller.workspaceBarManager.shellConfiguration
                 let source = try XCTUnwrap(configuration.config.widget("lake"))
-                try Data("[options.bad]\ntype = 'invalid'".utf8)
-                    .write(to: source.deletingLastPathComponent().appendingPathComponent("settings.toml"))
+                try Data("return { options = { bad = { type = \"invalid\" } } }".utf8)
+                    .write(to: source.deletingLastPathComponent().appendingPathComponent("settings.luau"))
                 try await configuration.refresh()
                 let editor = ShellDesktopEditor(
                     configuration: configuration,

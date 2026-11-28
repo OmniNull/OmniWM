@@ -58,8 +58,8 @@ final class ShellStringsTests: XCTestCase {
         let style = layer("style")
         let folder = style.appendingPathComponent(ShellStrings.folder, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let file = folder.appendingPathComponent("\(ShellStrings.fallbackLocalization).toml")
-        for contents in ["Count = 3\n", "Greeting = \n"] {
+        let file = folder.appendingPathComponent("\(ShellStrings.fallbackLocalization).luau")
+        for contents in ["return { Count = 3 }", "return { Greeting = }"] {
             try contents.write(to: file, atomically: true, encoding: .utf8)
             XCTAssertThrowsError(try ShellStrings.load([style])) { error in
                 XCTAssertTrue(
@@ -99,7 +99,7 @@ final class ShellStringsTests: XCTestCase {
     private func write(_ table: [String: String], locale: String, in layer: URL) throws {
         let folder = layer.appendingPathComponent(ShellStrings.folder, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try table.sorted { $0.key < $1.key }.map { "\"\($0.key)\" = \"\($0.value)\"" }.joined(separator: "\n")
-            .write(to: folder.appendingPathComponent("\(locale).toml"), atomically: true, encoding: .utf8)
+        try ("return " + SettingsLuauValue.record(table.mapValues(SettingsLuauValue.string)).literal())
+            .write(to: folder.appendingPathComponent("\(locale).luau"), atomically: true, encoding: .utf8)
     }
 }

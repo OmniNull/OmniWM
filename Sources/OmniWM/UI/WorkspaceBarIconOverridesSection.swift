@@ -8,27 +8,6 @@ import UniformTypeIdentifiers
 @MainActor
 enum WorkspaceBarIconOverrideEdits {
     @discardableResult
-    static func applySelection(
-        _ selectedURL: URL?,
-        bundleID: String,
-        settings: SettingsStore,
-        refresh: (Bool) -> Void
-    ) -> Bool {
-        guard let selectedURL,
-              let bundleID = WorkspaceBarAppCandidates.normalizedBundleID(bundleID)
-        else {
-            return false
-        }
-
-        return applySource(
-            .file(selectedURL.standardizedFileURL.path),
-            bundleID: bundleID,
-            settings: settings,
-            refresh: refresh
-        )
-    }
-
-    @discardableResult
     static func applySource(
         _ source: WorkspaceBarIconOverrideSource,
         bundleID: String,
@@ -112,6 +91,7 @@ struct WorkspaceBarIconOverridesSection: View {
                             removeOverride(for: candidate.bundleID)
                         }
                     )
+                    .settingsField(.workspaceBarIconOverrides, member: candidate.bundleID)
                 }
             }
 
@@ -126,6 +106,7 @@ struct WorkspaceBarIconOverridesSection: View {
                     WorkspaceBarAppCandidates.normalizedBundleID(newBundleID) == nil
                 )
             }
+            .settingsField(.workspaceBarIconOverrides)
         }
         .sheet(item: $iconPickerRequest) { request in
             WorkspaceBarAppIconPicker(

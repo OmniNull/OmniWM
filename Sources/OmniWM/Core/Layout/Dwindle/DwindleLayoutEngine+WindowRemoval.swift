@@ -29,6 +29,7 @@ extension DwindleLayoutEngine {
             }
         }
 
+        if let onFullscreenChange, tile.members[memberIndex].isFullscreen { onFullscreenChange(token, true) }
         if tile.members.count > 1 {
             _ = tile.remove(at: memberIndex)
             state.leafByToken.removeValue(forKey: token)

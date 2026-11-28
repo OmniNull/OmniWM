@@ -12,7 +12,7 @@ final class ShellLakeReferenceMatrixTests: XCTestCase {
             .resolvingSymlinksInPath().standardizedFileURL
         let widgets = try FileManager.default.contentsOfDirectory(
             at: profile.appendingPathComponent("widgets"), includingPropertiesForKeys: nil
-        ).filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("component.toml").path) }
+        ).filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("component.manifest.luau").path) }
             .map(\.lastPathComponent).sorted()
         let required: Set<String> = [
             "media",
@@ -34,14 +34,15 @@ final class ShellLakeReferenceMatrixTests: XCTestCase {
             required.isSubset(of: Set(widgets)),
             "Missing reference components: \(required.subtracting(widgets).sorted())"
         )
-        let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: profile, includingPropertiesForKeys: nil))
-        var modules: [(path: String, source: String)] = []
-        for case let file as URL in enumerator where file.pathExtension == "luau" {
-            let relative = String(file.resolvingSymlinksInPath().standardizedFileURL.path
-                .dropFirst(profile.path.count + 1))
-            modules.append(("profile/" + relative, try String(contentsOf: file, encoding: .utf8)))
+        let files = ShellWidgetSourceLoader.entries(
+            in: profile.appendingPathComponent("lib"), directories: false, sharedLibrary: true
+        ) + widgets.flatMap { widget in
+            ShellWidgetSourceLoader.entries(in: profile.appendingPathComponent("widgets/\(widget)"), directories: false)
         }
-        modules.sort { $0.path < $1.path }
+        let modules = try files.sorted { $0.path < $1.path }.map { file in
+            let relative = file.standardizedFileURL.path.dropFirst(profile.path.count + 1)
+            return (path: "profile/" + relative, source: try String(contentsOf: file, encoding: .utf8))
+        }
         for widget in widgets {
             let descriptor = try ShellComponentCatalog.load(widget, directories: [profile])
             XCTAssertFalse(descriptor.views.isEmpty, widget)

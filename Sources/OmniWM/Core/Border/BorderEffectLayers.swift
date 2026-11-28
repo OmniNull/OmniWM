@@ -51,14 +51,19 @@ extension BorderEffectLayers {
         config: BorderConfig,
         baseColor: CGColor,
         scale: CGFloat,
-        cornerContour: WindowCornerContour? = nil
+        cornerContour: WindowCornerContour? = nil,
+        drawsSolidStroke: Bool = false
     ) {
         let gradient = config.gradient.flatMap { $0.enabled ? $0 : nil }
         let surfaceBounds = CGRect(origin: .zero, size: geometry.surfaceFrame.size)
-        updateGradient(
-            gradient, geometry: geometry, cornerRadii: cornerRadii,
-            cornerContour: cornerContour, baseColor: baseColor
-        )
+        if gradient != nil || cornerContour != nil || drawsSolidStroke {
+            updateStroke(
+                gradient, geometry: geometry, cornerRadii: cornerRadii,
+                cornerContour: cornerContour, baseColor: baseColor
+            )
+        } else {
+            gradientStrokeLayer.isHidden = true
+        }
         glowColorLayer.frame = surfaceBounds
         glowMaskLayer.frame = surfaceBounds
         if let glow = config.glow, glow.enabled, glow.opacity > 0, geometry.surfacePadding > 0 {
@@ -90,17 +95,13 @@ extension BorderEffectLayers {
         gradientRingMaskLayer.contentsScale = scale
     }
 
-    private func updateGradient(
+    private func updateStroke(
         _ gradient: BorderGradient?,
         geometry: BorderConfig.ResolvedGeometry,
         cornerRadii: WindowCornerRadii,
         cornerContour: WindowCornerContour?,
         baseColor: CGColor
     ) {
-        guard gradient != nil || cornerContour != nil else {
-            gradientStrokeLayer.isHidden = true
-            return
-        }
         let radii = cornerRadii.normalized(to: geometry.targetFrame.size)
         let ringFrame = geometry.targetFrame.insetBy(dx: -geometry.width, dy: -geometry.width)
         let outerRadii = radii == .zero ? .zero : radii.adding(geometry.width)

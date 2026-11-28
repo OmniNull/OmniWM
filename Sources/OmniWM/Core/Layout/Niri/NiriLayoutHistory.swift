@@ -17,11 +17,11 @@ struct NiriWindowSpans: Equatable {
         sizingMode = window.sizingMode
     }
 
-    func restore(_ window: NiriWindow, in column: NiriContainer) {
+    func restore(_ window: NiriWindow, engine: NiriLayoutEngine) {
         window.height = height
         window.windowWidth = windowWidth
         window.savedHeight = savedHeight
-        window.sizingMode = sizingMode
+        engine.setSizingMode(sizingMode, for: window)
     }
 }
 
@@ -47,7 +47,7 @@ struct NiriColumnSizing: Equatable {
         column.fittedWidth = fittedWidth
         column.fittedHeight = fittedHeight
         for window in column.windowNodes {
-            windows[window.token]?.restore(window, in: column)
+            windows[window.token]?.restore(window, engine: engine)
         }
     }
 }

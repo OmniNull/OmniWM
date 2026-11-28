@@ -101,9 +101,14 @@ final class HiddenBarMenuSessionTests: XCTestCase {
         let command = fixture.item("Command")
         fixture.attributes[ObjectIdentifier(command)]?["AXMenuItemMarkChar"] = "✓"
         fixture.attributes[ObjectIdentifier(command)]?["AXMenuItemCmdChar"] = "k"
-        fixture.attributes[ObjectIdentifier(command)]?["AXMenuItemCmdModifiers"] = 9
+        fixture
+            .attributes[ObjectIdentifier(command)]?["AXMenuItemCmdModifiers"] = Int(AXMenuItemModifiers.shift.rawValue)
+        let disabled = fixture.item("Disabled", enabled: false)
+        fixture.attributes[ObjectIdentifier(disabled)]?["AXMenuItemCmdChar"] = "j"
+        let modifiers: AXMenuItemModifiers = [.option, .noCommand]
+        fixture.attributes[ObjectIdentifier(disabled)]?["AXMenuItemCmdModifiers"] = Int(modifiers.rawValue)
         let separator = fixture.node(["AXRole": "AXSeparator"])
-        fixture.setChildren([command, fixture.item("Disabled", enabled: false), separator])
+        fixture.setChildren([command, disabled, separator])
         let session = fixture.session()
 
         XCTAssertEqual(session.open(target: fixture.target(), cachedItems: [fixture.target()]), .menu)
@@ -112,6 +117,7 @@ final class HiddenBarMenuSessionTests: XCTestCase {
         XCTAssertEqual(page.rows.map(\.enabled), [true, false, false])
         XCTAssertEqual(page.rows[0].mark, "✓")
         XCTAssertEqual(page.rows[0].shortcut, "⇧⌘K")
+        XCTAssertEqual(page.rows[1].shortcut, "⌥J")
         XCTAssertTrue(page.rows[2].separator)
         XCTAssertNil(page.backID)
         XCTAssertEqual(session.bundleID, "com.example.menu")

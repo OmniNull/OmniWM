@@ -10,6 +10,7 @@ struct WindowEngineTransfer {
     let token: WindowToken
     let sourceWorkspaceId: WorkspaceDescriptor.ID?
     let targetWorkspaceId: WorkspaceDescriptor.ID
+    let placement: NiriColumnPlacement?
     let sourceIsDwindle: Bool
     let targetIsDwindle: Bool
 
@@ -17,11 +18,13 @@ struct WindowEngineTransfer {
         token: WindowToken,
         sourceWorkspaceId sourceWsId: WorkspaceDescriptor.ID?,
         targetWorkspaceId targetWsId: WorkspaceDescriptor.ID,
+        placement: NiriColumnPlacement? = nil,
         controller: WMController
     ) {
         self.token = token
         sourceWorkspaceId = sourceWsId
         targetWorkspaceId = targetWsId
+        self.placement = placement
         let sourceLayout: LayoutType = sourceWsId
             .flatMap { controller.workspaceManager.descriptor(for: $0)?.name }
             .map { controller.settings.workspaces.layoutType(for: $0) } ?? .defaultLayout

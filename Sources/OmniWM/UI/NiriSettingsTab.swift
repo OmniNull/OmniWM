@@ -16,7 +16,8 @@ struct NiriSettingsTab: View {
             MonitorScopeSection(
                 selectedMonitor: $selectedMonitor,
                 monitors: connectedMonitors,
-                hasOverrides: { settings.niri.settings(for: $0) != nil },
+                field: .monitorNiriOverrides,
+                overrideID: { settings.niri.settings(for: $0)?.id.uuidString },
                 reset: { monitor in
                     settings.niri.remove(for: monitor)
                     controller.updateMonitorNiriSettings()
@@ -75,6 +76,7 @@ private struct GlobalNiriSettingsSection: View {
 
         Section("Niri Layout") {
             SettingsSliderRow(
+                field: .init(.niriVisibleContainerCount, .niriFitToVisibleContainerCount),
                 label: String(localized: "Visible Containers"),
                 value: Binding(
                     get: { settings.niri.fitToVisibleContainerCount ? Double(settings.niri.visibleContainerCount) : 0 },
@@ -103,6 +105,7 @@ private struct GlobalNiriSettingsSection: View {
 
             Toggle("Infinite Loop Navigation", isOn: Bindable(settings.niri).infiniteLoop)
                 .id("Infinite Loop Navigation")
+                .settingsField(.niriInfiniteLoop)
                 .onChange(of: settings.niri.infiniteLoop) { _, newValue in
                     controller.updateNiriConfig(infiniteLoop: newValue)
                 }
@@ -113,12 +116,14 @@ private struct GlobalNiriSettingsSection: View {
                 }
             }
             .id("Center Focused Column")
+            .settingsField(.niriCenterFocusedColumn)
             .onChange(of: settings.niri.centerFocusedColumn) { _, newValue in
                 controller.updateNiriConfig(centerFocusedColumn: newValue)
             }
 
             Toggle("Always Center Single Column", isOn: Bindable(settings.niri).alwaysCenterSingleColumn)
                 .id("Always Center Single Column")
+                .settingsField(.niriAlwaysCenterSingleColumn)
                 .onChange(of: settings.niri.alwaysCenterSingleColumn) { _, newValue in
                     controller.updateNiriConfig(alwaysCenterSingleColumn: newValue)
                 }
@@ -127,6 +132,7 @@ private struct GlobalNiriSettingsSection: View {
 
             Toggle("Keep Strip Ends on Screen", isOn: Bindable(settings.niri).keepStripEndsOnScreen)
                 .id("Keep Strip Ends on Screen")
+                .settingsField(.niriKeepStripEndsOnScreen)
                 .onChange(of: settings.niri.keepStripEndsOnScreen) {
                     controller.applyNiriStripPolicies()
                 }
@@ -136,6 +142,7 @@ private struct GlobalNiriSettingsSection: View {
             )
 
             SettingsSliderRow(
+                field: .init(.niriEdgePeekPercent),
                 label: String(localized: "Peripheral Vision"),
                 value: Bindable(settings.niri).edgePeekPercent,
                 range: 0 ... 10,
@@ -154,6 +161,7 @@ private struct GlobalNiriSettingsSection: View {
 
             Toggle("Focus Clicked Windows Without Scrolling", isOn: Bindable(settings.focus).clickFocusWithoutScrolling)
                 .id("Focus Clicked Windows Without Scrolling")
+                .settingsField(.focusClickFocusWithoutScrolling)
 
             SettingsCaption(
                 localized: "A left click on a partially visible window focuses it without moving the viewport. Keyboard navigation, gestures, Cmd-Tab, and the Dock still scroll windows into view. Has no effect when Center Focused Column is Always."
@@ -161,11 +169,13 @@ private struct GlobalNiriSettingsSection: View {
 
             Toggle("Allow Overscroll", isOn: Bindable(settings.niri).allowOverscroll)
                 .id("Allow Overscroll")
+                .settingsField(.niriAllowOverscroll)
                 .onChange(of: settings.niri.allowOverscroll) { _, _ in
                     controller.updateNiriConfig(edgeOverscroll: settings.niri.edgeOverscroll)
                 }
 
             SettingsSliderRow(
+                field: .init(.niriOverscrollVisibleStripPercent),
                 label: String(localized: "Overscroll Visible Strip"),
                 value: Binding(
                     get: { Double(settings.niri.overscrollVisibleStripPercent) },
@@ -187,6 +197,7 @@ private struct GlobalNiriSettingsSection: View {
 
             Toggle("Gaps at Screen Edges", isOn: Bindable(settings.niri).edgeGaps)
                 .id("Gaps at Screen Edges")
+                .settingsField(.niriEdgeGaps)
                 .onChange(of: settings.niri.edgeGaps) { _, _ in
                     controller.updateMonitorGapSettings()
                 }
@@ -196,18 +207,21 @@ private struct GlobalNiriSettingsSection: View {
                 isOn: Bindable(settings.niri).moveWindowStacksIntoColumn
             )
             .id("Stack Moved Window Into Adjacent Column")
+            .settingsField(.niriMoveWindowStacksIntoColumn)
 
             Toggle("Shrink Columns to Fit", isOn: Bindable(settings.niri).shrinkToFit)
                 .id("Shrink Columns to Fit")
+                .settingsField(.niriShrinkToFit)
                 .onChange(of: settings.niri.shrinkToFit) { _, newValue in
                     controller.updateNiriConfig(shrinkToFit: newValue)
                 }
             SettingsCaption(
-                localized: "Keyboard resizing also resizes the other visible columns to fill the view. If a window can't shrink to its share, resize again."
+                localized: "Keyboard resizing also resizes the other visible columns to fill the view, and visible columns that would extend past it are fitted on their own."
             )
 
             SingleWindowFitControls(
                 label: String(localized: "Single Window"),
+                field: .niriSingleWindowFit,
                 fit: settings.niri.singleWindowFit,
                 modes: SingleWindowFit.niriModes,
                 onChange: { newValue in
@@ -231,6 +245,7 @@ private struct GlobalNiriSettingsSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .settingsField(.niriResizeStepPercent)
         }
         .id("Niri Layout")
 
@@ -267,12 +282,9 @@ private struct GlobalNiriSettingsSection: View {
                         TextField("Preset \(index + 1)", value: Binding(
                             get: { Int(presets[index] * 100) },
                             set: { newPercent in
-                                var current = settings.niri.containerPrimarySpanPresets
-                                current[index] = Double(min(100, max(5, newPercent))) / 100.0
-                                settings.niri.containerPrimarySpanPresets = current
-                                controller
-                                    .updateNiriConfig(containerPrimarySpanPresets: settings
-                                        .niri.containerPrimarySpanPresets)
+                                editPresets(keeping: presets.indices.map(Optional.some)) {
+                                    $0[index] = Double(min(100, max(5, newPercent))) / 100.0
+                                }
                             }
                         ), format: .number)
                             .labelsHidden()
@@ -283,12 +295,9 @@ private struct GlobalNiriSettingsSection: View {
                         Text("%")
                             .foregroundStyle(.secondary)
                         Button(role: .destructive) {
-                            var presets = settings.niri.containerPrimarySpanPresets
-                            presets.remove(at: index)
-                            settings.niri.containerPrimarySpanPresets = presets
-                            controller
-                                .updateNiriConfig(containerPrimarySpanPresets: settings.niri
-                                    .containerPrimarySpanPresets)
+                            editPresets(keeping: presets.indices.filter { $0 != index }.map(Optional.some)) {
+                                $0.remove(at: index)
+                            }
                         } label: {
                             Label("Remove preset \(index + 1)", systemImage: "minus.circle")
                                 .labelStyle(.iconOnly)
@@ -298,14 +307,12 @@ private struct GlobalNiriSettingsSection: View {
                         .disabled(settings.niri.containerPrimarySpanPresets.count <= 2)
                     }
                 }
+                .settingsField(.niriContainerPrimarySpanPresets, index: index)
             }
 
             HStack {
                 Button("Add Preset") {
-                    var presets = settings.niri.containerPrimarySpanPresets
-                    presets.append(0.5)
-                    settings.niri.containerPrimarySpanPresets = presets
-                    controller.updateNiriConfig(containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets)
+                    editPresets(keeping: presets.indices.map(Optional.some) + [nil]) { $0.append(0.5) }
                 }
                 .id("Add Preset")
                 Button("Reset Cycle Presets") {
@@ -314,6 +321,7 @@ private struct GlobalNiriSettingsSection: View {
                 }
                 .id("Reset Cycle Presets")
             }
+            .settingsField(.niriContainerPrimarySpanPresets)
             SettingsCaption(localized: "Span-cycling commands use these presets in order. Duplicates are allowed.")
         }
         .id(settings.niri.containerPrimarySpanPresets.count)
@@ -321,6 +329,15 @@ private struct GlobalNiriSettingsSection: View {
 }
 
 extension GlobalNiriSettingsSection {
+    private func editPresets(keeping rows: [Int?], _ edit: (inout [Double]) -> Void) {
+        var presets = settings.niri.containerPrimarySpanPresets
+        edit(&presets)
+        settings.editList(at: ["niri", "containerPrimarySpanPresets"], keeping: rows) {
+            settings.niri.containerPrimarySpanPresets = presets
+        }
+        controller.updateNiriConfig(containerPrimarySpanPresets: settings.niri.containerPrimarySpanPresets)
+    }
+
     private var windowTilingNote: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label(
@@ -349,6 +366,7 @@ struct NiriDefaultSpanSettingsSection: View {
     }
 
     let allowsGlobal: Bool
+    var row: String?
     @Binding var mode: Mode
     @Binding var percent: Int
 
@@ -365,6 +383,11 @@ struct NiriDefaultSpanSettingsSection: View {
             .id("Span Mode")
             .pickerStyle(.segmented)
             .frame(maxWidth: allowsGlobal ? 460 : 360)
+            .settingsField(
+                allowsGlobal ? .monitorNiriOverrides : .niriDefaultContainerPrimarySpan,
+                row: row,
+                leaf: "defaultContainerPrimarySpan"
+            )
 
             if mode == .custom {
                 LabeledContent("Custom Span") {
@@ -379,6 +402,11 @@ struct NiriDefaultSpanSettingsSection: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .settingsField(
+                    allowsGlobal ? .monitorNiriOverrides : .niriDefaultContainerPrimarySpan,
+                    row: row,
+                    leaf: "defaultContainerPrimarySpan"
+                )
             }
 
             switch mode {
@@ -410,6 +438,7 @@ private struct NiriKeptSizesSettingsSection: View {
         Section("Kept Sizes") {
             Toggle("Keep Existing Window Sizes", isOn: Bindable(settings.niri).keepExistingWindowWidth)
                 .id("Keep Existing Window Sizes")
+                .settingsField(.niriKeepExistingWindowWidth)
 
             SettingsCaption(
                 localized: "A window already open when OmniWM first tiles it keeps its width in a horizontal strip or height in a vertical strip."
@@ -417,6 +446,7 @@ private struct NiriKeptSizesSettingsSection: View {
 
             Toggle("Keep Size When Pulling Out or Gathering", isOn: Bindable(settings.niri).keepSizeOnUnstack)
                 .id("Keep Size When Pulling Out or Gathering")
+                .settingsField(.niriKeepSizeOnUnstack)
                 .onChange(of: settings.niri.keepSizeOnUnstack) {
                     controller.applyNiriStripPolicies()
                 }
@@ -430,12 +460,14 @@ private struct NiriKeptSizesSettingsSection: View {
                 isOn: Bindable(settings.niri).keepSizesOnDisplayMove
             )
             .id("Keep Sizes When Moving a Workspace to Another Display")
+            .settingsField(.niriKeepSizesOnDisplayMove)
             .onChange(of: settings.niri.keepSizesOnDisplayMove) {
                 controller.applyNiriStripPolicies()
             }
 
             Toggle("Keep Sizes When Layout Settings Change", isOn: Bindable(settings.niri).keepSizesOnSettingsChange)
                 .id("Keep Sizes When Layout Settings Change")
+                .settingsField(.niriKeepSizesOnSettingsChange)
 
             SettingsCaption(
                 localized: "Changing Visible Containers or the default span leaves open columns as they are."

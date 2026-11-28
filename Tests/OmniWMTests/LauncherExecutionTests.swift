@@ -3,7 +3,7 @@
 
 import Darwin
 @testable import OmniWM
-import TOML
+import Synchronization
 import XCTest
 
 @MainActor
@@ -25,11 +25,11 @@ final class LauncherExecutionTests: XCTestCase {
     }
 
     func testLauncherEntryDecodesFromAHandwrittenTableMissingFields() throws {
-        let toml = Data("""
-        name = "Build"
-        command = "swift build"
+        let source = Data("""
+        return { name = "Build", command = "swift build" }
         """.utf8)
-        let decoded = try TOMLDecoder().decode(LauncherEntry.self, from: toml)
+        let decoded = try LuauTableDocument(SettingsLuauDocument.read(source, at: nil)).sourceValue
+            .decode(LauncherEntry.self)
         XCTAssertEqual(decoded.name, "Build")
         XCTAssertEqual(decoded.command, "swift build")
         XCTAssertEqual(decoded.kind, .command)
@@ -94,7 +94,7 @@ final class LauncherExecutionTests: XCTestCase {
         export.launcher.shell = .fish
         export.launcher.shellExecutable = "/custom/fish"
         export.launcher.terminal = .ghostty
-        let decoded = try SettingsTOMLCodec.decode(SettingsTOMLCodec.encode(export))
+        let decoded = try SettingsLuauFixture.decode(SettingsLuauDocument.initialSource(export))
         XCTAssertEqual(decoded.launcher, export.launcher)
     }
 
@@ -118,9 +118,11 @@ final class LauncherExecutionTests: XCTestCase {
         let fifo = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-blocked-\(UUID())")
         XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
         defer { try? FileManager.default.removeItem(at: fifo) }
+        let expiry = LauncherExpiry()
+        expiry.fire()
         do {
             _ = try await LauncherProcess.run(
-                executable: "/bin/cat", arguments: [fifo.path], environment: [:], deadline: 0
+                executable: "/bin/cat", arguments: [fifo.path], environment: [:], expiry: expiry
             )
             XCTFail("An unfinished process must not succeed")
         } catch {
@@ -146,23 +148,32 @@ final class LauncherExecutionTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-deadline-\(UUID())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let file = root.appendingPathComponent("pid")
-        let fifo = root.appendingPathComponent("blocked")
-        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
-        do {
-            _ = try await LauncherProcess.run(
+        let ready = root.appendingPathComponent("ready")
+        let blocked = root.appendingPathComponent("blocked")
+        XCTAssertEqual(mkfifo(ready.path, 0o600), 0)
+        XCTAssertEqual(mkfifo(blocked.path, 0o600), 0)
+        let line = ReadinessLine()
+        let readiness = expectation(description: "The child reports its process ID")
+        let source = try watchLine(on: ready, into: line, fulfilling: readiness)
+        defer { source.cancel() }
+        let expiry = LauncherExpiry()
+        let run = Task {
+            try await LauncherProcess.run(
                 executable: "/bin/sh",
                 arguments: [
                     "-c",
-                    "trap '' TERM; printf '%s' $$ > \(LauncherHelperTestSupport.quote(file.path)); exec /bin/cat \(LauncherHelperTestSupport.quote(fifo.path))"
+                    "trap '' TERM; printf '%s\\n' $$ > \(LauncherHelperTestSupport.quote(ready.path)); exec /bin/cat \(LauncherHelperTestSupport.quote(blocked.path))"
                 ],
-                environment: [:], deadline: 1
+                environment: [:], expiry: expiry
             )
-            XCTFail("The deadline must fail")
-        } catch {
+        }
+        await fulfillment(of: [readiness], timeout: failureBound)
+        expiry.fire()
+        let outcome = await run.result
+        XCTAssertThrowsError(try outcome.get()) { error in
             XCTAssertTrue(error.localizedDescription.contains("in time"))
         }
-        let pid = try XCTUnwrap(Int32(String(contentsOf: file, encoding: .utf8)))
+        let pid = try XCTUnwrap(Int32(line.text))
         XCTAssertEqual(kill(pid, 0), -1)
         XCTAssertEqual(errno, ESRCH)
     }
@@ -292,4 +303,36 @@ final class LauncherExecutionTests: XCTestCase {
             }
         }
     #endif
+}
+
+private func watchLine(
+    on fifo: URL, into line: ReadinessLine, fulfilling expectation: XCTestExpectation
+) throws -> any DispatchSourceRead {
+    let descriptor = open(fifo.path, O_RDWR | O_NONBLOCK)
+    guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+    let source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: .global())
+    source.setEventHandler {
+        var chunk = [UInt8](repeating: 0, count: Int(getpagesize()))
+        let count = read(descriptor, &chunk, chunk.count)
+        if count > 0, line.append(chunk.prefix(count)) { expectation.fulfill() }
+    }
+    source.setCancelHandler { close(descriptor) }
+    source.resume()
+    return source
+}
+
+private final class ReadinessLine: Sendable {
+    private let bytes = Mutex<[UInt8]>([])
+
+    var text: String {
+        bytes.withLock { String(decoding: $0.prefix { $0 != UInt8(ascii: "\n") }, as: UTF8.self) }
+    }
+
+    func append(_ chunk: ArraySlice<UInt8>) -> Bool {
+        bytes.withLock { bytes in
+            let complete = bytes.contains(UInt8(ascii: "\n"))
+            bytes += chunk
+            return !complete && bytes.contains(UInt8(ascii: "\n"))
+        }
+    }
 }

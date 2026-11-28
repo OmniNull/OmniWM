@@ -5,6 +5,7 @@ import Foundation
 
 extension WorkspaceManager {
     func applySettings() {
+        let previousPlacements = scriptWorkspaceMoveObserver?.catalogPlacements(in: self)
         invalidateSettingsProjectionCaches()
         let visibleWorkspacesBeforeClear = activeVisibleWorkspaceMap()
         let overriddenWorkspaceIds = Set(
@@ -41,6 +42,9 @@ extension WorkspaceManager {
             visibleMonitorByWorkspace: visibleMonitorByWorkspace,
             visibleWorkspacesBeforeClear: visibleWorkspacesBeforeClear
         )
+        if let previousPlacements {
+            withCatalogObserver(.move) { $0.catalogCommitted(previous: previousPlacements, in: self) }
+        }
     }
 
     func drainPendingRuntimeMonitorOverrideClears() {
@@ -66,6 +70,7 @@ extension WorkspaceManager {
         )
         guard !clearableWorkspaceIds.isEmpty else { return }
 
+        let previousPlacements = scriptWorkspaceMoveObserver?.catalogPlacements(in: self)
         pendingRuntimeMonitorOverrideClearWorkspaceIds.subtract(clearableWorkspaceIds)
         let visibleMonitorByWorkspace = visibleMonitorByWorkspace(
             in: clearableWorkspaceIds,
@@ -79,6 +84,9 @@ extension WorkspaceManager {
             visibleWorkspacesBeforeClear: visibleWorkspacesBeforeClear
         ) else {
             return
+        }
+        if let previousPlacements {
+            withCatalogObserver(.move) { $0.catalogCommitted(previous: previousPlacements, in: self) }
         }
         onDeferredWorkspaceMonitorMove?(outcome)
     }

@@ -133,6 +133,20 @@ final class ParkingEdgeInteractionTests: XCTestCase {
         XCTAssertTrue(SurfaceCoordinator.shared.containsInteractive(point: fixture.pointer))
     }
 
+    func testEdgeMaskAndFinAreAboveAppWindowsAndBelowTheDock() throws {
+        let fixture = try Fixture.make(hover: false)
+        defer { fixture.destroy() }
+        let mask = try fixture.window()
+        mask.updateHover()
+        let fin = try fixture.fin()
+
+        let dockLevel = Int(CGWindowLevelForKey(.dockWindow))
+        for panel in [mask as NSPanel, fin] {
+            XCTAssertGreaterThan(panel.level.rawValue, NSWindow.Level.floating.rawValue)
+            XCTAssertLessThan(panel.level.rawValue, dockLevel)
+        }
+    }
+
     func testClicksActivateImmediatelyAndRepeatedlyWithHoverDisabled() throws {
         let fixture = try Fixture.make(hover: false)
         defer { fixture.destroy() }

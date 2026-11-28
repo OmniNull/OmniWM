@@ -12,11 +12,11 @@ final class WorkspaceBarExcludedAppsSettingsTests: XCTestCase {
 
         let canonical = try XCTUnwrap(
             String(
-                bytes: SettingsTOMLCodec.encode(.defaults()),
+                bytes: SettingsLuauDocument.initialSource(.defaults()),
                 encoding: .utf8
             )
         )
-        XCTAssertTrue(canonical.contains("excludedBundleIDs = []"))
+        XCTAssertTrue(canonical.contains("excludedBundleIDs = {}"))
     }
 
     func testCanonicalAndPreservingRoundTripsKeepBundleIDs() throws {
@@ -26,17 +26,19 @@ final class WorkspaceBarExcludedAppsSettingsTests: XCTestCase {
             "com.example.Offline"
         ]
 
-        let canonical = try SettingsTOMLCodec.encode(export)
-        let canonicalText = try XCTUnwrap(String(bytes: canonical, encoding: .utf8))
-        XCTAssertTrue(canonicalText.contains("excludedBundleIDs = [\"tracesOf.Uebersicht\", \"com.example.Offline\"]"))
+        let canonical = try SettingsLuauDocument.initialSource(export)
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(canonical).workspaceBar.excludedBundleIDs,
+            try SettingsLuauFixture.fields(in: canonical)["workspaceBar"]?["excludedBundleIDs"],
+            .list(export.workspaceBar.excludedBundleIDs.map(SettingsLuauValue.string))
+        )
+        XCTAssertEqual(
+            try SettingsLuauFixture.decode(canonical).workspaceBar.excludedBundleIDs,
             export.workspaceBar.excludedBundleIDs
         )
 
-        let preserving = try SettingsTOMLCodec.encode(export, preservingUnknownKeysFrom: canonical)
+        let preserving = try SettingsLuauFixture.editing(canonical, to: export)
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(preserving).workspaceBar.excludedBundleIDs,
+            try SettingsLuauFixture.decode(preserving).workspaceBar.excludedBundleIDs,
             export.workspaceBar.excludedBundleIDs
         )
     }

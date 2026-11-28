@@ -4,6 +4,7 @@
 import Carbon
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 import OmniWMIPC
 import XCTest
 
@@ -86,7 +87,7 @@ final class PresentationActionContractTests: XCTestCase {
 
     func testPresentationIPCEncodingAndUnregisteredFallbackAreUnchanged() throws {
         for command in IPCPresentationCommand.allCases {
-            let request = IPCCommandRequest.presentation(command)
+            let request = IPCCommandRequest(.presentation(command))
             let encoded = try JSONEncoder().encode(request)
             let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
             XCTAssertEqual(object["name"] as? String, command.rawValue)

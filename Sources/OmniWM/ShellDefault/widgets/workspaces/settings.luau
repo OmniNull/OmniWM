@@ -1,0 +1,23 @@
+-- SPDX-License-Identifier: GPL-2.0-only
+-- Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
+
+return {
+    options = {
+        indicator = {
+            type = "choice",
+            title = "Workspace indicator",
+            default = "pills",
+            choices = { "pills", "underline", "dots", "numbers", "minimal" },
+        },
+        compact = {
+            type = "boolean",
+            title = "Compact workspace groups",
+            default = false,
+        },
+        occupiedBackground = {
+            type = "boolean",
+            title = "Highlight occupied workspaces",
+            default = false,
+        },
+    },
+}

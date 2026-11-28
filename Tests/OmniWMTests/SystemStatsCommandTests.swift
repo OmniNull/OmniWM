@@ -12,7 +12,10 @@ final class SystemStatsCommandTests: XCTestCase {
         let descriptor = try XCTUnwrap(descriptors.first { $0.name == .presentation(.systemStats) })
 
         XCTAssertEqual(descriptor.commandWords, ["toggle-system-stats"])
-        XCTAssertEqual(try IPCCommandRequest(name: descriptor.name, argumentValues: []), .presentation(.systemStats))
+        XCTAssertEqual(
+            try IPCCommandRequest(name: descriptor.name, argumentValues: []),
+            .init(.presentation(.systemStats))
+        )
     }
 
     @MainActor
@@ -29,7 +32,7 @@ final class SystemStatsCommandTests: XCTestCase {
         }
         let router = IPCCommandRouter(controller: controller, sessionToken: "test")
 
-        XCTAssertEqual(router.handle(.presentation(.systemStats)), .executed)
+        XCTAssertEqual(router.handle(.init(.presentation(.systemStats))), .executed)
     }
 
     func testSystemStatsButtonSettingRoundTrips() throws {
@@ -37,9 +40,9 @@ final class SystemStatsCommandTests: XCTestCase {
 
         var export = SettingsExport.defaults()
         export.workspaceBar.systemStatsButton = true
-        let data = try SettingsTOMLCodec.encode(export)
+        let data = try SettingsLuauDocument.initialSource(export)
         XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("systemStatsButton = true"))
-        XCTAssertTrue(try SettingsTOMLCodec.decode(data).workspaceBar.systemStatsButton)
+        XCTAssertTrue(try SettingsLuauFixture.decode(data).workspaceBar.systemStatsButton)
     }
 
     @MainActor

@@ -2,19 +2,27 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 import OmniWMIPC
 
 @MainActor @Observable
 final class WorkspaceSettings {
     private nonisolated static let defaults = SettingsExport.defaults()
+    @ObservationIgnored var scriptFullscreenObserver: ConfigScriptEventObservers?
     @ObservationIgnored var onChange: (() -> Void)?
 
     var configurations = WorkspaceSettings.defaults.workspaceConfigurations {
-        didSet { onChange?() }
+        didSet {
+            scriptFullscreenObserver?.workspaceLayoutsChanged(previous: oldValue, defaultLayout: defaultLayoutType)
+            onChange?()
+        }
     }
 
     var defaultLayoutType = WorkspaceSettings.defaults.defaultLayoutType {
-        didSet { onChange?() }
+        didSet {
+            scriptFullscreenObserver?.workspaceLayoutsChanged(previous: configurations, defaultLayout: oldValue)
+            onChange?()
+        }
     }
 
     var autoBackAndForth = WorkspaceSettings.defaults.workspaceAutoBackAndForth {
@@ -25,22 +33,60 @@ final class WorkspaceSettings {
         didSet { onChange?() }
     }
 
+    var switchWrapAround = WorkspaceSettings.defaults.workspaceSwitchWrapAround {
+        didSet { onChange?() }
+    }
+
+    var switchWrapAroundUntracked: Bool {
+        _switchWrapAround
+    }
+
     func configuredNames() -> [String] {
         configurations.map(\.name)
     }
 
+    nonisolated static func insert<Row>(_ row: Row, into rows: inout [Row], name: (Row) -> String) {
+        let newName = name(row)
+        let index = rows.firstIndex { WorkspaceIDPolicy.sortsBefore(newName, name($0)) } ?? rows.endIndex
+        rows.insert(row, at: index)
+    }
+
     func layoutType(for workspaceName: String) -> LayoutType {
-        let configurations = self.configurations
+        let layout = Self.layout(for: workspaceName, in: configurations)
+        return layout == .defaultLayout ? defaultLayoutType : layout
+    }
+
+    @inline(__always)
+    func configScriptLayout(for workspaceName: String) -> ActiveLayoutKind {
+        let fallback = _defaultLayoutType
+        let layout = Self.layout(for: workspaceName, in: _configurations)
+        return (layout == .defaultLayout ? fallback : layout) == .dwindle ? .dwindle : .niri
+    }
+
+    private static func layout(
+        for workspaceName: String,
+        in configurations: borrowing [WorkspaceConfiguration]
+    ) -> LayoutType {
         let span = configurations.span
         for index in span.indices where span[index].name == workspaceName {
-            let layoutType = span[index].layoutType
-            return layoutType == .defaultLayout ? defaultLayoutType : layoutType
+            return span[index].layoutType
         }
-        return defaultLayoutType
+        return .defaultLayout
     }
 
     func displayName(for workspaceName: String) -> String {
-        let configurations = self.configurations
+        Self.displayName(for: workspaceName, in: configurations)
+    }
+
+    @inline(__always)
+    func configScriptDisplayName(for workspaceName: String) -> String {
+        Self.displayName(for: workspaceName, in: _configurations)
+    }
+
+    private static func displayName(
+        for workspaceName: String,
+        in configurations: borrowing [WorkspaceConfiguration]
+    ) -> String {
         let span = configurations.span
         for index in span.indices where span[index].name == workspaceName {
             return span[index].effectiveDisplayName

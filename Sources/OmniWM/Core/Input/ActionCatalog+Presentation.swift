@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Carbon
+import OmniWMAutomation
 import OmniWMIPC
 
 extension ActionCatalog {
@@ -34,13 +35,8 @@ extension ActionCatalog {
             ),
             IPCWindowStateCommand.toggleFloating.actionSpec(),
             IPCWindowStateCommand.close.actionSpec(),
-            action(
-                id: "openMenuAnywhere",
-                command: .openMenuAnywhere,
-                category: .focus,
-                binding: KeyBinding(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(controlKey | optionKey)),
-                keywords: ["menu", "anywhere"]
-            ),
+            openMenuAnywhereActionSpec,
+            openSettingsActionSpec,
             setWindowMarkActionSpec,
             removeWindowMarkActionSpec,
             IPCPresentationCommand.workspaceBar.actionSpec(),
@@ -65,6 +61,32 @@ extension ActionCatalog {
             category: .focus,
             binding: .unassigned,
             keywords: ["float", "floating", "tiled", "focus", "toggle"]
+        )
+    }
+
+    private static var openMenuAnywhereActionSpec: ActionSpec {
+        action(
+            id: "openMenuAnywhere",
+            command: .openMenuAnywhere,
+            category: .focus,
+            binding: KeyBinding(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(controlKey | optionKey)),
+            keywords: ["menu", "anywhere"]
+        )
+    }
+
+    static var openSettingsTitle: LocalizedStringResource {
+        LocalizedStringResource(
+            "command.settings.open", defaultValue: "Open Settings", table: "Commands", bundle: .omniWM
+        )
+    }
+
+    private static var openSettingsActionSpec: ActionSpec {
+        action(
+            id: "openSettings",
+            command: .openSettings,
+            category: .focus,
+            binding: KeyBinding(keyCode: UInt32(kVK_ANSI_Comma), modifiers: HyperKeyModifiers.default.carbonMask),
+            keywords: ["settings", "preferences", "options"]
         )
     }
 

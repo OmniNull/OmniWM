@@ -1,12 +1,15 @@
 import json
 import re
 
-def read_models(models):
+def read_models(models, automation):
     schemas = {'IPCCommandName': {'enum': []}}
-    for path in sorted(models.glob('*.swift')):
+    automation_types = set()
+    for path in sorted(models.glob('*.swift')) + sorted(automation.glob('*.swift')):
         source = path.read_text()
         for match in re.finditer('public (struct|enum) (\\w+): ([^{]+)\\{', source):
             (kind, name, conforms) = match.groups()
+            if path.parent == automation:
+                automation_types.add(name)
             if 'Codable' not in conforms:
                 continue
             start = match.end()
@@ -53,4 +56,4 @@ def read_models(models):
     for (name, fields) in rule_fields.items():
         schemas['IPCRuleArguments_' + name] = object_schema(fields)
     variants('IPCRuleRequest', 'name', {name: object_schema({'name': 'IPCRuleActionName', 'arguments': 'IPCRuleArguments_' + name}) for name in rule_fields})
-    return schemas
+    return schemas, automation_types

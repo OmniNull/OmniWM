@@ -4,7 +4,6 @@
 import CoreFoundation
 import Foundation
 @testable import OmniWM
-import TOML
 import XCTest
 
 final class ShellNetworkPermissionTests: XCTestCase {
@@ -87,15 +86,19 @@ final class ShellNetworkPermissionTests: XCTestCase {
         let user = root.appendingPathComponent("shell")
         let style = user.appendingPathComponent("default")
         let directories = [user, style]
-        try component("ci", manifest: "views = ['compact']", in: style)
+        try component("ci", manifest: "return { views = { \"compact\" } }", in: style)
         let bundled = try ShellComponentCatalog.load("ci", directories: directories).principal
         XCTAssertEqual(bundled, ShellWidgetPrincipal(
             role: .component, name: "ci", folder: style.appendingPathComponent("widgets/ci")
         ))
-        try component("ci", manifest: "views = ['compact']\ncapabilities = { network = ['new.example'] }", in: style)
+        try component(
+            "ci",
+            manifest: "return { views = { \"compact\" }, capabilities = { network = { \"new.example\" } } }",
+            in: style
+        )
         XCTAssertEqual(try ShellComponentCatalog.load("ci", directories: directories).principal, bundled)
 
-        try component("ci", manifest: "views = ['compact']", in: user)
+        try component("ci", manifest: "return { views = { \"compact\" } }", in: user)
         let overridden = try ShellComponentCatalog.load("ci", directories: directories).principal
         XCTAssertNotEqual(overridden, bundled)
         XCTAssertEqual(overridden.name, "ci")
@@ -104,8 +107,8 @@ final class ShellNetworkPermissionTests: XCTestCase {
         try FileManager.default.removeItem(at: link)
         let first = root.appendingPathComponent("first")
         let second = root.appendingPathComponent("second")
-        try component("ci", manifest: "views = ['compact']", in: first)
-        try component("ci", manifest: "views = ['compact']", in: second)
+        try component("ci", manifest: "return { views = { \"compact\" } }", in: first)
+        try component("ci", manifest: "return { views = { \"compact\" } }", in: second)
         try FileManager.default.createSymbolicLink(
             at: link,
             withDestinationURL: first.appendingPathComponent("widgets/ci")
@@ -207,7 +210,7 @@ final class ShellNetworkPermissionTests: XCTestCase {
         XCTAssertTrue(updated.widgets.isEmpty)
     }
 
-    func testShellPermissionsRoundTripThroughSettingsTOMLWithDefaults() throws {
+    func testShellPermissionsRoundTripThroughSettingsLuauWithDefaults() throws {
         var export = SettingsExport.defaults()
         XCTAssertEqual(export.shellPermissions, ShellPermissionDecisions())
         XCTAssertTrue(export.shellPermissions.services.weather)
@@ -226,68 +229,75 @@ final class ShellNetworkPermissionTests: XCTestCase {
             ],
             services: .init(weather: true, lyrics: false)
         )
-        let data = try SettingsTOMLCodec.encode(export)
-        XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-        XCTAssertTrue(SettingsTOMLCodec.unknownKeyPaths(in: data).isEmpty)
-
-        var tree = try TOMLDecoder().decode([String: TOMLNode].self, from: SettingsTOMLCodec.encode(.defaults()))
+        let data = try SettingsLuauDocument.initialSource(export)
+        XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
+        var tree = try SettingsLuauFixture.fields(in: SettingsLuauDocument.initialSource(.defaults()))
         tree.removeValue(forKey: "shellPermissions")
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).shellPermissions,
+            try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)).shellPermissions,
             ShellPermissionDecisions()
         )
-        tree["shellPermissions"] = .table([
-            "widgets": .array([.table([
+        tree["shellPermissions"] = .record([
+            "widgets": .list([.record([
                 "role": .string("bar"), "name": .string("clock"), "source": .string("/shell/widgets/clock")
             ])]),
-            "programs": .array([.table([
+            "programs": .list([.record([
                 "name": .string("tool"), "source": .string("/shell/widgets/tool"),
-                "command": .array([.string("tool.sh")])
+                "command": .list([.string("tool.sh")])
             ])]),
-            "services": .table(["weather": .boolean(false)])
+            "services": .record(["weather": .boolean(false)])
         ])
         XCTAssertEqual(
-            try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)).shellPermissions,
+            try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)).shellPermissions,
             ShellPermissionDecisions(
                 widgets: [.init(role: .bar, name: "clock", source: "/shell/widgets/clock")],
                 programs: [.init(name: "tool", source: "/shell/widgets/tool", command: ["tool.sh"])],
                 services: .init(weather: false, lyrics: true)
             )
         )
-        tree["shellPermissions"] = .table(["widgets": .array([.table([
+        tree["shellPermissions"] = .record(["widgets": .list([.record([
             "role": .string("island"), "name": .string("clock"), "source": .string("/shell/widgets/clock")
         ])])])
-        XCTAssertThrowsError(try SettingsTOMLCodec.decode(TOMLEncoder().encode(tree)))
+        XCTAssertThrowsError(try SettingsLuauFixture.decode(SettingsLuauFixture.source(tree)))
     }
 
     @MainActor
-    func testSettingsStoreRecordsAndResetsHostDecisionsAndPersistsThem() throws {
-        let settings = SettingsStore(
-            persistence: SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false),
-            runtimeState: RuntimeStateStore(directory: root, deferSaves: false)
-        )
-        var changes = 0
-        settings.shellPermissions.onDecisionsChange = { changes += 1 }
-        settings.shellPermissions.setNetwork(.allowed, hosts: ["API.example."], for: principal)
-        settings.shellPermissions.setNetwork(.allowed, hosts: ["api.example"], for: principal)
-        XCTAssertEqual(changes, 1)
+    func testSettingsFileGrantsHostPermissionAndARejectedListEditKeepsIt() throws {
         let allowed = ShellPermissionDecisions.Widget(
             role: .component, name: "ci", source: "/shell/widgets/ci", allowed: ["api.example"]
         )
-        XCTAssertEqual(
-            try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)).shellPermissions.widgets,
-            [allowed]
+        var configured = SettingsExport.defaults()
+        configured.shellPermissions.widgets = [allowed]
+        let literal = try SettingsLuauDocument.initialSource(configured)
+        let grants = try XCTUnwrap(SettingsLuauValue.fields(of: configured)["shellPermissions"]?["widgets"])
+        let source = Data("""
+        local grants = \(grants.literal())
+        return { shellPermissions = { widgets = grants } }
+        """.utf8)
+        let persistence = SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try source.write(to: persistence.fileURL)
+        let settings = SettingsStore(
+            persistence: persistence,
+            runtimeState: RuntimeStateStore(directory: root, deferSaves: false)
         )
-        settings.shellPermissions.setNetwork(nil, hosts: ["api.example"], for: principal)
-        XCTAssertEqual(changes, 2)
-        XCTAssertTrue(
-            try SettingsTOMLCodec.decode(Data(contentsOf: settings.settingsFileURL)).shellPermissions.widgets.isEmpty
-        )
-        var export = settings.toExport()
-        export.shellPermissions.widgets = [allowed]
-        settings.applyExport(export)
-        XCTAssertEqual(changes, 3)
         XCTAssertEqual(settings.shellPermissions.decisions.widgets, [allowed])
+        settings.shellPermissions.setNetwork(nil, hosts: allowed.allowed, for: principal)
+        XCTAssertEqual(settings.configNotice, .invalidRejected(reason:
+            "Changing a formula requires confirmation in Settings. " +
+                "Edit the file directly or choose the value in the Settings window."
+        ))
+        XCTAssertEqual(settings.shellPermissions.decisions.widgets, [allowed])
+        XCTAssertEqual(try Data(contentsOf: persistence.fileURL), source)
+
+        try literal.write(to: persistence.fileURL, options: .atomic)
+        persistence.handlePossibleSettingsFileChange()
+        XCTAssertEqual(settings.shellPermissions.decisions.widgets, [allowed])
+        settings.shellPermissions.setNetwork(nil, hosts: allowed.allowed, for: principal)
+        XCTAssertNil(settings.configNotice)
+        XCTAssertTrue(settings.shellPermissions.decisions.widgets.isEmpty)
+        let saved = try Data(contentsOf: persistence.fileURL)
+        XCTAssertTrue(try SettingsLuauDocument(saved).export.shellPermissions.widgets.isEmpty)
     }
 
     func testManagedPolicyReadsOnlyForcedValuesAndFailsClosedOnInvalidOnes() {
@@ -345,32 +355,39 @@ final class ShellNetworkPermissionTests: XCTestCase {
     func testPurposeIsAnOptionalCappedCapabilityOfComponentsAndRootSettingsOnly() throws {
         let shell = root.appendingPathComponent("shell")
         let purpose = String(repeating: "é", count: ShellComponentCatalog.purposeLimit)
-        try component("ci", manifest: "views = ['compact']\ncapabilities = { network = ['api.example'] }", in: shell)
+        try component(
+            "ci",
+            manifest: "return { views = { \"compact\" }, capabilities = { network = { \"api.example\" } } }",
+            in: shell
+        )
         XCTAssertNil(try ShellComponentCatalog.load("ci", directories: [shell]).capabilities.purpose)
         try component("ci", manifest: """
-        views = ['compact']
-        capabilities = { network = ['api.example'], purpose = '\(purpose)' }
+        return {
+            views = { "compact" },
+            capabilities = { network = { "api.example" }, purpose = "\(purpose)" },
+        }
         """, in: shell)
         let descriptor = try ShellComponentCatalog.load("ci", directories: [shell])
         XCTAssertEqual(descriptor.capabilities.purpose, purpose)
         XCTAssertEqual(descriptor.capabilities.network, ["api.example"])
         for manifest in [
-            "views = ['compact']\ncapabilities = { purpose = '\(purpose)x' }",
-            "views = ['compact']\ncapabilities = { purpose = 3 }",
-            "views = ['compact']\npurpose = 'Top-level purpose'"
+            "return { views = { \"compact\" }, capabilities = { purpose = \"\(purpose)x\" } }",
+            "return { views = { \"compact\" }, capabilities = { purpose = 3 } }",
+            "return { views = { \"compact\" }, purpose = \"Top-level purpose\" }"
         ] {
             try component("ci", manifest: manifest, in: shell)
             XCTAssertThrowsError(try ShellComponentCatalog.load("ci", directories: [shell]), manifest)
         }
-        XCTAssertThrowsError(try ShellComponentCatalog.instances(from: .array([.table([
+        XCTAssertThrowsError(try ShellComponentCatalog.instances(in: .list([.record([
             "id": .string("jobs"), "widget": .string("ci"),
-            "capabilities": .table(["purpose": .string("Instance purpose")])
+            "capabilities": .record(["purpose": .string("Instance purpose")])
         ])])))
 
         let folder = shell.appendingPathComponent("lake/widgets/lake")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let settings = folder.appendingPathComponent("settings.toml")
-        try Data("[capabilities]\nnetwork = ['api.example']\npurpose = 'Shows the weather'\n".utf8).write(to: settings)
+        let settings = folder.appendingPathComponent("settings.luau")
+        try Data("return { capabilities = { network = { \"api.example\" }, purpose = \"Shows the weather\" } }".utf8)
+            .write(to: settings)
         let rootSettings = try ShellRootSettings.load("lake", folder: folder)
         XCTAssertEqual(rootSettings.network, ["api.example"])
         XCTAssertEqual(rootSettings.purpose, "Shows the weather")
@@ -382,7 +399,7 @@ final class ShellNetworkPermissionTests: XCTestCase {
         XCTAssertEqual(source.purpose, "Shows the weather")
         XCTAssertEqual(source.network, ["api.example"])
         XCTAssertEqual(source.principal, ShellWidgetPrincipal(role: .bar, name: "lake", folder: folder))
-        try Data("[capabilities]\npurpose = '\(purpose)x'\n".utf8).write(to: settings)
+        try Data("return { capabilities = { purpose = \"\(purpose)x\" } }".utf8).write(to: settings)
         XCTAssertThrowsError(try ShellRootSettings.load("lake", folder: folder))
     }
 
@@ -453,7 +470,7 @@ final class ShellNetworkPermissionTests: XCTestCase {
     private func component(_ name: String, manifest: String, in layer: URL) throws {
         let folder = layer.appendingPathComponent("widgets/\(name)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try Data(manifest.utf8).write(to: folder.appendingPathComponent("component.toml"))
+        try Data(manifest.utf8).write(to: folder.appendingPathComponent("component.manifest.luau"))
         try Data("return { views = {} }".utf8).write(to: folder.appendingPathComponent("component.luau"))
     }
 }

@@ -133,6 +133,7 @@ extension DwindleLayoutEngine {
         at time: TimeInterval? = nil
     ) {
         guard let state = existingState(for: workspaceId), !snapshot.nodes.isEmpty else { return }
+        noteRestoredFullscreen(snapshot, in: workspaceId)
         if snapshot.canRestoreInPlace(state.root) {
             snapshot.restoreInPlace(state.root)
             finishHistoryRestore(snapshot, in: workspaceId, state: state)
@@ -154,6 +155,7 @@ extension DwindleLayoutEngine {
             return
         }
         let state = ensureState(for: workspaceId)
+        noteRestoredFullscreen(snapshot, in: workspaceId)
         seedMovementFramesFromPresentedLeaves(in: state, at: time)
         for index in arrivals.indices { arrivals[index].restoreExclusions(into: &state.excludedTokens) }
         var replay = DwindleLayoutReplay(root: state.root, snapshot: snapshot, arrivals: arrivals)
@@ -184,6 +186,17 @@ extension DwindleLayoutEngine {
         state.tileCount = 0
         indexLeaves(from: state.root, into: state)
         finishHistoryRestore(snapshot, in: workspaceId, state: state)
+    }
+
+    private func noteRestoredFullscreen(
+        _ snapshot: borrowing DwindleLayoutSnapshot,
+        in workspaceId: WorkspaceDescriptor.ID
+    ) {
+        guard let onFullscreenChange else { return }
+        for member in snapshot.members {
+            let previous = isWindowFullscreen(member.token, in: workspaceId)
+            if previous != member.isFullscreen { onFullscreenChange(member.token, previous) }
+        }
     }
 
     private func finishHistoryRestore(
