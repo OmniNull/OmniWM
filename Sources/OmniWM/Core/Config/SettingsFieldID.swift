@@ -101,6 +101,7 @@ enum SettingsFieldID: String, CaseIterable {
     case generalAnimationSpeed = "general.animationSpeed"
     case generalAnimationsEnabled = "general.animationsEnabled"
     case generalDefaultLayoutType = "general.defaultLayoutType"
+    case generalFocusNativeFullscreenOnWorkspaceSwitch = "general.focusNativeFullscreenOnWorkspaceSwitch"
     case generalHotkeysEnabled = "general.hotkeysEnabled"
     case generalHyperKeyModifiers = "general.hyperKeyModifiers"
     case generalIpcEnabled = "general.ipcEnabled"

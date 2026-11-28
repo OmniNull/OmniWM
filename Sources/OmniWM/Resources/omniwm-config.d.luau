@@ -152,6 +152,7 @@ export type OmniWMSettings = {
         animationSpeed: number?,
         animationsEnabled: boolean?,
         defaultLayoutType: ("default" | "niri" | "dwindle")?,
+        focusNativeFullscreenOnWorkspaceSwitch: boolean?,
         hotkeysEnabled: boolean?,
         hyperKeyModifiers: string?,
         ipcEnabled: boolean?,

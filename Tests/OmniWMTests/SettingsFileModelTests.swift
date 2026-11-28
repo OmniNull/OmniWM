@@ -96,21 +96,19 @@ final class SettingsFileModelTests: XCTestCase {
         XCTAssertFalse(export.focusNativeFullscreenOnWorkspaceSwitch)
         for enabled in [false, true] {
             export.focusNativeFullscreenOnWorkspaceSwitch = enabled
-            let data = try SettingsTOMLCodec.encode(export)
-            XCTAssertEqual(try SettingsTOMLCodec.decode(data), export)
-            XCTAssertFalse(
-                SettingsTOMLCodec.unknownKeyPaths(in: data)
-                    .contains("general.focusNativeFullscreenOnWorkspaceSwitch")
-            )
+            let data = try SettingsLuauDocument.initialSource(export)
+            XCTAssertEqual(try SettingsLuauFixture.decode(data), export)
         }
 
         let omitted = try canonicalDefaultLines { lines in
-            let index = try XCTUnwrap(lines.firstIndex { $0.hasPrefix("focusNativeFullscreenOnWorkspaceSwitch = ") })
+            let index = try XCTUnwrap(lines
+                .firstIndex {
+                    $0.trimmingCharacters(in: .whitespaces).hasPrefix("focusNativeFullscreenOnWorkspaceSwitch = ")
+                })
             lines.remove(at: index)
         }
-        let result = try SettingsTOMLCodec.decodeForLoad(omitted)
+        let result = try SettingsLuauDocument(omitted)
         XCTAssertFalse(result.export.focusNativeFullscreenOnWorkspaceSwitch)
-        XCTAssertNil(result.migration)
     }
 
     func testPausePalettePasteDuringSecureInputDefaultsOnAndRoundTrips() throws {

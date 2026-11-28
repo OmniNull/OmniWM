@@ -98,6 +98,7 @@ struct WorkspacesSettingsTab: View {
                     "Show Native Fullscreen Windows When Switching",
                     isOn: Bindable(settings.workspaces).focusNativeFullscreenOnSwitch
                 )
+                .settingsField(.generalFocusNativeFullscreenOnWorkspaceSwitch)
                 SettingsCaption(localized:
                     "Switching to a workspace whose remembered window is in macOS native fullscreen focuses that window, so macOS moves to its Space. When off, the workspace selects the window’s placeholder."
                 )
