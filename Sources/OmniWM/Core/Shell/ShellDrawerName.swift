@@ -2,7 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
-import OmniWMIPC
+import OmniWMAutomation
 
 enum ShellDrawerName {
     static func normalized(_ name: String) -> String {
@@ -14,7 +14,7 @@ enum ShellDrawerName {
         if name.isEmpty { return String(localized: "Enter a drawer name.") }
         if name.contains(where: \.isWhitespace) { return String(localized: "Drawer names can't contain spaces.") }
         if name.contains(".") { return String(localized: "Drawer names can't contain periods.") }
-        if name.utf8.count > IPCShellRequest.keyLimit { return String(localized: "This drawer name is too long.") }
+        if name.utf8.count > ShellRuntimeLimits.keyLimit { return String(localized: "This drawer name is too long.") }
         if !ShellComponentCatalog.validName(name) {
             return String(localized: "Drawer names can't contain /, \\, : or control characters.")
         }

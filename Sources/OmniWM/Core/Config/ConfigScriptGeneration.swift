@@ -3,6 +3,7 @@
 
 import Dispatch
 import Foundation
+import OmniWMAutomation
 import OmniWMScriptHost
 
 struct ConfigScriptContext: Equatable, Sendable {
@@ -24,6 +25,7 @@ struct ConfigScriptDispatch: Sendable {
         case mark(WindowMarkAction)
         case workspace(ConfigScriptWorkspaceRequest)
         case ruleApply(ConfigScriptRuleApplyTarget)
+        case shell(ShellRuntimeRequest)
         indirect case dwindleReplace(ConfigScriptDwindleReplace)
     }
 
@@ -33,6 +35,11 @@ struct ConfigScriptDispatch: Sendable {
 
     var displayName: String {
         switch operation {
+        case .native(.shellToggle),
+             .shell(.toggle): "shell toggle"
+        case .shell(.set): "shell set"
+        case .shell(.unset): "shell unset"
+        case .shell(.trigger): "shell trigger"
         case let .native(command): command.displayName
         case let .window(window): "window " + window.name.rawValue
         case .gather: "window gather"
@@ -48,7 +55,13 @@ struct ConfigScriptDispatch: Sendable {
             return "Key mode: keys can't be captured now. A key mode needs Input Monitoring and doesn't start "
                 + "while shortcuts are paused or Secure Input is on."
         }
-        return "\(displayName): \(outcome)."
+        switch operation {
+        case .shell,
+             .native(.shellToggle):
+            return "\(displayName): \(shellRefusalReason(outcome))."
+        default:
+            return "\(displayName): \(outcome)."
+        }
     }
 }
 

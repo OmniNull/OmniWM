@@ -344,6 +344,31 @@ omniwm.command("Re-apply Rules to Focused App", function(ctx)
 end, { reads = { "workspaceWindows", "details" } })
 ```
 
+## OmniShell controls
+
+`omniwm.dispatch("shell", action, …)` shares the runtime state and controls of [`omniwmctl shell`](/reference/cli/actions/#shell-widgets).
+
+| Action | Arguments | What it does |
+| --- | --- | --- |
+| `set` | A key and a string value | Sets a runtime variable. Setting the same value again succeeds without publishing a change. |
+| `unset` | A key | Removes the variable. An absent key changes nothing. |
+| `toggle` | A widget or drawer name | Uses the native toggle command on the interaction display. A drawer takes precedence over a same-named widget when it can open there. |
+| `trigger` | A widget name, a trigger name and an optional string value | Sends a message to a loaded widget with a trigger handler. Success means its mailbox accepted the message. The handler runs on the widget worker. |
+
+Variables last until OmniWM quits and are shared with widgets through [`ctx.data.vars`](/omnishell/reference/context-data/). `set` and `unset` work before a host starts, and remain available with automation disabled or Overview open. `toggle` and `trigger` need enabled automation and a closed Overview. A refusal reports its reason at the dispatch call and stops the remaining actions in the callback.
+
+There can be 64 variable keys. You can replace an existing value at that limit. Keys and trigger names use up to 64 bytes of ASCII letters, digits, underscores, hyphens or dots, with at least one character. Widget and drawer targets are nonempty and at most 64 bytes. A trigger's widget name cannot start with a dot or contain a slash. Values can be empty and hold up to 4,096 UTF-8 bytes. Omitting the trigger value or passing `nil` is distinct from passing an empty string.
+
+A Flex listener can send a trigger whose widget issues a command that fires the same listener again. OmniWM has no guard for that loop between the two runtimes. Flex limits the actions staged per callback. The widget mailbox has its own queue.
+
+**Tell a widget which mode you are in.** Run this palette command and read `ctx.data.vars["work.mode"]` from the widget:
+
+```luau
+omniwm.command("Set Writing Mode", function()
+    omniwm.dispatch("shell", "set", "work.mode", "writing")
+end)
+```
+
 ## Saved values
 
 `omniwm.store` keeps small values through reloads and restarts, such as a list of apps a callback picked. It works in callbacks, not while the file loads.

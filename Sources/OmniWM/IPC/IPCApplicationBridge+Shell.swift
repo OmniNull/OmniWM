@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
+import OmniWMAutomation
 import OmniWMIPC
 
 extension IPCApplicationBridge {
@@ -10,9 +11,13 @@ extension IPCApplicationBridge {
         let result: ExternalCommandResult = switch request {
         case let .toggle(widget) where request.isValid:
             controller.commandHandler.performCommand(.shellToggle(widget))
-        case .trigger where request.isValid:
+        case let .trigger(widget, name, value) where request.isValid:
             controller.automationRefusal
-                ?? controller.workspaceBarManager.applyShellRequest(request)
+                ?? controller.workspaceBarManager.applyShellRuntimeRequest(.trigger(
+                    widget: widget,
+                    name: name,
+                    value: value
+                ))
         case .profile,
              .theme,
              .eject,

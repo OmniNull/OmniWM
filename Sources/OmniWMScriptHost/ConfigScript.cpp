@@ -767,6 +767,22 @@ bool stageRuleApply(lua_State *L, ConfigVM &vm, omni_config_location site, int t
     return vm.callbacks.rule_apply(vm.context, &target, site, vm.failure, sizeof vm.failure);
 }
 
+bool stageShellControl(lua_State *L, ConfigVM &vm, omni_config_location site, int top) {
+    if (!vm.callbacks.shell_control || top < 3 || top > 5) {
+        reject(L, vm, site, "omniwm.dispatch expects 'shell', an action and its arguments");
+    }
+    std::array<omni_config_span, 4> words;
+    words[0] = token(L, vm, 2, site);
+    if (top == 5 && lua_isnil(L, top)
+        && std::string_view(words[0].data, words[0].length) == "trigger") {
+        --top;
+    }
+    for (int index = 3; index <= top; ++index) {
+        words[index - 2] = token(L, vm, index, site);
+    }
+    return vm.callbacks.shell_control(vm.context, words.data(), top - 1, site, vm.failure, sizeof vm.failure);
+}
+
 int dispatchAction(lua_State *L) {
     ConfigVM &vm = declarations(L);
     auto site = declarationSite(L, vm);
@@ -792,6 +808,8 @@ int dispatchAction(lua_State *L) {
         staged = stageWorkspace(L, vm, site, top);
     } else if (named && kind == "rule") {
         staged = stageRuleApply(L, vm, site, top);
+    } else if (named && kind == "shell") {
+        staged = stageShellControl(L, vm, site, top);
     } else if (named && kind == "dwindle") {
         staged = stageDwindleReplace(L, vm, site, top);
     } else if (named && top >= 3 && lua_istable(L, 3) && lua_type(L, 2) == LUA_TSTRING) {

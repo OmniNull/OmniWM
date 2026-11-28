@@ -58,6 +58,10 @@ struct Monitor: Identifiable, Hashable {
     struct ID: Hashable {
         let displayId: CGDirectDisplayID
 
+        var displayIdentifier: String {
+            "display:\(displayId)"
+        }
+
         static let fallback = ID(displayId: CGMainDisplayID())
     }
 

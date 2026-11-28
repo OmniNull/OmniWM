@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
+import OmniWMAutomation
 import OmniWMIPC
 
 extension WorkspaceBarManager {
@@ -161,27 +162,8 @@ extension WorkspaceBarManager {
     }
 
     func applyShellRequest(_ request: IPCShellRequest) -> ExternalCommandResult {
-        guard request.isValid else { return .invalidArguments }
-        switch request {
-        case let .set(key, value):
-            guard shellVars[key] != nil || shellVars.count < IPCShellRequest.countLimit else {
-                return .invalidArguments
-            }
-            shellVars[key] = value
-        case let .unset(key):
-            guard shellVars.removeValue(forKey: key) != nil else { return .noChange }
-        case let .toggle(widget):
-            return toggleShell(widget) ? .executed : .notFound
-        case .profile,
-             .theme,
-             .eject,
-             .initialize:
-            return .invalidArguments
-        case let .trigger(widget, name, value):
-            return shellHost?.trigger(widget, name: name, value: value) == true ? .executed : .notFound
-        }
-        shellHost?.updateVars()
-        return .executed
+        guard let action = request.runtimeRequest, action.isValid else { return .invalidArguments }
+        return applyShellRuntimeRequest(action)
     }
 
     var shellDirectory: URL? {

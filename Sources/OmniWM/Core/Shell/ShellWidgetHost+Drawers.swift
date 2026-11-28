@@ -17,8 +17,9 @@ extension ShellWidgetHost {
     }
 
     func trigger(_ widget: String, name: String, value: String?) -> Bool {
-        guard let state = widgets[widget], state.package != nil, state.declaration.hasTrigger else { return false }
-        state.mailbox?.yield(.trigger(name: name, value: value))
+        guard let state = widgets[widget], state.package != nil, state.declaration.hasTrigger,
+              let mailbox = state.mailbox, case .enqueued = mailbox.yield(.trigger(name: name, value: value))
+        else { return false }
         return true
     }
 

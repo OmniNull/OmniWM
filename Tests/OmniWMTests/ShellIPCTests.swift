@@ -3,6 +3,7 @@
 
 import Foundation
 @testable import OmniWM
+import OmniWMAutomation
 @testable import OmniWMCtl
 import OmniWMIPC
 import OmniWMScriptHost
@@ -97,7 +98,7 @@ final class ShellIPCTests: XCTestCase {
         ] {
             XCTAssertEqual(manager.applyShellRequest(invalid), .invalidArguments)
         }
-        let tooLong = String(repeating: "x", count: IPCShellRequest.valueLimit + 1)
+        let tooLong = String(repeating: "x", count: ShellRuntimeLimits.valueLimit + 1)
         for invalid in [
             IPCShellRequest.set(key: "", value: "a"),
             .set(key: "has space", value: "a"),
@@ -106,7 +107,7 @@ final class ShellIPCTests: XCTestCase {
         ] {
             XCTAssertEqual(manager.applyShellRequest(invalid), .invalidArguments)
         }
-        for index in 0 ..< IPCShellRequest.countLimit {
+        for index in 0 ..< ShellRuntimeLimits.countLimit {
             XCTAssertEqual(manager.applyShellRequest(.set(key: "k\(index)", value: "v")), .executed)
         }
         XCTAssertEqual(manager.applyShellRequest(.set(key: "overflow", value: "v")), .invalidArguments)

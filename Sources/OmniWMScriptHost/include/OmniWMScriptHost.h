@@ -598,6 +598,9 @@ typedef struct omni_config_store_callbacks {
 typedef bool (*omni_config_rule_apply_callback)(void *context, const omni_config_field *target,
     omni_config_location location, char *error, size_t capacity);
 
+typedef bool (*omni_config_shell_control_callback)(void *context, const omni_config_span *words, size_t count,
+    omni_config_location location, char *error, size_t capacity);
+
 typedef struct omni_config_callbacks {
     bool (*resolve)(void *context, uint16_t group, const omni_config_word *words, size_t count,
         omni_config_location location, uint32_t *action_id, char *error, size_t capacity);
@@ -622,6 +625,7 @@ typedef struct omni_config_callbacks {
     bool (*workspace)(void *context, const omni_config_workspace_request *request, omni_config_location location,
         char *error, size_t capacity);
     omni_config_rule_apply_callback rule_apply;
+    omni_config_shell_control_callback shell_control;
     bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
         size_t capacity);
     bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,

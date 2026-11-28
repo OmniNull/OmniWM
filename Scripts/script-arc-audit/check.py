@@ -99,6 +99,22 @@ RULE_APPLY_CONTROL = "rule/apply-absent"
 ROUTES.add(RULE_APPLY_CONTROL)
 ROUTES.update(f"rule/apply-{target}" for target in RULE_APPLY_COSTS)
 ROUTES.update(f"native/rule-apply-{target}" for target in RULE_APPLY_COSTS)
+SHELL_CONTROL = "shell/absent"
+SHELL_CONTROL_BASELINE = (
+    (3, 1, 0, 0, 2, 2), (3, 1, 0, 0, 2, 0), (4, 8, 1, 3, 2, 7), (1, 6, 0, 0, 0, 2),
+)
+SHELL_CONTROL_COSTS = {
+    "set-changed": ((5, 9, 2, 4, 6, 11), (35, 46, 2, 2, 44, 42), (30, 34, 2, 2, 42, 34)),
+    "set-equal": ((5, 9, 2, 4, 6, 11), (5, 12, 0, 0, 2, 8), (0, 0, 0, 0, 0, 0)),
+    "unset-missing": ((5, 9, 2, 4, 5, 10), (5, 12, 0, 0, 2, 7), (0, 0, 0, 0, 0, 0)),
+    "toggle-popup": ((5, 9, 2, 4, 5, 10), (282, 539, 51, 430, 80, 373), (189, 377, 39, 115, 68, 303)),
+    "trigger-accepted": ((6, 10, 2, 4, 7, 41), (11, 19, 1, 1, 6, 11), (5, 5, 1, 1, 4, 2)),
+    "trigger-refused": ((6, 10, 2, 5, 7, 41), (85, 126, 17, 21, 35, 88), (1, 1, 0, 0, 0, 0)),
+}
+NATIVE_SHELL_POPUP_RELEASE_VARIANT = (189, 315, 39, 115, 68, 248)
+ROUTES.add(SHELL_CONTROL)
+ROUTES.update(f"shell/{action}" for action in SHELL_CONTROL_COSTS)
+ROUTES.update(f"native/shell-{action}" for action in SHELL_CONTROL_COSTS)
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
 CALLBACK_COMMAND_BUILDS = {
@@ -424,6 +440,32 @@ def check_rule_apply(table):
                 sys.exit(f"{key}: expected {fields} {expected}, measured {measured}")
 
 
+def check_shell_controls(table):
+    fields = MARK_COST_FIELDS
+    for phase, expected in zip(PHASES, SHELL_CONTROL_BASELINE, strict=True):
+        measured = tuple(int(table[SHELL_CONTROL, phase][field]) for field in fields)
+        if measured != expected:
+            sys.exit(f"{SHELL_CONTROL}/{phase}: expected {fields} {expected}, measured {measured}")
+    for action, (config, completion, native) in SHELL_CONTROL_COSTS.items():
+        route = f"shell/{action}"
+        if int(table[route, "config"]["VM"]) != 1 or int(table[route, "completion"]["VM"]) != 0:
+            sys.exit(f"{route}: applying a shell action must not reenter the config VM")
+        for phase in ("producer", "dequeue"):
+            measured, control = table[route, phase], table[SHELL_CONTROL, phase]
+            if any(measured[field] != control[field] for field in NO_OBSERVER_OWNERSHIP):
+                sys.exit(f"{route}/{phase}: shell actions must stage on the config worker")
+        for key, expected in (
+            ((route, "config"), config),
+            ((route, "completion"), completion),
+            ((f"native/shell-{action}", "producer"), native),
+        ):
+            measured = tuple(int(table[key][field]) for field in fields)
+            if key == ("native/shell-toggle-popup", "producer") and measured == NATIVE_SHELL_POPUP_RELEASE_VARIANT:
+                continue
+            if measured != expected:
+                sys.exit(f"{key}: expected {fields} {expected}, measured {measured}")
+
+
 def check_costs(output):
     rows = [line.split() for line in output.splitlines()]
     header = next(row for row in rows if row and row[0] == "route")
@@ -438,6 +480,7 @@ def check_costs(output):
     check_marks(table)
     check_workspace_actions(table)
     check_rule_apply(table)
+    check_shell_controls(table)
     for route in ("settings/key", "script/plain-key"):
         producer = table[route, "producer"]
         if int(producer["R"]) > NATIVE_RETAIN_CEILING or int(producer["L"]) > NATIVE_RELEASE_CEILING:

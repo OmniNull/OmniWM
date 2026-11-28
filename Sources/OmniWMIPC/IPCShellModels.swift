@@ -2,6 +2,7 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import Foundation
+import OmniWMAutomation
 
 public enum IPCShellActionName: String, Codable, CaseIterable, Equatable, Sendable {
     case set
@@ -23,10 +24,6 @@ public enum IPCShellRequest: Equatable, Sendable {
     case eject(widget: String)
     case initialize(widget: String)
     case trigger(widget: String, name: String, value: String?)
-
-    public static let keyLimit = 64
-    public static let valueLimit = 4096
-    public static let countLimit = 64
 
     public var name: IPCShellActionName {
         switch self {
@@ -54,12 +51,28 @@ public enum IPCShellRequest: Equatable, Sendable {
         }
     }
 
+    package var runtimeRequest: ShellRuntimeRequest? {
+        switch self {
+        case let .set(key, value): .set(key: key, value: value)
+        case let .unset(key): .unset(key: key)
+        case let .toggle(widget): .toggle(widget: widget)
+        case let .trigger(widget, name, value): .trigger(widget: widget, name: name, value: value)
+        case .profile,
+             .theme,
+             .eject,
+             .initialize: nil
+        }
+    }
+
     public var isValid: Bool {
         switch self {
-        case let .toggle(widget):
-            return !widget.isEmpty && widget.utf8.count <= Self.keyLimit
+        case .toggle,
+             .set,
+             .unset,
+             .trigger:
+            return runtimeRequest?.isValid == true
         case let .eject(name):
-            guard !name.isEmpty, name.utf8.count <= Self.keyLimit, !name.contains("\\") else { return false }
+            guard ShellRuntimeLimits.isTarget(name), !name.contains("\\") else { return false }
             if name.hasPrefix("lib/") {
                 return name.split(separator: "/", omittingEmptySubsequences: false)
                     .allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." }
@@ -67,31 +80,14 @@ public enum IPCShellRequest: Equatable, Sendable {
             return !name.hasPrefix(".") && !name.contains("/")
         case let .profile(name),
              let .theme(name, nil):
-            return !name.isEmpty && name.utf8.count <= Self.keyLimit && !name.hasPrefix(".") && !name.contains("/")
+            return ShellRuntimeLimits.isTarget(name) && !name.hasPrefix(".") && !name.contains("/")
         case let .theme(name, scheme?):
-            return Self.theme(name: name, scheme: nil).isValid && !scheme.isEmpty && scheme.utf8.count <= Self.keyLimit
+            return Self.theme(name: name, scheme: nil).isValid && ShellRuntimeLimits.isTarget(scheme)
         case let .initialize(name):
-            return !name.isEmpty && name.utf8.count <= Self.keyLimit && name.unicodeScalars.allSatisfy {
+            return ShellRuntimeLimits.isTarget(name) && name.unicodeScalars.allSatisfy {
                 $0.isASCII && (CharacterSet.alphanumerics.contains($0) || $0 == "_" || $0 == "-")
             }
-        case let .trigger(widget, _, value):
-            guard !widget.isEmpty, widget.utf8.count <= Self.keyLimit, !widget.hasPrefix("."), !widget.contains("/"),
-                  (value?.utf8.count ?? 0) <= Self.valueLimit
-            else {
-                return false
-            }
-        case .set,
-             .unset:
-            break
         }
-        let keyIsValid = !key.isEmpty && key.utf8.count <= Self.keyLimit && key.unicodeScalars.allSatisfy {
-            $0.isASCII && (CharacterSet.alphanumerics.contains($0) || $0 == "_" || $0 == "-" || $0 == ".")
-        }
-        guard keyIsValid else { return false }
-        if case let .set(_, value) = self {
-            return value.utf8.count <= Self.valueLimit
-        }
-        return true
     }
 }
 

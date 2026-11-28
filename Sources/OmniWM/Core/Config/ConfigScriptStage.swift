@@ -213,7 +213,7 @@ extension ConfigScriptStage {
                     () throws(ConfigScriptError) in try .workspace(ConfigScriptWorkspaceRequest(request.pointee))
                 }
             },
-            rule_apply: ruleApplyCallback,
+            rule_apply: ruleApplyCallback, shell_control: shellControlCallback,
             dwindle: { context, tree, location, error, capacity in
                 guard let tree else { return false }
                 return Self.dispatch(into: context, at: location, error: error, capacity: capacity) {
@@ -398,7 +398,7 @@ extension ConfigScriptStage {
         ))
     }
 
-    private static func string(_ span: omni_config_span) throws(ConfigScriptError) -> String {
+    static func string(_ span: omni_config_span) throws(ConfigScriptError) -> String {
         let bytes = UnsafeRawBufferPointer(start: span.data, count: span.length)
         guard let string = String(bytes: bytes, encoding: .utf8) else {
             throw ConfigScriptError(line: nil, message: "Command words and chords must be valid UTF-8.")

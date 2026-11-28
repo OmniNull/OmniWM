@@ -39,7 +39,7 @@ extension IPCDisplayRef {
     }
 
     static func identifier(_ id: Monitor.ID) -> String {
-        "display:\(id.displayId)"
+        id.displayIdentifier
     }
 }
 

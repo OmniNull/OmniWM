@@ -125,6 +125,18 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         overloads.append(
             "{ read dispatch: (kind: \"rule\", action: \"apply\", target: ConfigRuleApplyTarget?) -> () }"
         )
+        overloads.append(
+            "{ read dispatch: (kind: \"shell\", action: \"set\", key: string, value: string) -> () }"
+        )
+        overloads.append(
+            "{ read dispatch: (kind: \"shell\", action: \"unset\", key: string) -> () }"
+        )
+        overloads.append(
+            "{ read dispatch: (kind: \"shell\", action: \"toggle\", widgetOrDrawer: string) -> () }"
+        )
+        overloads.append(
+            "{ read dispatch: (kind: \"shell\", action: \"trigger\", widget: string, name: string, value: string?) -> () }"
+        )
         return overloads.joined(separator: "\n    & ")
     }
 

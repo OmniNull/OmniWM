@@ -856,6 +856,10 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "workspace", action: "rename", target: ConfigWorkspaceSelector, displayName: string) -> () }
     & { read dispatch: (kind: "workspace", action: "scroll", target: ConfigWorkspaceSelector, offset: number, options: { read animate: boolean? }?) -> () }
     & { read dispatch: (kind: "rule", action: "apply", target: ConfigRuleApplyTarget?) -> () }
+    & { read dispatch: (kind: "shell", action: "set", key: string, value: string) -> () }
+    & { read dispatch: (kind: "shell", action: "unset", key: string) -> () }
+    & { read dispatch: (kind: "shell", action: "toggle", widgetOrDrawer: string) -> () }
+    & { read dispatch: (kind: "shell", action: "trigger", widget: string, name: string, value: string?) -> () }
 export type ConfigKeymap =
     { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read reads: nil }?) -> () }
     & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read reads: { read [number]: ConfigRead }? }?) -> () }

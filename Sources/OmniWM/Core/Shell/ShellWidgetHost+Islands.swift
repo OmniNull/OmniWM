@@ -2,7 +2,6 @@
 // Copyright (C) 2026 OmniNull — https://github.com/OmniNull/OmniWM
 
 import AppKit
-import OmniWMIPC
 
 extension ShellWidgetHost {
     func updateIslands(_ desired: [DesiredIslandSurface], level: NSWindow.Level) {
@@ -50,7 +49,7 @@ extension ShellWidgetHost {
             )
             result[key] = ShellBarData(
                 monitor: target.monitor.name,
-                monitorId: IPCDisplayRef.identifier(target.monitor.id),
+                monitorId: target.monitor.id.displayIdentifier,
                 layout: bar?.layout,
                 style: bar?.style ?? ShellBarStyle(),
                 barEnabled: bar != nil,
@@ -108,7 +107,7 @@ extension ShellWidgetHost {
         guard let root = config.island?.root,
               islandData[ShellBarKey(monitor: monitor, placement: .island)]?.surface?.visible == true
         else { return false }
-        return trigger(root, name: "toggle", value: IPCDisplayRef.identifier(monitor))
+        return trigger(root, name: "toggle", value: monitor.displayIdentifier)
     }
 
     func closeIslands() {

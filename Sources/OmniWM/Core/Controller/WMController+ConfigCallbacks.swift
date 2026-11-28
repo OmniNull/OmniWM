@@ -114,6 +114,8 @@ extension WMController {
             return (try? performConfigScriptWorkspace(request, target: target)) ?? .invalidArguments
         case .ruleApply:
             return .invalidArguments
+        case let .shell(request):
+            return performConfigScriptShell(request, target: target)
         case let .gather(gather):
             return performConfigScriptGather(gather, target: target)
         case let .dwindleReplace(replace):
