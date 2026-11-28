@@ -86,25 +86,23 @@ final class NativeWindowFrameSuppressionTests: XCTestCase {
         let request = frameRequest()
         let delivery = AppAXFrameDelivery()
         delivery.setWindowNativeSuppressed(true, for: request.windowId)
-        $appThreadToken.withValue(AppThreadToken(pid: request.pid)) {
-            let windows = ThreadGuardedValue([request.windowId: request.expectedWindow.element])
-            defer { windows.destroy() }
-            var raises = 0
-            let raised = AppAXContext.performRetryRaise(
-                request.expectedWindow,
-                windows: windows,
-                suppression: delivery.retryRaiseSuppression,
-                job: RunLoopJob(),
-                awaitingSubmittedFocus: {},
-                raiseWindow: { _ in
-                    raises += 1
-                    return true
-                }
-            )
+        let job = RunLoopJob()
+        let binding = AppAXRetryRaiseBinding()
+        binding.record(request.expectedWindow, for: job)
+        var raises = 0
+        let raised = AppAXContext.performRetryRaise(
+            request.expectedWindow,
+            binding: binding,
+            job: job,
+            isSuppressed: delivery.retryRaiseSuppression.retryRaiseCheck(for: request.windowId),
+            raiseWindow: { _ in
+                raises += 1
+                return true
+            }
+        )
 
-            XCTAssertFalse(raised)
-            XCTAssertEqual(raises, 0)
-        }
+        XCTAssertFalse(raised)
+        XCTAssertEqual(raises, 0)
     }
 
     func testSuppressAndRestoreCancelOnlyMatchingQueuedClosingWrite() throws {

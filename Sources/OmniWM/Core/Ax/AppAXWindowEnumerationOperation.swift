@@ -22,6 +22,7 @@ struct AppAXWindowEnumerationOperation: Sendable {
     let pid: pid_t
     let axApp: ThreadGuardedValue<AXUIElement>
     let state: AppAXWindowOperationState
+    let retryRaiseBinding: AppAXRetryRaiseBinding
     let inspectionContext: AXWindowInspectionContext
     let includedWindowIds: Set<Int>?
     let enumerationCallbackGeneration: UInt64
@@ -61,7 +62,7 @@ struct AppAXWindowEnumerationOperation: Sendable {
                 with: enumeration.newWindows,
                 windows: state.windows,
                 bindingGeneration: enumerationBindingGeneration,
-                windowBindingEpoch: state.windowBindingEpoch
+                windowBindingEpoch: state.windowBindingEpoch, retryRaiseBinding: retryRaiseBinding
             ) else { throw CancellationError() }
         }
         if let observer {

@@ -29,7 +29,9 @@ final class AppAXContext {
     }
 
     let frameDelivery = AppAXFrameDelivery()
+    private var retryRaiseQueue: DispatchQueue?
     private var pendingRetryRaise: PendingRetryRaise?
+    private let retryRaiseBinding = AppAXRetryRaiseBinding()
     private let windowBindingEpoch = LockedGenerationEpoch()
     private let axObserver: ThreadGuardedValue<AXObserver?>
     private let focusedWindowObserver: ThreadGuardedValue<AXObserver?>
@@ -113,6 +115,9 @@ final class AppAXContext {
         job: RunLoopJob,
         awaitingSubmittedFocus: @escaping @Sendable () -> Void,
         allowsLayoutHiddenWindow: Bool = false,
+        raiseWindow: @escaping @Sendable (AXUIElement) -> Bool = {
+            performAXAction($0, kAXRaiseAction as CFString, noteKey: "performRaiseFailed") == .success
+        },
         completion: @escaping @MainActor @Sendable () -> Void
     ) -> Bool {
         guard let thread, !job.isCancelled else { return false }
@@ -120,21 +125,14 @@ final class AppAXContext {
         pendingRetryRaise = PendingRetryRaise(
             window: window, job: job, allowsLayoutHiddenWindow: allowsLayoutHiddenWindow, completion: completion
         )
-        let frameWriteSuppression = frameDelivery.retryRaiseSuppression
-        let pid = pid
-        let postedNs = WindowFocusDispatchTrace.retryRaise.isActive ? DispatchTime.now().uptimeNanoseconds : 0
-        thread.runInLoopAsync(job: job) { [weak self, windows, frameWriteSuppression] job in
-            WindowFocusDispatchTrace
-                .traceRetryRaise(pid: pid, windowId: window.windowId, postedNs: postedNs) { waited in
-                    Self.performRetryRaise(
-                        window, windows: windows, suppression: frameWriteSuppression, job: job,
-                        awaitingSubmittedFocus: {
-                            awaitingSubmittedFocus()
-                            waited()
-                        },
-                        allowsLayoutHiddenWindow: allowsLayoutHiddenWindow
-                    )
-                }
+        let queue = retryRaiseQueue ?? DispatchQueue(label: "OmniWM-AXRetryRaise-\(pid)", qos: .userInitiated)
+        retryRaiseQueue = queue
+        let suppression = frameDelivery.retryRaiseSuppression
+        AppAXRetryRaiseOperation(
+            window: window, pid: pid, job: job, binding: retryRaiseBinding,
+            isSuppressed: suppression.retryRaiseCheck(for: window.windowId, allowHidden: allowsLayoutHiddenWindow),
+            awaitingSubmittedFocus: awaitingSubmittedFocus, raiseWindow: raiseWindow
+        ).enqueue(on: queue, appThread: thread, windows: windows) { [weak self] in
             scheduleOnMainRunLoop { [weak self] in
                 self?.finishRetryRaise(job: job)
             }
@@ -263,7 +261,14 @@ final class AppAXContext {
             axApp: axApp,
             focusedWindowObserver: focusedWindowObserver
         )
-        appThread?.runInLoopAsync { _ in shutdown.perform() }
+        let stopWorker: @Sendable () -> Void = {
+            appThread?.runInLoopAsync { _ in shutdown.perform() }
+        }
+        if let retryRaiseQueue {
+            retryRaiseQueue.async(execute: stopWorker)
+        } else {
+            stopWorker()
+        }
         thread = nil
     }
 }
@@ -281,16 +286,15 @@ extension AppAXContext {
         includedWindowIds: Set<Int>?,
         deadline: TimeInterval
     ) -> AppAXWindowEnumerationOperation {
-        let enumerationCallbackGeneration = callbackGeneration
-        let enumerationBindingGeneration = windowBindingEpoch.current()
-        return AppAXWindowEnumerationOperation(
+        AppAXWindowEnumerationOperation(
             pid: pid,
             axApp: axApp,
             state: windowOperationState,
+            retryRaiseBinding: retryRaiseBinding,
             inspectionContext: inspectionContext,
             includedWindowIds: includedWindowIds,
-            enumerationCallbackGeneration: enumerationCallbackGeneration,
-            enumerationBindingGeneration: enumerationBindingGeneration,
+            enumerationCallbackGeneration: callbackGeneration,
+            enumerationBindingGeneration: windowBindingEpoch.current(),
             deadline: deadline
         )
     }

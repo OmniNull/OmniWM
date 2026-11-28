@@ -523,7 +523,7 @@ There is one deliberate exception to "all mutation goes through commit": **per-f
 
 **Exceptions, all explicitly bounded:**
 
-- **Per-app AX threads.** `AppAXContext` runs a dedicated `NSThread` + `CFRunLoop` per application for enumeration, frame batches, observer state, and queued retry raises. State pinned to the thread is wrapped in `ThreadGuardedValue` and checked against a `@TaskLocal appThreadToken`. `Thread.runInLoop` dispatches work to that thread and returns its result asynchronously, with a default 2-second deadline. This does not cover every AX operation: synchronous focus/control paths, including raises outside primary Niri navigation, still run on the main actor.
+- **Per-app AX threads.** `AppAXContext` runs a dedicated `NSThread` + `CFRunLoop` per application for enumeration, frame batches and observer state. State pinned to the thread is wrapped in `ThreadGuardedValue` and checked against a `@TaskLocal appThreadToken`. `Thread.runInLoop` dispatches work to that thread and returns its result asynchronously, with a default 2-second deadline. Retry raises check the window binding on that thread and call AX on a separate serial queue for the app so a slow raise leaves the frame thread free. Synchronous focus and control paths still run on the main actor.
 - **The intake buffer.** `EventIntake` holds its buffer in a `nonisolated OSAllocatedUnfairLock`, so `EventIntake.post(...)` is callable from any transport thread; the drain re-enters the main actor via `CFRunLoopPerformBlock` + `MainActor.assumeIsolated`.
 - **IPC actors.** `IPCApplicationBridge`, `IPCConnection`, `IPCEventBroker`, and `IPCConnectionRegistry` are Swift actors; they hop to `@MainActor` for any window-management work.
 - **Clipboard store.** `ClipboardHistoryStore` is a Swift actor; pasteboard reads happen on a utility `DispatchQueue`.
@@ -709,8 +709,9 @@ Focus management is split across several objects (there is no single coordinator
        activateApp + focusSpecificWindow + raiseWindow sequence;
      - focus-follows-mouse uses the focus-only applicator without an explicit
        public app activation or AX raise unless focus.raiseOnMouseFocus is enabled.
-   Primary-axis Niri retry raises run on the app AX worker, then re-enter focus
-   verification only while the exact request and window identity remain current.
+   A primary-axis Niri retry raise waits for the submitted focus, checks the
+   window binding on the AX thread and runs on the app's serial raise queue.
+   It re-enters focus verification only while the request and identity remain current.
 5. macOS emits an AX focused-window-changed echo → posted into EventIntake.
 6. FactResolver gathers the focused-window fact off-main, re-enters the intake.
 7. AXEventHandler.handleActivationFactsResolved:
@@ -878,7 +879,7 @@ IPCClient ──── Unix socket ────► IPCConnection (actor, per cli
 
 **Directory:** `Sources/OmniWM/Core/Ax/`
 
-**Per-app threading.** `AXManager` keeps an `AppAXContext` per process. Each context spins a dedicated `NSThread`/`CFRunLoop` for enumeration, frame batches, queued retry raises, and AX observers (window destroy/miniaturize + focused-window-changed). Per-thread state is pinned with `ThreadGuardedValue` against a `@TaskLocal appThreadToken`. Synchronous focus/control operations remain a separate main-actor boundary; the workers do not own every AX call.
+**Per-app threading.** `AXManager` keeps an `AppAXContext` per process. Each context spins a dedicated `NSThread`/`CFRunLoop` for enumeration, frame batches and AX observers (window destroy/miniaturize + focused-window-changed). Per-thread state is pinned with `ThreadGuardedValue` against a `@TaskLocal appThreadToken`. Each context runs retry raises on its own serial queue after checking the binding on the AX thread. Synchronous focus and control operations remain on the main actor.
 
 **Frame application.** `AXManager.applyFramesParallel` (still the live entry point — "parallel" refers to the per-app *thread* fan-out, not GCD) coalesces requests per pid and dispatches one `setFramesBatch` to each app's thread. The verification and retry bookkeeping lives in **`AXFrameApplicationLedger`**:
 
@@ -1077,7 +1078,7 @@ EventInterpreter.handleIntakeEvent → CommandHandler.handleHotkeyInvocation
     v
 WMController.performWindowFronting                        [STAGE 3 — effector]
     │  activateApp + focusSpecificWindow; primary Niri navigation omits initial AXRaise
-    │  retry raises run on the app AX worker before exact-request verification
+    │  the app AX worker checks the binding before a retry raise on its own queue
     v
 macOS emits AX focused-window-changed echo
     │  AppAXContext observer → EventIntake.post(.axFocusedWindowChanged)

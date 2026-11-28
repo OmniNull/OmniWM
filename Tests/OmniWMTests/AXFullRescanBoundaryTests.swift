@@ -640,7 +640,8 @@ final class AXFullRescanBoundaryTests: XCTestCase {
                     with: [window.windowId: observation],
                     windows: windows,
                     bindingGeneration: enumerationGeneration,
-                    windowBindingEpoch: epoch
+                    windowBindingEpoch: epoch,
+                    retryRaiseBinding: AppAXRetryRaiseBinding()
                 )
             )
             let result = try AppAXContext.performWindowBinding(
