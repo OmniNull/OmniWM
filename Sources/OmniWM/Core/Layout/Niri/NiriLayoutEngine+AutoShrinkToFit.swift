@@ -202,3 +202,22 @@ struct NiriAutoFitBasis: Equatable {
     let visibleCount: Int
     let columnCount: Int
 }
+
+extension NiriLayoutEngine {
+    func hasSettledAutoFit(context: NiriInteractionContext, admittedColumns: Int) -> Bool {
+        guard shrinkToFit else { return true }
+        guard let state = states[context.workspaceId], !state.autoFitRequested else { return false }
+        let monitor = state.attachedMonitorId.flatMap { monitors[$0] }
+        let count = monitor?.containsWorkspace(context.workspaceId) == true
+            ? monitor?.resolvedSettings?.visibleContainerCount ?? visibleContainerCount
+            : visibleContainerCount
+        let expectedBasis = NiriAutoFitBasis(
+            geometry: NiriShrinkToFitGeometry(
+                context.workingFrame, gaps: context.gaps, orientation: context.orientation
+            ),
+            visibleCount: count,
+            columnCount: admittedColumns
+        )
+        return state.autoFitBasis == expectedBasis
+    }
+}

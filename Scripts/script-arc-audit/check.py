@@ -66,13 +66,28 @@ WORKSPACE_ACTION_COSTS = {
     "workspace/rename-unchanged": ((3, 5, 2, 4, 7, 18), (9, 16, 0, 0, 9, 16)),
     "workspace/rename-changed": ((3, 5, 2, 4, 7, 18), (43, 102, 13, 15, 57, 94)),
     "workspace/move-refused": ((3, 5, 2, 5, 5, 13), (126, 178, 21, 26, 83, 129)),
+    "workspace/scroll-accepted": ((3, 5, 2, 4, 5, 13), (105, 115, 6, 8, 76, 67)),
+    "workspace/scroll-clamped": ((3, 5, 2, 4, 5, 13), (105, 115, 6, 8, 76, 67)),
+    "workspace/scroll-refused": ((3, 5, 2, 5, 5, 13), (146, 192, 19, 23, 75, 120)),
 }
 WORKSPACE_MOVE_ROUTE = "workspace/move-accepted"
 WORKSPACE_NATIVE_ROUTES = {
     "workspace/focus-noop": "native/workspace-focus-noop",
     "workspace/rename-changed": "native/workspace-rename-changed",
+    "workspace/scroll-accepted": "native/scroll-accepted",
+    "workspace/scroll-clamped": "native/scroll-clamped",
+}
+NIRI_SCROLL_NATIVE_COSTS = {
+    "native/scroll-accepted": (100, 105, 6, 8, 73, 58),
+    "native/scroll-clamped": (100, 105, 6, 8, 73, 58),
+    "native/scroll-refused": (63, 68, 1, 1, 39, 31),
+    "reconcile/single": (221, 285, 13, 13, 117, 137),
+    "reconcile/packed": (430, 516, 17, 17, 168, 181),
+    "reconcile/excluded": (444, 535, 22, 22, 183, 201),
+    "reconcile/centered": (441, 527, 17, 17, 172, 183),
 }
 ROUTES.update(WORKSPACE_ACTION_COSTS)
+ROUTES.update(NIRI_SCROLL_NATIVE_COSTS)
 ROUTES.update((WORKSPACE_MOVE_ROUTE, "native/workspace-move-accepted", *WORKSPACE_NATIVE_ROUTES.values()))
 COMMAND_SELECTORS = ("cmd/integer", "cmd/string-index", "cmd/invalid-selector", "window/integer", "window/string-index")
 ROUTES.update(COMMAND_SELECTORS)
@@ -364,6 +379,10 @@ def check_workspace_actions(table):
             actual = tuple(int(table[route, phase][field]) for field in WORKSPACE_ACTION_COST_FIELDS)
             if actual != expected:
                 sys.exit(f"{route}/{phase}: expected {WORKSPACE_ACTION_COST_FIELDS} {expected}, measured {actual}")
+    for route, expected in NIRI_SCROLL_NATIVE_COSTS.items():
+        actual = tuple(int(table[route, "producer"][field]) for field in WORKSPACE_ACTION_COST_FIELDS)
+        if actual != expected:
+            sys.exit(f"{route}/producer: expected {WORKSPACE_ACTION_COST_FIELDS} {expected}, measured {actual}")
     focus, move = table["workspace/focus-noop", "config"], table[WORKSPACE_MOVE_ROUTE, "config"]
     for field in ("R", "L", "obj", "heap"):
         if int(move[field]) != int(focus[field]):

@@ -97,7 +97,7 @@ final class ConfigScriptWorkspaceActionTests: XCTestCase {
             (dispatch("focus-name", "0"), "expected a positive safe integer selector"),
             (dispatch("focus-name", "{ name = 'x' }"), "a workspace target table takes only id, a workspace ID string"),
             (dispatch("focus-name", "1", quoted("extra")), "The focus-name action takes only a workspace."),
-            (dispatch("jump", "1"), "Unknown workspace action; use focus-name, move-to-monitor or rename."),
+            (dispatch("jump", "1"), "Unknown workspace action; use focus-name, move-to-monitor, rename or scroll."),
             (
                 dispatch("move-to-monitor", "1", quoted("sideways")),
                 "The move-to-monitor action needs a direction: left, right, up or down."

@@ -149,19 +149,16 @@ extension ViewportState {
 }
 
 extension ViewportFittingAreas {
+}
+
+extension ViewportFittingAreas {
+    @inline(__always)
     func offsetShowingEdgePeeks(
-        _ offset: CGFloat,
-        target: ViewportColumnTarget,
-        containers: [NiriContainer],
-        gap: CGFloat
+        _ offset: CGFloat, target: ViewportColumnTarget, spans: @autoclosure () -> [CGFloat], gap: CGFloat
     ) -> CGFloat {
         guard target.mode == .normal,
               edgePeeks != nil,
-              let viewStart = viewStartShowingEdgePeeks(
-                  target.position + offset,
-                  spans: containers.map { $0[keyPath: orientation.settledSpanKeyPath] },
-                  gap: gap
-              )
+              let viewStart = viewStartShowingEdgePeeks(target.position + offset, spans: spans(), gap: gap)
         else { return offset }
         return viewStart - target.position
     }

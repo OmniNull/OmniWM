@@ -289,7 +289,7 @@ Names are strings. OmniWM trims whitespace at the edges and compares the remaini
 
 ## Workspace actions
 
-`omniwm.dispatch("workspace", action, target, …)` runs the same workspace actions as [`omniwmctl workspace`](/reference/cli/actions/#workspace-actions). The target is one of these:
+`omniwm.dispatch("workspace", action, target, …)` can focus, move or rename a workspace like [`omniwmctl workspace`](/reference/cli/actions/#workspace-actions), or scroll the Niri viewport. The target is one of these:
 
 - a name: a raw workspace ID such as `"2"`, or a display name set in Settings. Display names are compared without case and must match exactly one workspace;
 - a workspace number such as `2`, which means the same as `"2"`;
@@ -302,6 +302,9 @@ A number, or a string of digits, always means a raw workspace ID, even when anot
 | `focus-name` | None | Switches to the workspace. Focusing the workspace you're on changes nothing. |
 | `move-to-monitor` | `"left"`, `"right"`, `"up"` or `"down"`, then an optional `{ force = true }` | Moves the workspace to the next display in that direction from the display it's on now. A workspace assigned to a display in Settings stays there unless you pass `force`. A forced move lasts until the workspace returns to its assigned display, the settings are applied again or OmniWM restarts. |
 | `rename` | A display name | Sets the name the workspace bar shows. An empty name, or the raw ID, restores the default. The workspace must be in Settings. |
+| `scroll` | A signed, finite offset in points, then optional `{ animate = false }` | Scrolls relative to the active column on a visible Niri workspace. The offset is clamped to Niri's bounds. Animation defaults to on and follows the app's motion setting. A single-window workspace stays in place. |
+
+Scroll keeps the focus and active column. It refuses while a gesture, drag, swipe or resize is active, while the layout is settling, or when the layout policy would move the clamped offset. The immediate relayout keeps an accepted offset. A later relayout or focus change can recenter the viewport.
 
 Workspace actions require enabled automation and a closed Overview. As with marks, a refusal shows its reason and source line in the config notice and stops the remaining actions in that callback.
 

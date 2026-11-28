@@ -823,7 +823,7 @@ final class NiriEdgePeekTests: XCTestCase {
         let areas = ViewportFittingAreas(working: frame, parent: frame, orientation: .horizontal, scale: 2)
         let target = ViewportColumnTarget(index: 1, position: 0.1, span: 400, mode: .normal)
 
-        XCTAssertEqual(areas.offsetShowingEdgePeeks(0.2, target: target, containers: [], gap: 12), 0.2)
+        XCTAssertEqual(areas.offsetShowingEdgePeeks(0.2, target: target, spans: [], gap: 12), 0.2)
     }
 
     func testWithoutPeeksAScrollEndsWhereItLands() {

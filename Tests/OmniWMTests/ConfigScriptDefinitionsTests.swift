@@ -121,6 +121,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         overloads.append(workspace(.focusName, ""))
         overloads.append(workspace(.moveToMonitor, ", direction: \(directions), options: { read force: boolean? }?"))
         overloads.append(workspace(.rename, ", displayName: string"))
+        overloads.append(workspace(.scroll, ", offset: number, options: { read animate: boolean? }?"))
         return overloads.joined(separator: "\n    & ")
     }
 

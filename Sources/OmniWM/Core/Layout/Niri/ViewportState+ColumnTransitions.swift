@@ -113,7 +113,6 @@ extension ViewportState {
             sizeKeyPath: sizeKeyPath
         )
         let stationaryViewStart = activePos + stationaryOffset
-        let pixelEpsilon: CGFloat = 1.0 / max(scale, 1.0)
 
         let targetOffset = computeVisibleOffset(
             containerIndex: containerIndex,
@@ -128,9 +127,8 @@ extension ViewportState {
             viewFrame: viewFrame
         )
 
-        if abs(targetOffset - stationaryOffset) <= pixelEpsilon {
-            return
-        }
+        guard let targetOffset = Self.visibilityCorrection(from: stationaryOffset, to: targetOffset, scale: scale)
+        else { return }
 
         if animate {
             animateToOffset(

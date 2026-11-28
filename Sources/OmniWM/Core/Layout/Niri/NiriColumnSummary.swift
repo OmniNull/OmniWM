@@ -236,3 +236,60 @@ extension NiriLayoutEngine {
         }
     }
 }
+
+struct NiriResolvedScrollStrip {
+    struct Column {
+        let position: CGFloat
+        let span: CGFloat
+    }
+
+    let columns: [Column]
+    let activeIndex: Int
+    let activeMode: SizingMode
+}
+
+extension NiriLayoutEngine {
+    func resolvedScrollStrip(
+        context: NiriInteractionContext,
+        state: ViewportState,
+        projection: borrowing [NiriProjectedColumn],
+        exclusions: borrowing Set<WindowToken>
+    ) -> NiriResolvedScrollStrip? {
+        let geometry = context.sizingGeometry
+        var columns: [NiriResolvedScrollStrip.Column] = []
+        columns.reserveCapacity(projection.count)
+        var active: (index: Int, mode: SizingMode)?
+        var position: CGFloat = 0
+        var admittedColumns = 0
+        for index in projection.indices {
+            let projected = projection[index]
+            let column = projected.column
+            guard !column.hasMoveAnimationRunning, !column.hasWidthAnimationRunning,
+                  !column.hasHeightAnimationRunning,
+                  !projected.windows.contains(where: \.hasMoveAnimationsRunning)
+            else { return nil }
+
+            let windows = exclusions.isEmpty ? projected.windows
+                : projected.windows.filter { !exclusions.contains($0.token) }
+            if windows.isEmpty, !exclusions.isEmpty { continue }
+            if !windows.isEmpty { admittedColumns += 1 }
+            let resolvedSpan = column.cachedPrimarySpan(orientation: geometry.orientation)
+            guard resolvedSpan > 0 else { return nil }
+            let span = settledPrimarySpan(
+                of: column, windows: windows.span, geometry: geometry,
+                fullMembership: windows.count == projected.windows.count
+            )
+            guard span.isFinite, span > 0, !exclusions.isEmpty || span == resolvedSpan else { return nil }
+
+            if projected.durableIndex == state.activeColumnIndex,
+               windows.contains(where: { $0.id == state.selectedNodeId })
+            {
+                active = (columns.count, NiriContainer.effectiveSizingMode(of: projected.windows))
+            }
+            columns.append(.init(position: position, span: span))
+            position += span + geometry.gaps
+        }
+        guard let active, hasSettledAutoFit(context: context, admittedColumns: admittedColumns) else { return nil }
+        return NiriResolvedScrollStrip(columns: columns, activeIndex: active.index, activeMode: active.mode)
+    }
+}

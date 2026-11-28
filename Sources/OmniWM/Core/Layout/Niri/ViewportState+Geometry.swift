@@ -212,10 +212,15 @@ extension Monitor.Orientation {
 
 extension NiriContainer {
     var effectiveSizingMode: SizingMode {
+        Self.effectiveSizingMode(of: windowNodes)
+    }
+
+    @inline(__always)
+    static func effectiveSizingMode(of windows: borrowing [NiriWindow]) -> SizingMode {
         var anyFullscreen = false
         var anyMaximized = false
-        for window in windowNodes {
-            switch window.sizingMode {
+        for index in windows.indices {
+            switch windows[index].sizingMode {
             case .normal:
                 continue
             case .maximized:
@@ -317,73 +322,32 @@ extension ViewportState {
     ) -> CGFloat {
         guard !containers.isEmpty, containerIndex >= 0, containerIndex < containers.count else { return 0 }
 
-        if let offset = fittingStripOffset(containerIndex, containers, context, edges, scale) {
-            return offset
-        }
         let sizeKeyPath = context.orientation.settledSpanKeyPath
-        let viewportSpan: CGFloat = switch context.orientation {
-        case .horizontal: context.workingFrame.width
-        case .vertical: context.workingFrame.height
-        }
-        let areas = ViewportFittingAreas(geometry: NiriViewportGeometry(
+        let geometry = NiriViewportGeometry(
             gap: context.gaps,
-            viewportSpan: viewportSpan,
+            viewportSpan: context.primarySpan,
             orientation: context.orientation,
             workingArea: context.workingFrame,
             viewFrame: viewFrame,
-            scale: scale,
-            edgePeeks: edges.peeks
-        ))
-        let effectiveCenterMode = (containers.count == 1 && alwaysCenterSingleColumn) ? .always : centerMode
-        let target = ViewportColumnTarget(
-            index: containerIndex,
-            position: containerPosition(
-                at: containerIndex,
-                containers: containers,
-                gap: context.gaps,
-                sizeKeyPath: sizeKeyPath
-            ),
-            span: containers[containerIndex][keyPath: sizeKeyPath],
-            mode: containers[containerIndex].effectiveSizingMode,
-            columnCount: containers.count
+            scale: scale
         )
-
-        let shouldCenter = switch effectiveCenterMode {
-        case .always: true
-        case .never: false
-        case .onOverflow:
-            shouldCenterAdjacentPair(
-                target: target,
-                fromIndex: fromContainerIndex,
-                containers: containers,
-                context: context,
-                areas: areas
-            )
-        }
-        let offset = shouldCenter
-            ? areas.centeredOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
-            : areas.fitOffset(currentViewStart: currentViewStart, target: target, gap: context.gaps)
-        let keptOnScreen = edges.keepsStripEndsOnScreen && target.mode == .normal && effectiveCenterMode != .always
-            ? offsetKeepingStripEndsOnScreen(offset, target: target, containers: containers, context: context)
-            : offset
-        return areas.offsetShowingEdgePeeks(keptOnScreen, target: target, containers: containers, gap: context.gaps)
-    }
-
-    private func fittingStripOffset(
-        _ containerIndex: Int,
-        _ containers: [NiriContainer],
-        _ context: NiriInteractionContext,
-        _ edges: ViewportEdgeRules,
-        _ scale: CGFloat
-    ) -> CGFloat? {
-        guard edges.centersFittingStrip,
-              let start = Self.centredStripStart(of: containers, context: context, scale: scale)
-        else { return nil }
-        return start - containerPosition(
-            at: containerIndex,
-            containers: containers,
-            gap: context.gaps,
-            sizeKeyPath: context.orientation.settledSpanKeyPath
+        let position = containerPosition(
+            at: containerIndex, containers: containers, gap: context.gaps, sizeKeyPath: sizeKeyPath
+        )
+        return geometry.visibleOffset(
+            NiriViewportVisibility(
+                index: containerIndex, count: containers.count, position: position, fromIndex: fromContainerIndex,
+                viewStart: currentViewStart,
+                centerMode: alwaysCenterSingleColumn && containers.count == 1 ? .always : centerMode,
+                edges: edges
+            ),
+            mode: containers[containerIndex].effectiveSizingMode,
+            positionAt: {
+                containerPosition(
+                    at: $0, containers: containers, gap: context.gaps, sizeKeyPath: sizeKeyPath
+                )
+            },
+            spanAt: { containers[$0][keyPath: sizeKeyPath] }
         )
     }
 
@@ -408,61 +372,11 @@ extension ViewportState {
         return ((stripSpan - viewSpan) / 2).roundedToPhysicalPixel(scale: scale)
     }
 
-    private func offsetKeepingStripEndsOnScreen(
-        _ offset: CGFloat,
-        target: ViewportColumnTarget,
-        containers: [NiriContainer],
-        context: NiriInteractionContext
-    ) -> CGFloat {
-        let stripEnd = totalSpan(
-            containers: containers,
-            gap: context.gaps,
-            sizeKeyPath: context.orientation.settledSpanKeyPath
-        )
-        let viewportSpan = switch context.orientation {
-        case .horizontal: context.workingFrame.width
-        case .vertical: context.workingFrame.height
-        }
-        guard let range = Self.stripEndOffsets(stripSpan: stripEnd, viewSpan: viewportSpan, gap: context.gaps)
-        else { return offset }
-        return (target.position + offset).clamped(to: range) - target.position
-    }
-
     static func stripEndOffsets(stripSpan: CGFloat, viewSpan: CGFloat, gap: CGFloat) -> ClosedRange<CGFloat>? {
         let earliest = -gap
         let latest = stripSpan + gap - viewSpan
         guard latest >= earliest - FrameTolerance.screenMatch else { return nil }
         return earliest ... max(earliest, latest)
-    }
-
-    private func shouldCenterAdjacentPair(
-        target: ViewportColumnTarget,
-        fromIndex: Int?,
-        containers: [NiriContainer],
-        context: NiriInteractionContext,
-        areas: ViewportFittingAreas
-    ) -> Bool {
-        guard let fromIndex, fromIndex != target.index, containers.indices.contains(fromIndex) else { return false }
-        let sourceIndex = if fromIndex > target.index {
-            min(target.index + 1, containers.count - 1)
-        } else {
-            max(target.index - 1, 0)
-        }
-        let sizeKeyPath = context.orientation.settledSpanKeyPath
-        let sourcePosition = containerPosition(
-            at: sourceIndex,
-            containers: containers,
-            gap: context.gaps,
-            sizeKeyPath: sizeKeyPath
-        )
-        let sourceSpan = containers[sourceIndex][keyPath: sizeKeyPath]
-        let pairSpan = if sourcePosition < target.position {
-            target.position - sourcePosition + target.span
-        } else {
-            sourcePosition - target.position + sourceSpan
-        }
-        return (pairSpan + context.gaps * 2).roundedToPhysicalPixel(scale: areas.scale)
-            > areas.span(of: areas.working).roundedToPhysicalPixel(scale: areas.scale)
     }
 }
 

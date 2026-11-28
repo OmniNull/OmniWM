@@ -853,6 +853,7 @@ export type ConfigDispatch =
     & { read dispatch: (kind: "workspace", action: "focus-name", target: ConfigWorkspaceSelector) -> () }
     & { read dispatch: (kind: "workspace", action: "move-to-monitor", target: ConfigWorkspaceSelector, direction: "left" | "right" | "up" | "down", options: { read force: boolean? }?) -> () }
     & { read dispatch: (kind: "workspace", action: "rename", target: ConfigWorkspaceSelector, displayName: string) -> () }
+    & { read dispatch: (kind: "workspace", action: "scroll", target: ConfigWorkspaceSelector, offset: number, options: { read animate: boolean? }?) -> () }
 export type ConfigKeymap =
     { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read reads: nil }?) -> () }
     & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read reads: { read [number]: ConfigRead }? }?) -> () }
