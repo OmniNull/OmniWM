@@ -8,12 +8,9 @@ import XCTest
 
 @MainActor
 final class SettingsLuauDocumentTests: XCTestCase {
-    func testNewFileContainsEverySavedValueAndLeavesTOMLAlone() throws {
+    func testNewFileContainsEverySavedValue() throws {
         let root = try directory()
         defer { try? FileManager.default.removeItem(at: root) }
-        let oldURL = root.appendingPathComponent("settings.toml")
-        let old = Data("[gaps]\nsize = 29\n".utf8)
-        try old.write(to: oldURL)
         let storage = SettingsFilePersistence(directory: root, startWatching: false, deferSaves: false)
         let outcome = storage.loadOutcome()
         XCTAssertNil(outcome.notice)
@@ -22,7 +19,6 @@ final class SettingsLuauDocumentTests: XCTestCase {
         XCTAssertEqual(try SettingsLuauValue.fields(of: actual), try SettingsLuauValue.fields(of: .defaults()))
         let bytes = try Data(contentsOf: storage.fileURL)
         XCTAssertEqual(bytes, try SettingsLuauDocument.initialSource(.defaults()))
-        XCTAssertEqual(try Data(contentsOf: oldURL), old)
         XCTAssertEqual(try SettingsLuauDocument(bytes).export, actual)
     }
 

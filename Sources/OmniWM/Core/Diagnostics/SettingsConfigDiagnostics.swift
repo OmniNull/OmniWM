@@ -6,6 +6,7 @@ import Foundation
 enum SettingsConfigDiagnostics {
     static func issues(
         directoryURL: URL = SettingsFilePersistence.defaultDirectoryURL,
+        settingsFileURL: URL? = nil,
         notice: SettingsConfigNotice? = nil,
         scriptLoadError: String? = nil,
         scriptCallbackError: String? = nil,
@@ -17,7 +18,7 @@ enum SettingsConfigDiagnostics {
             case let .persistenceWriteBlocked(reason): .settingsPersistenceBlocked(reason: reason)
             case let .invalidRejected(reason): .settingsInvalidRejected(reason: reason)
             }
-            let url = directoryURL.appendingPathComponent(SettingsFilePersistence.fileName, isDirectory: false)
+            let url = settingsFileURL ?? SettingsFilePersistence.settingsURL(in: directoryURL)
             issues.append(DiagnosticsIssue(kind: kind, configFileURL: url))
         }
         for case let message? in [scriptLoadError, scriptCallbackError] {

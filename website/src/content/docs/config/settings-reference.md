@@ -1,17 +1,17 @@
 ---
 title: Settings Reference
-description: Complete reference for every table, array, key, and default in OmniWM's settings.luau.
+description: Tables, arrays, keys, and defaults for OmniWM settings.
 sidebar:
   order: 3
 ---
 
 This reference follows current `main`; features newer than the latest release are marked **Unreleased**.
 
-The tables below list the keys in `settings.luau` and their defaults. The [editor definitions](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Resources/omniwm-config.d.luau) describe the accepted shapes. Defaults come from [SettingsExport](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/SettingsExport.swift) and the [built-in defaults](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/BuiltInSettingsDefaults.swift).
+The tables below list the keys and defaults for both settings formats. The examples use Luau. See [Configuration](/config/configuration/#toml-settings) for a TOML example and how OmniWM selects the settings file. The [Luau editor definitions](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Resources/omniwm-config.d.luau) describe the accepted shapes. Defaults come from [SettingsExport](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/SettingsExport.swift) and the [built-in defaults](https://github.com/OmniNull/OmniWM/blob/main/Sources/OmniWM/Core/Config/BuiltInSettingsDefaults.swift).
 
 ## File schema
 
-Return one table of settings. Each example below shows the fields for one task. To combine examples, add their fields to the same table. Omitted settings use their defaults. A list you supply, such as `workspaces`, is the whole saved list. For example:
+In Luau, return one table of settings. Each example below shows the fields for one task. To combine examples, add their fields to the same table. Omitted settings use their defaults. A list you supply, such as `workspaces`, is the whole saved list. For example:
 
 ```lua
 return {

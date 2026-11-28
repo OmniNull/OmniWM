@@ -60,12 +60,8 @@ struct SettingsLuauDocument {
     }
 
     static func decode(_ tree: SettingsLuauValue, fields: [[String]: Field]) throws -> SettingsExport {
-        let active = HyperKeyModifiers(carbonMask: KeySymbolMapper.hyperModifiers) ?? .default
-        defer { KeySymbolMapper.setHyperKeyModifiers(active) }
         do {
-            let defaults = try SettingsLuauValue.fields(of: .defaults())
-            let canonical = try SettingsFileModel(from: SettingsLuauDecoder(value: tree, defaults: defaults))
-            return canonical.toSettingsExport()
+            return try SettingsFileModel.decode(tree)
         } catch {
             let path: [any CodingKey]
             switch error {

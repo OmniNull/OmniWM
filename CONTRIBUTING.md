@@ -168,6 +168,18 @@ OMNIWM_LIVE_CHECKS=1 "$HOME/.swiftly/bin/swift" test --arch arm64 --filter testR
 
 The default suite keeps the corresponding functional assertions without a render CPU limit and still checks runaway-script containment. The app's production CPU budget is unchanged.
 
+The settings format benchmark loads equivalent Luau and TOML fixtures in one optimised test executable. It checks that both formats produce the same settings and writes timing samples for loading, live reload, and native workspace switching.
+
+```sh
+omniwm_bench_dir="$(mktemp -d)"
+LIBRARY_PATH="$(./Scripts/ghostty-preflight.sh print-library-dir)${LIBRARY_PATH:+:$LIBRARY_PATH}" \
+XDG_CONFIG_HOME="$omniwm_bench_dir/config" XDG_STATE_HOME="$omniwm_bench_dir/state" \
+OMNIWM_SETTINGS_BENCH_ONLY=1 OMNIWM_SETTINGS_BENCH_OUTPUT="$omniwm_bench_dir/timing.json" \
+"$HOME/.swiftly/bin/swift" test -c release --arch arm64 --filter SettingsFormatBenchmarkTests
+```
+
+The default fixture uses built-in settings. Repeat with `--skip-build` to reuse that executable. The workspace timing ends at activation on a synthetic display.
+
 CI takes Fish and Nushell from the flake to run the native CLI completion tests. For the same coverage locally, run `swift test` inside `nix develop`; tests fail with a message if a shell is missing.
 
 For changes to setup, packaging, development installation, or related tooling, also run `make test-dev-tools`. This runs the Python development-tooling tests and is included in CI's **Tooling** job.
