@@ -272,6 +272,7 @@ extension NiriLayoutEngine {
         viewOffsetOverride: CGFloat? = nil,
         settledVisibilityOffset: CGFloat? = nil,
         isSettled: Bool = false,
+        edgeTuck: NiriEdgeTuck = .settledOnly,
         excludedTokens: Set<WindowToken>? = nil,
         edgePictures: NiriEdgePictureState = .none,
         recordsPresentationGeometry: Bool = false,
@@ -301,7 +302,7 @@ extension NiriLayoutEngine {
             hiddenPlacementMonitors: hiddenPlacementMonitors,
             viewOffsetOverride: viewOffsetOverride,
             settledVisibilityOffset: settledVisibilityOffset,
-            isSettled: isSettled,
+            isSettled: isSettled, tucksStationaryEdges: edgeTuck.permitsTuck(orientation: orientation),
             excludedTokens: excludedTokens, edgePictures: edgePictures,
             recordsPresentationGeometry: recordsPresentationGeometry,
             projection: consume projection
@@ -421,17 +422,39 @@ extension NiriLayoutEngine {
         return root.allWindows.contains { $0.hasMoveAnimationsRunning }
     }
 
-    func tickAllWindowAnimations(in workspaceId: WorkspaceDescriptor.ID, at time: TimeInterval) -> Bool {
-        guard let root = root(for: workspaceId) else { return false }
-        return Self.tickWindowAnimations(ContiguousArray(root.allWindows), at: time)
+    func windowAnimationAxes(
+        in workspaceId: WorkspaceDescriptor.ID
+    ) -> NiriWindow.AnimationAxes {
+        guard let root = root(for: workspaceId) else { return [] }
+        let windows = root.allWindows
+        let span = windows.span
+        var axes: NiriWindow.AnimationAxes = []
+        for index in span.indices {
+            axes.formUnion(span[index].animationAxes)
+            if axes.contains([.horizontal, .vertical]) { break }
+        }
+        return axes
     }
 
-    private static func tickWindowAnimations(_ windows: ContiguousArray<NiriWindow>, at time: TimeInterval) -> Bool {
-        var anyRunning = false
-        for window in windows where window.tickMoveAnimations(at: time) {
-            anyRunning = true
+    func tickAllWindowAnimations(in workspaceId: WorkspaceDescriptor.ID, at time: TimeInterval) -> Bool {
+        !advanceWindowAnimations(in: workspaceId, at: time).isEmpty
+    }
+
+    func advanceWindowAnimations(
+        in workspaceId: WorkspaceDescriptor.ID, at time: TimeInterval
+    ) -> NiriWindow.AnimationAxes {
+        guard let root = root(for: workspaceId) else { return [] }
+        return Self.advanceWindowAnimations(ContiguousArray(root.allWindows), at: time)
+    }
+
+    private static func advanceWindowAnimations(
+        _ windows: ContiguousArray<NiriWindow>, at time: TimeInterval
+    ) -> NiriWindow.AnimationAxes {
+        var axes: NiriWindow.AnimationAxes = []
+        for window in windows {
+            axes.formUnion(window.advanceMoveAnimations(at: time))
         }
-        return anyRunning
+        return axes
     }
 
     func animateProjectedColumns(

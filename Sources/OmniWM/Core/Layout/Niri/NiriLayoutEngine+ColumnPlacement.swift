@@ -90,7 +90,8 @@ extension NiriLayoutEngine {
             activeIndex: activeIndex,
             viewPosition: viewPosition,
             selectedNodeId: selection.state.selectedNodeId,
-            settledContentFrame: sampling.isSettled
+            isSettled: sampling.isSettled,
+            tuckContentFrame: sampling.isSettled || sampling.tucksStationaryEdges
                 ? settledContentFrame(context: context, activeSpan: activeColumn.span) : nil
         )
     }
@@ -128,7 +129,7 @@ extension NiriLayoutEngine {
             hiddenPlacementMonitors: pass.context.hiddenPlacementMonitors,
             edgePictures: pass.context.orientation == .vertical ? pass.context.edgePictures.columnState(
                 column, activeTab: column.column.isTabbed ? projectedActiveWindow(in: column) : nil,
-                isActive: index == pass.activeIndex, isSettled: pass.settledContentFrame != nil
+                isActive: index == pass.activeIndex, isSettled: pass.isSettled
             ) : .none
         )
         if pass.context.recordsPresentationGeometry {
@@ -200,13 +201,13 @@ extension NiriLayoutEngine {
         let renderedContainerRect: CGRect
         switch visibility.state {
         case .visible:
-            if let settledContentFrame = pass.settledContentFrame,
+            if let tuckContentFrame = pass.tuckContentFrame,
                idx != pass.activeIndex,
-               projectedColumn.windows.allSatisfy({ $0.sizingMode == .normal && $0.id != pass.selectedNodeId })
+               Self.parksOutsideContent(projectedColumn.windows.span, selected: pass.selectedNodeId)
             {
                 renderedContainerRect = layoutArea.settledRenderedContainerRect(
                     visibilityRect,
-                    contentFrame: settledContentFrame,
+                    contentFrame: tuckContentFrame,
                     orientation: orientation
                 )
             } else {

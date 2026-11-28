@@ -102,6 +102,7 @@ extension NiriLayoutEngine {
         viewOffsetOverride: CGFloat? = nil,
         settledVisibilityOffset: CGFloat? = nil,
         isSettled: Bool = false,
+        tucksStationaryEdges: Bool = false,
         excludedTokens: Set<WindowToken>? = nil,
         edgePictures: NiriEdgePictureState = .none,
         recordsPresentationGeometry: Bool = false,
@@ -149,7 +150,8 @@ extension NiriLayoutEngine {
             context: context,
             sampling: NiriViewportSampling(
                 viewOffset: viewOffsetOverride ?? state.viewOffset,
-                settledVisibilityOffset: settledVisibilityOffset, isSettled: isSettled
+                settledVisibilityOffset: settledVisibilityOffset,
+                isSettled: isSettled, tucksStationaryEdges: tucksStationaryEdges
             ),
             result: &result
         )

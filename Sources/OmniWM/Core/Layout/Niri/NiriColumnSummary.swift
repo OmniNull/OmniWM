@@ -206,7 +206,7 @@ extension NiriLayoutEngine {
         }
     }
 
-    private static func parksOutsideContent(_ windows: Span<NiriWindow>, selected: NodeId?) -> Bool {
+    static func parksOutsideContent(_ windows: Span<NiriWindow>, selected: NodeId?) -> Bool {
         for offset in windows.indices {
             if windows[offset].sizingMode != .normal { return false }
             if windows[offset].id == selected { return false }

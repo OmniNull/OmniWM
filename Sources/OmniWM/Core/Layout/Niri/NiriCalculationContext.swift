@@ -40,10 +40,23 @@ struct NiriCalculationContext {
     }
 }
 
+enum NiriEdgeTuck {
+    case settledOnly
+    case windowAnimations(NiriWindow.AnimationAxes)
+
+    func permitsTuck(orientation: Monitor.Orientation) -> Bool {
+        switch self {
+        case .settledOnly: false
+        case let .windowAnimations(windowAxes): !windowAxes.contains(.primary(for: orientation))
+        }
+    }
+}
+
 struct NiriViewportSampling {
     let viewOffset: CGFloat
     let settledVisibilityOffset: CGFloat?
     let isSettled: Bool
+    let tucksStationaryEdges: Bool
 }
 
 struct NiriViewportSelection {
@@ -63,5 +76,6 @@ struct NiriColumnLayoutPass {
     let activeIndex: Int
     let viewPosition: CGFloat
     let selectedNodeId: NodeId?
-    let settledContentFrame: CGRect?
+    let isSettled: Bool
+    let tuckContentFrame: CGRect?
 }

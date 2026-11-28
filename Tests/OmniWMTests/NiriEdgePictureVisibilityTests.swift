@@ -118,7 +118,7 @@ final class NiriEdgePictureVisibilityTests: XCTestCase {
                 area: area, orientation: .vertical, workspaceOffset: 0, viewPositions: [position, 0], revealMargin: 0
             ),
             activeIndex: active ? 0 : 1, viewPosition: 0, selectedNodeId: nil,
-            settledContentFrame: settled ? display : nil
+            isSettled: settled, tuckContentFrame: settled ? display : nil
         )
         var result = LayoutResult(frames: [:], hiddenHandles: [:])
         NiriLayoutEngine().layoutProjectedColumn(

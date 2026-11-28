@@ -25,17 +25,13 @@ extension NiriLayoutHandler {
         firstProjection: consuming [NiriProjectedColumn]? = nil
     ) -> WorkspaceLayoutPlan {
         let rememberedFocusToken = arrival.rememberedFocusToken ?? selection.rememberedFocusToken
-        let isSettled = !(pass.motion.animationsEnabled && snapshot.removalSeed?.oldFrames.isEmpty == false)
-            && controller.map {
-                !hasPendingNiriAnimationWork(
-                    state: state,
-                    driver: $0.workspaceManager.animationDriver,
-                    engine: pass.engine,
-                    workspaceId: pass.wsId
-                )
-            } == true
+        let stripStationary = relayoutStripIsStationary(pass: pass, state: state, snapshot: snapshot)
+        let windowAxes = stripStationary ? pass.engine.windowAnimationAxes(in: pass.wsId) : []
+        let isSettled = stripStationary && windowAxes.isEmpty
         var (frames, hiddenHandles) = calculateRelayoutFrames(
-            pass: pass, state: state, snapshot: snapshot, isSettled: isSettled, projection: consume firstProjection
+            pass: pass, state: state, snapshot: snapshot,
+            isSettled: isSettled, edgeTuck: stripStationary ? .windowAnimations(windowAxes) : .settledOnly,
+            projection: consume firstProjection
         )
 
         var directives = relayoutAnimationDirectives(
@@ -43,12 +39,17 @@ extension NiriLayoutHandler {
             viewportNeedsRecalc: selection.viewportNeedsRecalc, arrival: arrival
         )
 
-        if pass.motion.animationsEnabled, pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId) {
+        let updatedAxes = stripStationary && pass.motion.animationsEnabled
+            ? pass.engine.windowAnimationAxes(in: pass.wsId) : []
+        if pass.motion.animationsEnabled, stripStationary
+            ? !updatedAxes.isEmpty : pass.engine.hasAnyWindowAnimationsRunning(in: pass.wsId)
+        {
             (frames, hiddenHandles) = calculateRelayoutFrames(
                 pass: pass,
                 state: state,
                 snapshot: snapshot,
                 isSettled: false,
+                edgeTuck: stripStationary ? .windowAnimations(updatedAxes) : .settledOnly,
                 animationTime: pass.engine.animationClock?.now() ?? CACurrentMediaTime()
             )
         }
@@ -70,6 +71,15 @@ extension NiriLayoutHandler {
             isActiveWorkspace: snapshot.isActiveWorkspace,
             isSlideInFlight: hasPendingAnimationWork
         )
+    }
+
+    private func relayoutStripIsStationary(
+        pass: NiriLayoutPass, state: ViewportState, snapshot: NiriWorkspaceSnapshot
+    ) -> Bool {
+        let animatesRemoval = pass.motion.animationsEnabled && snapshot.removalSeed?.oldFrames.isEmpty == false
+        return !animatesRemoval && !state.hasPendingOffsetAnimation
+            && controller?.workspaceManager.animationDriver.hasMotion(in: pass.wsId) == false
+            && !pass.engine.hasAnyColumnAnimationsRunning(in: pass.wsId)
     }
 
     private func relayoutDiff(
@@ -277,6 +287,7 @@ extension NiriLayoutHandler {
         state: ViewportState,
         snapshot: NiriWorkspaceSnapshot,
         isSettled: Bool,
+        edgeTuck: NiriEdgeTuck,
         animationTime: TimeInterval? = nil,
         projection: consuming [NiriProjectedColumn]? = nil
     ) -> (frames: [WindowToken: CGRect], hiddenHandles: [WindowToken: HideSide]) {
@@ -308,7 +319,7 @@ extension NiriLayoutHandler {
                     storeOffset: $0.workspaceManager.niriViewportState(for: pass.wsId).viewOffset
                 )
             },
-            isSettled: isSettled,
+            isSettled: isSettled, edgeTuck: edgeTuck,
             excludedTokens: snapshot.excludedTokens, edgePictures: snapshot.edgePictures,
             recordsPresentationGeometry: true,
             projection: consume projection

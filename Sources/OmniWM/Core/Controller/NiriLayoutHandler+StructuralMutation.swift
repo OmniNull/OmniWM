@@ -43,7 +43,14 @@ extension NiriLayoutHandler {
                 return
             }
 
+            let predictedState = state
             restoreStructuralSelection(context: context, state: &state)
+            if let swap = mutation.stackSwap {
+                context.preparePredictedAnimation(
+                    state: predictedState, oldFrames: swap.oldFrames, yContainmentFrame: swap.yContainmentFrame,
+                    edgeTuck: context.tuckForStackSwap(before: predictedState, after: state)
+                )
+            }
             completedMutation = mutation
             committedState = state
         }
