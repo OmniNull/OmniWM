@@ -162,7 +162,8 @@ struct ConfigScriptValidatedShortcuts {
             claims[row.chord.keyCode, default: []].append(Claim(row: row, chord: row.chord, scope: .named))
         }
         resolution.namedModes = NamedKeyModes(modes.compactMap { mode in
-            entries[mode.id].map { NamedKeyModes.Mode(id: mode.id, name: mode.name, entries: $0) }
+            entries[mode.id]
+                .map { NamedKeyModes.Mode(id: mode.id, name: mode.name, entries: $0, oneShot: mode.oneShot) }
         })
         resolution.bindings.reserveCapacity(base.count + enabledBindings.count)
         for var row in base where settings.isCommandFeatureEnabled(row.command) {

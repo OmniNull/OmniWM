@@ -158,11 +158,21 @@ struct KeyboardModeInput: Equatable {
         }
         guard let slot = modes.entryIndex(in: index, keyCode: keyCode, rawFlags: rawFlags) else { return Decision() }
         let onRelease = modes.modes[index].entries[slot].onRelease
+        if !onRelease, modes.modes[index].oneShot { state = .normal }
         let holds = onRelease || modes.modes[index].entries[slot].repeatWhileHeld
         return Decision(
             consumed: true, command: modes.modes[index].entries[slot].command,
             heldBinding: holds ? modes.modes[index].entries[slot].binding : nil, onRelease: onRelease
         )
+    }
+
+    mutating func handleNamedKeyRelease(from id: Int, in modes: borrowing NamedKeyModes) -> State? {
+        let previous = state
+        guard case let .named(index) = previous, modes.modes[index].id == id, modes.modes[index].oneShot else {
+            return nil
+        }
+        state = .normal
+        return previous
     }
 
     mutating func handleKeyDown(

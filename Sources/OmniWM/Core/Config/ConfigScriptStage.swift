@@ -213,11 +213,11 @@ extension ConfigScriptStage {
                     () throws(ConfigScriptError) in try .dwindleReplace(ConfigScriptDwindleReplace(tree: tree.pointee))
                 }
             },
-            mode: { context, name, location, actionID, error, capacity in
+            mode: { context, name, oneShot, location, actionID, error, capacity in
                 guard let context, let actionID else { return false }
                 do throws(ConfigScriptError) {
                     let stage = context.assumingMemoryBound(to: ConfigScriptStage.self)
-                    actionID.pointee = try stage.pointee.declareMode(name, location: location)
+                    actionID.pointee = try stage.pointee.declareMode(name, oneShot: oneShot, location: location)
                     return true
                 } catch let failure {
                     return failure.write(to: error, capacity: capacity)
@@ -462,8 +462,7 @@ extension ConfigScriptStage {
     }
 
     private mutating func declareMode(
-        _ span: omni_config_span,
-        location: omni_config_location
+        _ span: omni_config_span, oneShot: Bool, location: omni_config_location
     ) throws(ConfigScriptError) -> UInt32 {
         let name = try Self.string(span)
         guard NamedKeyModes.isValidName(name) else {
@@ -486,7 +485,8 @@ extension ConfigScriptStage {
         try reserveAction(byteCount: text.utf8.count)
         let id = Self.nextMode.wrappingAdd(1, ordering: .relaxed).newValue
         namedModes.append(ConfigScriptNamedMode(
-            id: id, name: name, source: sources.name(of: location.source_id), line: Int(location.line)
+            id: id, name: name, oneShot: oneShot, source: sources.name(of: location.source_id),
+            line: Int(location.line)
         ))
         actions.append(Action(command: .namedKeyMode(id), text: text))
         return UInt32(actions.count - 1)

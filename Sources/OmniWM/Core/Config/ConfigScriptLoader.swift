@@ -23,6 +23,7 @@ struct ConfigScriptBinding: Equatable, Sendable {
 struct ConfigScriptNamedMode: Equatable, Sendable {
     let id: Int
     let name: String
+    let oneShot: Bool
     let source: String
     let line: Int
 }

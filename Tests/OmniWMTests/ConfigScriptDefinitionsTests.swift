@@ -223,7 +223,7 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         export type ConfigKeymap =
             { read set: (chord: string, action: ConfigAction, options: { read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read onRelease: boolean?, read reads: nil }?) -> () }
             & { read set: (chord: string, callback: ConfigFunction, options: { read modeKey: string?, read mode: string?, read repeatWhileHeld: boolean?, read onRelease: boolean?, read reads: { read [number]: ConfigRead }? }?) -> () }
-            & { read mode: (name: string) -> ConfigAction }
+            & { read mode: (name: string, options: { read oneShot: boolean? }?) -> ConfigAction }
         export type ConfigTimers = { read timer: (options: ConfigTimerOptions, callback: () -> ()) -> ConfigTimer }
             & { read timer: (options: ConfigTimerOptions, callback: ConfigFunction, optionsForCallback: ConfigReadOptions) -> ConfigTimer }
 
@@ -375,7 +375,8 @@ final class ConfigScriptDefinitionsTests: XCTestCase {
         XCTAssertTrue(definitions.contains(
             "callback: ConfigFunction, options: { \(keyOptions), read reads: { read [number]: ConfigRead }? }?"
         ))
-        XCTAssertTrue(definitions.contains("{ read mode: (name: string) -> ConfigAction }"))
+        XCTAssertTrue(definitions
+            .contains("{ read mode: (name: string, options: { read oneShot: boolean? }?) -> ConfigAction }"))
         XCTAssertTrue(definitions
             .contains("command: (name: string, callback: ConfigFunction, options: ConfigReadOptions?) -> ()"))
         XCTAssertTrue(definitions.contains("read dispatch: (action: ConfigAction) -> ()"))

@@ -248,6 +248,17 @@ RELEASE_KEY_COSTS = {
     "release/carbon-release": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
 }
 ROUTES.update(RELEASE_KEY_COSTS)
+ONE_SHOT_KEY_COSTS = {
+    "oneshot/escape": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0),
+    "oneshot/ordinary-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "oneshot/miss": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "oneshot/press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 0),
+    "oneshot/held-press": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 0),
+    "oneshot/held-repeat": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0),
+    "oneshot/release-press": (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+    "oneshot/release": (4, 5, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 0),
+}
+ROUTES.update(ONE_SHOT_KEY_COSTS)
 STORE_ROUTES = ("store/get", "store/get-list", "store/equal-set", "store/changed-set", "store/batch-8",
                 "store/large-write", "store/cold-get")
 STORE_WRITES = {"store/changed-set": 1, "store/batch-8": 1, "store/large-write": 1}
@@ -408,7 +419,7 @@ def check_named_keys(table):
 def check_held_keys(table):
     fields = tuple(NO_OBSERVER_OWNERSHIP)
     idle = tuple(NO_OBSERVER_OWNERSHIP.values())
-    for route, expected in (HELD_KEY_COSTS | RELEASE_KEY_COSTS).items():
+    for route, expected in (HELD_KEY_COSTS | RELEASE_KEY_COSTS | ONE_SHOT_KEY_COSTS).items():
         for phase in PHASES:
             baseline = expected if phase == "producer" else idle
             actual = tuple(int(table[route, phase][field]) for field in fields)

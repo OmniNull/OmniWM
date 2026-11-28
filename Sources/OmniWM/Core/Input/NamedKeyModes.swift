@@ -9,9 +9,10 @@ struct NamedKeyModes: Equatable {
         let id: Int
         let name: String
         let entries: [KeyboardModeTable.Entry]
+        let oneShot: Bool
         fileprivate let slots: [UInt8]
 
-        init(id: Int, name: String, entries: [KeyboardModeTable.Entry]) {
+        init(id: Int, name: String, entries: [KeyboardModeTable.Entry], oneShot: Bool = false) {
             var slots = [UInt8](repeating: 0, count: NamedKeyModes.keyCodeLimit * 2)
             for (index, entry) in entries.enumerated() {
                 if let slot = NamedKeyModes.slot(for: entry.binding) { slots[slot] = UInt8(index + 1) }
@@ -19,6 +20,7 @@ struct NamedKeyModes: Equatable {
             self.id = id
             self.name = name
             self.entries = entries
+            self.oneShot = oneShot
             self.slots = slots
         }
     }

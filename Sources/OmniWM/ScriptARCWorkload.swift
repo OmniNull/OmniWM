@@ -445,6 +445,7 @@ private func measureRuntimeControls(in directory: URL) async throws {
     try await measureShellControls(in: directory)
     try await measureLayoutChanged(in: directory)
     try await measureHeldKeys(in: directory)
+    try await measureOneShotModes(in: directory)
 }
 
 @MainActor

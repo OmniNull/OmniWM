@@ -81,7 +81,14 @@ extension HotkeyCenter {
     func releaseSuppressedKey(_ keyCode: UInt32) -> Bool {
         let outcome = heldTapKeys.keyUp(keyCode)
         if case .pass = outcome { return false }
-        if case let .releaseInvocation(invocation) = outcome { routeHotkeyInvocation(invocation) }
+        if case let .releaseInvocation(invocation, source) = outcome {
+            if case let .named(id) = source,
+               let previous = keyboardModeInput.handleNamedKeyRelease(from: id, in: namedKeyModes)
+            {
+                keyboardModeDidChange(from: previous, reconcileTap: false)
+            }
+            routeHotkeyInvocation(invocation)
+        }
         if !heldTapKeys.hasSuppressedKeys { updateEventTapEnablement() }
         return true
     }
@@ -242,7 +249,14 @@ extension HotkeyCenter {
         scheduleKeyboardModeTimer()
         if reconcileTap { updateEventTapEnablement() }
         guard kind != previousKind || kind == .named else { return }
-        DiagnosticsEventRecorder.shared.recordLifecycle(name: "hotkeys.mode \(kind.rawValue)")
+        let event = switch kind {
+        case .normal: "hotkeys.mode normal"
+        case .paused: "hotkeys.mode paused"
+        case .prefix: "hotkeys.mode prefix"
+        case .window: "hotkeys.mode window"
+        case .named: "hotkeys.mode named"
+        }
+        DiagnosticsEventRecorder.shared.recordLifecycle(name: event)
         onKeyboardModeChange?(kind)
     }
 
@@ -263,8 +277,10 @@ extension HotkeyCenter {
     }
 
     private func scheduleKeyboardModeTimer() {
-        keyboardModeTimer?.cancel()
-        keyboardModeTimer = nil
+        if let timer = keyboardModeTimer {
+            timer.cancel()
+            keyboardModeTimer = nil
+        }
         keyboardModeGeneration &+= 1
         let delay: Duration? = switch keyboardModeInput.state {
         case .paused:

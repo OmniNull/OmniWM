@@ -423,15 +423,32 @@ int declareMode(lua_State *L) {
     if (vm.invoking) {
         reject(L, vm, site, "keymap.mode is only available while loading the config");
     }
-    if (!vm.callbacks.mode || lua_gettop(L) != 1 || lua_type(L, 1) != LUA_TSTRING) {
-        reject(L, vm, site, "keymap.mode expects a mode name");
+    const int count = lua_gettop(L);
+    if (!vm.callbacks.mode || count < 1 || count > 2 || lua_type(L, 1) != LUA_TSTRING ||
+        (!lua_isnoneornil(L, 2) && !lua_istable(L, 2))) {
+        reject(L, vm, site, "keymap.mode expects a mode name and an optional table");
     }
     if (vm.actions == OMNI_CONFIG_DECLARATION_LIMIT) {
         reject(L, vm, site, "config action limit exceeded");
     }
     const auto name = token(L, vm, 1, site);
+    bool oneShot = false;
+    if (!lua_isnoneornil(L, 2)) {
+        lua_pushnil(L);
+        while (lua_next(L, 2)) {
+            const auto key = token(L, vm, -2, site);
+            if (std::string_view(key.data, key.length) != "oneShot") {
+                reject(L, vm, site, "unknown keymap.mode option; expected oneShot");
+            }
+            if (lua_type(L, -1) != LUA_TBOOLEAN) {
+                reject(L, vm, site, "oneShot expects a boolean");
+            }
+            oneShot = lua_toboolean(L, -1) != 0;
+            lua_pop(L, 1);
+        }
+    }
     auto *action = static_cast<uint32_t *>(lua_newuserdatatagged(L, sizeof(uint32_t), actionTag));
-    if (!vm.callbacks.mode(vm.context, name, site, action, vm.failure, sizeof vm.failure)) {
+    if (!vm.callbacks.mode(vm.context, name, oneShot, site, action, vm.failure, sizeof vm.failure)) {
         reject(L, vm, site, vm.failure[0] ? vm.failure : "invalid mode");
     }
     vm.actions++;

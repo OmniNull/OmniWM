@@ -38,7 +38,7 @@ Shortcuts, commands, events, timers and rules are declared while the file loads.
 | Call | What it does |
 | --- | --- |
 | `omniwm.keymap.set(chord, action, opts?)` | Binds a shortcut, such as `"Control+Option+K"`, to an action. `opts.modeKey` also binds a key for Prefix and Window mode. With `opts.mode`, the chord is a key inside a [key mode](#key-modes) instead. Use `opts.repeatWhileHeld = true` to [repeat](#repeat-while-held) a mode key or sided shortcut. Set `opts.onRelease = true` to [run on release](#run-on-release). |
-| `omniwm.keymap.mode(name)` | Declares a [key mode](#key-modes) and returns the action that enters it. |
+| `omniwm.keymap.mode(name, opts?)` | Declares a [key mode](#key-modes) and returns the action that enters it. Set `opts.oneShot = true` for a [one-shot mode](#one-shot-modes). |
 | `omniwm.keymap.set(chord, function(ctx) … end, opts?)` | Runs a function instead. `opts` can also hold `reads`. |
 | `omniwm.command(name, function(ctx) … end, opts?)` | Adds a command to the command palette. |
 | `omniwm.on(event, function(e) … end, opts?)` | Handles an [event](#events). |
@@ -78,6 +78,19 @@ A key mode gives plain keys their own meaning until you leave it, like Hyprland'
 - A name has up to 32 lowercase letters, digits, `-` and `_`, and starts with a letter. `normal`, `paused`, `prefix` and `window` are taken. A config declares at most 16 modes, each with 1 to 64 keys. An overlapping global chord in the same script rejects the load.
 - A key in a mode can take over a global shortcut from Settings. That saved shortcut is inactive even outside the mode while the script binding is loaded.
 - Key modes need Input Monitoring, like Prefix and Window mode.
+
+## One-shot modes
+
+Set `oneShot = true` to return to normal mode before applying a bound action. Unbound keys pass through and leave the mode active. Escape exits the mode. A binding with `onRelease` ends the mode at key-up. A `repeatWhileHeld` binding keeps repeating until key-up.
+
+```lua
+local wm = omniwm
+local move = wm.keymap.mode("move-once", { oneShot = true })
+wm.keymap.set("Control+Option+Shift+U", move)
+wm.keymap.set("H", wm.cmd.move("left"), { mode = "move-once" })
+```
+
+Enter the mode and press H to move the focused window left. The next H goes to the app.
 
 ## Repeat while held
 

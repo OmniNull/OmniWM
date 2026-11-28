@@ -18,7 +18,7 @@ struct HeldTapKeys: ~Copyable {
     enum KeyUp {
         case pass
         case suppress
-        case releaseInvocation(HotkeyInvocation)
+        case releaseInvocation(HotkeyInvocation, Source)
     }
 
     private enum Slot {
@@ -68,11 +68,11 @@ struct HeldTapKeys: ~Copyable {
         guard contains(code) else { return suppressed.remove(code) != nil ? .suppress : .pass }
         let index = Int(code)
         let outcome: KeyUp
-        if case let .binding(binding, command, _, true) = slots[index] {
+        if case let .binding(binding, command, source, true) = slots[index] {
             outcome = .releaseInvocation(HotkeyInvocation(
                 command: command,
                 trigger: PhysicalHotkeyTrigger(keyCode: code, modifiers: binding.modifiers, isRepeat: false)
-            ))
+            ), source)
         } else {
             outcome = .suppress
         }

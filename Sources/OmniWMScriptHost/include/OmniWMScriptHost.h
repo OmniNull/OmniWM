@@ -636,8 +636,8 @@ typedef struct omni_config_callbacks {
     omni_config_shell_control_callback shell_control;
     bool (*dwindle)(void *context, const omni_config_dwindle_tree *tree, omni_config_location location, char *error,
         size_t capacity);
-    bool (*mode)(void *context, omni_config_span name, omni_config_location location, uint32_t *action_id, char *error,
-        size_t capacity);
+    bool (*mode)(void *context, omni_config_span name, bool one_shot, omni_config_location location,
+        uint32_t *action_id, char *error, size_t capacity);
     omni_config_store_callbacks store;
 } omni_config_callbacks;
 

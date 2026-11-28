@@ -74,6 +74,65 @@ final class ConfigScriptModeKeyTests: XCTestCase {
         XCTAssertTrue(settings.hotkeyBindings.isEmpty)
     }
 
+    func testOneShotModeOptionsStageAndResolve() async throws {
+        struct Mode {
+            let name: String
+            let options: String
+            let oneShot: Bool
+        }
+
+        let modes = [
+            Mode(name: "persistent", options: "", oneShot: false),
+            Mode(name: "default-empty", options: ", {}", oneShot: false),
+            Mode(name: "explicit-false", options: ", { oneShot = false }", oneShot: false),
+            Mode(name: "default-nil", options: ", nil", oneShot: false),
+            Mode(name: "move-once", options: ", { oneShot = true }", oneShot: true)
+        ]
+        let source = modes.flatMap { mode in
+            [
+                "omniwm.keymap.mode('\(mode.name)'\(mode.options))",
+                "omniwm.keymap.set('H', omniwm.cmd.focus('left'), { mode = '\(mode.name)' })"
+            ]
+        }
+        let evaluation = try await evaluate(source.joined(separator: "\n"))
+        XCTAssertEqual(evaluation.namedModes.map(\.name), modes.map(\.name))
+        XCTAssertEqual(evaluation.namedModes.map(\.oneShot), modes.map(\.oneShot))
+
+        let settings = InputControllerTestSupport.controller(for: self).settings
+        let mask = HyperKeyModifiers.default.carbonMask
+        let validated = ConfigScriptValidatedShortcuts(evaluation.bindings, parsedWith: mask, hyperMask: mask)
+        XCTAssertNil(validated.error)
+        let resolution = validated.resolve(base: [], modes: evaluation.namedModes, settings: settings)
+        XCTAssertEqual(resolution.namedModes.modes.map(\.name), modes.map(\.name))
+        XCTAssertEqual(resolution.namedModes.modes.map(\.oneShot), modes.map(\.oneShot))
+    }
+
+    func testInvalidOneShotModeOptionsReportTheDeclaration() async throws {
+        let shape = "keymap.mode expects a mode name and an optional table"
+        let type = "oneShot expects a boolean"
+        let unknown = "unknown keymap.mode option; expected oneShot"
+        let cases = [
+            (", true", shape),
+            (", {}, false", shape),
+            (", { oneShot = 1 }", type),
+            (", { oneShot = 'true' }", type),
+            (", { oneShot = {} }", type),
+            (", { oneshot = true }", unknown),
+            (", { oneShot = true, extra = false }", unknown),
+            (", { true }", "expected a string token")
+        ]
+        for (options, message) in cases {
+            let source = ["local wm = omniwm", "wm.keymap.mode('move-once'\(options))"]
+            do {
+                _ = try await evaluate(source.joined(separator: "\n"))
+                XCTFail("Unexpectedly accepted \(options)")
+            } catch let error as ConfigScriptError {
+                XCTAssertEqual(error.line, source.count, options)
+                XCTAssertEqual(error.message, message, options)
+            }
+        }
+    }
+
     func testRepeatWhileHeldStagesNamedActionsAndSidedCallbacks() async throws {
         let mode = "move"
         let action = "omniwm.cmd.\(paletteMember)()"
